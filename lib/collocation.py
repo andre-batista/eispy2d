@@ -1,0 +1,110 @@
+import numpy as np
+import discretization as dct
+from numba import jit
+
+
+class Collocation(dct.Discretization):
+    def __init__(self, configuration, trial, elements, name=None):
+        super().__init__(configuration, name)
+        self.trial = trial
+        if type(elements) is int:
+            self.elements = (elements, elements)
+        else:
+            self.elements = (elements[0], elements[1])
+        self.name = ('Collocation Method (%dx' % self.elements[0] + '%d), '
+                     % self.elements[1] + 'trial function: ' + self.trial)
+    def copy(self, new=None):
+        if new is None:
+            return Collocation(self.configuration, self.trial, self.elements,
+                               self.name)
+        else:
+            super().copy(new)
+            self.trial = new.trial
+            self.elements = new.elements
+    def __str__(self):
+        message = super().__str__()
+        message += self.name
+        return message
+
+
+def kernel_GSE(GS, E):
+    N, NS = E.shape
+    NM = GS.shape[0]
+    return _kernel_GSE(GS, E, NM, NS, N)
+
+
+@jit(nopython=True)
+def _kernel_GSE(GS, E, NM, NS, N):
+    K = 1j*np.ones((NM*NS, N))
+    row = 0
+    for m in range(NM):
+        for s in range(NS):
+            K[row, :] = GS[m, :].flatten()*E[:, s].flatten()
+            row += 1
+    return K
+
+
+def kernel_GSX(GS, X):
+    NM, N = GS.shape
+    if X.ndim == 1:
+        return _kernel_GSX(GS, X, NM, N)
+    elif X.ndim == 2 and np.prod(X.shape) == N:
+        return _kernel_GSX(GS, X.flatten(), NM, N)
+    elif X.ndim == 2 and X.shape[0] == N:
+        return _kernel_GSX(GS, np.diagonal(X), NM, N)
+
+
+@jit(nopython=True)
+def _kernel_GSX(GS, X, NM, N):
+    K = 1j*np.ones((NM, N))
+    for m in range(NM):
+        K[m, :] = GS[m, :].flatten()*X
+    return K
+
+
+def kernel_GDX(GD, X):
+    N = GD.shape[0]
+    if X.ndim == 1:
+        return _kernel_GDX(GD, X, N)
+    elif X.ndim == 2 and np.prod(X.shape) == N:
+        return _kernel_GDX(GD, X.flatten(), N)
+    elif X.ndim == 2 and X.shape[0] == N:
+        return _kernel_GDX(GD, np.diagonal(X), N)
+
+
+@jit(nopython=True)
+def _kernel_GDX(GD, X, N):
+    K = 1j*np.ones((N, N))
+    for n in range(N):
+        K[n, :] = - GD[n, :].flatten()*X
+        K[n, n] += 1
+    return K
+
+
+def kernel_GDE(GD, E):
+    N, NS = E.shape
+    return _kernel_GDE(GD, E, N, NS)
+
+
+@jit(nopython=True)
+def _kernel_GDE(GD, E, N, NS):
+    K = 1j*np.ones((N, N, NS))
+    row = 0
+    for s in range(NS):
+        for n in range(N):
+            K[n, :, s] = GD[n, :].flatten()*E[:, s].flatten()
+            row += 1
+    return K
+
+
+def lhs_XEi(X, Ei):
+    N, NS = Ei.shape
+    return _lhs_XEi(X, Ei, N, NS)
+
+
+@jit(nopython=True)
+def _lhs_XEi(X, Ei, N, NS):
+    lhs = 1j*np.ones((N, NS))
+    for s in range(NS):
+        lhs[:, s] = X*Ei[:, s]
+    return lhs
