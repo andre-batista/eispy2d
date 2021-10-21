@@ -1,9 +1,3 @@
----
-layout: single
-title: Usage Examples
-permalink: /usage-examples/
----
-
 # Usage Examples
 
 We provide some usage examples. Check out:
