@@ -1,1 +1,13 @@
 theme: jekyll-theme-cayman
+include:
+  - _pages
+plugins:
+  - jekyll-paginate
+  - jekyll-sitemap
+  - jekyll-gist
+  - jekyll-feed
+  - jemoji
+  - jekyll-include-cache
+usage-examples_archive:
+  type: liquid
+  path: /usage-examples/
