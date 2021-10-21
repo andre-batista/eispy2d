@@ -33,7 +33,7 @@ But, pay attention: **there are packages that you must install in order to run t
 
 ## How to use
 
-You may find usages examples [here](https://github.com/andre-batista/eispy2d/tree/main/demo). There are scripts and Jupyter Notebooks in which you can see how the classes are called, how to build a problem, how to run an experiment, etc.
+You may find usages examples [here](https://andre-batista.github.io/eispy2d/usage-examples.html). There are scripts and Jupyter Notebooks in which you can see how the classes are called, how to build a problem, how to run an experiment, etc.
 
 ## Contribute
 
