@@ -24,6 +24,8 @@ PERMITTIVITY = 'epsilon_r'
 CONDUCTIVITY = 'sigma'
 BOTH_PROPERTIES = 'both'
 CONTRAST = 'contrast'
+ALL_EXECUTIONS = 'all'
+BEST_EXECUTION = 'best'
 
 class CaseStudy(exp.Experiment):
 
@@ -171,8 +173,8 @@ class CaseStudy(exp.Experiment):
     
     def reconstruction(self, image=CONTRAST, axis=None, method=None,
                        file_name=None, file_path='', file_format='eps',
-                       show=False, fontsize=10, title=None,
-                       include_true=False):
+                       show=False, fontsize=10, title=None, indicator=None,
+                       include_true=False, mode=ALL_EXECUTIONS):
         if (image != PERMITTIVITY and image != CONDUCTIVITY
                 and image != BOTH_PROPERTIES and image != CONTRAST):
             raise error.WrongValueInput('CaseStudy.reconstruction',
@@ -270,7 +272,7 @@ class CaseStudy(exp.Experiment):
                                           fontsize=fontsize)
                         
             else:
-                
+
                 if include_true:
                     if image == BOTH_PROPERTIES:
                         nfig = 2 + 2*self.s_nexec
@@ -337,7 +339,7 @@ class CaseStudy(exp.Experiment):
                                                  fontsize=fontsize)
                     
         else:
-            
+
             if include_true:
                 if image == BOTH_PROPERTIES:
                     nfig = 2
@@ -396,9 +398,15 @@ class CaseStudy(exp.Experiment):
                         nfig += 1
                 else:
                     if image == BOTH_PROPERTIES:
-                        nfig += 2*self.s_nexec
+                        if mode == ALL_EXECUTIONS:
+                            nfig += 2*self.s_nexec
+                        elif mode == BEST_EXECUTION:
+                            nfig += 2
                     else:
-                        nfig += self.s_nexec
+                        if mode == ALL_EXECUTIONS:
+                            nfig += self.s_nexec
+                        else:
+                            nfig += 1
             
             if axis is None:
                 fig, ax, _ = rst.get_figure(nfig)
@@ -473,20 +481,40 @@ class CaseStudy(exp.Experiment):
                                                  fontsize=fontsize)
                         ifig += 1
                 else:
-                    for n in range(len(self.results[m])):
+                    if mode == ALL_EXECUTIONS:
+                        for n in range(len(self.results[m])):
+                            if image == BOTH_PROPERTIES:
+                                self.results[m][n].plot_map(
+                                    image=rst.BOTH_PROPERTIES,
+                                    axis=ax[ifig:ifig+2],
+                                    title=figure_title+ ' - %d' % (n+1),
+                                    fontsize=fontsize)
+                                ifig += 2
+                            else:
+                                self.results[m][n].plot_map(
+                                    image=image, axis=ax[ifig],
+                                    title=figure_title+ ' - %d' % (n+1),
+                                    fontsize=fontsize)
+                                ifig += 1
+                    elif mode == BEST_EXECUTION:
+                        data = exp.final_value(indicator, self.results[m])
+                        n = np.argmin(data)
                         if image == BOTH_PROPERTIES:
                             self.results[m][n].plot_map(
                                 image=rst.BOTH_PROPERTIES,
                                 axis=ax[ifig:ifig+2],
                                 title=figure_title+ ' - %d' % (n+1),
-                                fontsize=fontsize)
+                                fontsize=fontsize
+                            )
                             ifig += 2
                         else:
                             self.results[m][n].plot_map(
                                 image=image, axis=ax[ifig],
                                 title=figure_title+ ' - %d' % (n+1),
-                                fontsize=fontsize)
+                                fontsize=fontsize
+                            )
                             ifig += 1
+                            
         
         if file_name is not None:
             plt.savefig(file_path + file_name + '.' + file_format,
@@ -996,13 +1024,15 @@ class CaseStudy(exp.Experiment):
                                         str([self.method[n].alias for n in
                                              range(len(self.method))]),
                                         str(method))
-        elif (all(type(m) is int for m in method)
+        elif (method is not None and all(type(m) is int for m in method)
                 and any(m < 0 or m >= len(self.method) for m in method)):
             raise error.WrongValueInput('CaseStudy.compare', 'method',
                                         'int-list where 0 <= int < %d'
                                         % len(self.method), str(method))
-        
-        if all(type(m) is str for m in method):
+
+        if method is None:
+            midx = range(len(self.method))
+        elif all(type(m) is str for m in method):
             midx = self._search_method(method)
         else:
             midx = method

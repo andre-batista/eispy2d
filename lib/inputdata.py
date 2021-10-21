@@ -445,7 +445,7 @@ class InputData:
             return fig, ax
 
     def plot_scattered_field(self, figure_title=None, file_path='',
-                             file_format='eps', show=False,
+                             file_format='eps', show=False, fontsize=10,
                              interpolation='spline36', axes=None):
         """Summarize the method."""
         if self.scattered_field is None:
@@ -465,7 +465,7 @@ class InputData:
         rst.add_image(ax[0], self.scattered_field, figure_title, r'$|E^s_z$| [V/m]',
                       bounds=(0, 360, 0, 360), xlabel='Source angle [deg]',
                       ylabel='Measurement angle [deg]', aspect='auto',
-                      interpolation=interpolation)
+                      interpolation=interpolation, fontsize=fontsize)
 
         plt.tight_layout()
 
@@ -556,9 +556,9 @@ class InputData:
             ifig += 1
         if figure_title is None:
             figure_title = 'Total Field - ' + self.name
-        plt.suptitle(figure_title, fontsize=fontsize)
 
-        plt.tight_layout()
+        plt.suptitle(figure_title, fontsize=1.3*fontsize, y=0.95)
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])        
 
         if show:
             plt.show()
@@ -655,7 +655,5 @@ def degrees_nonlinearity(inputdata):
     x, y = cfg.get_coordinates_ddomain(configuration=inputdata.configuration,
                                        resolution=inputdata.resolution)
     dS = (x[0, 1]-x[0, 0])*(y[1, 0]-y[0, 0])
-    
     F = discretization.GD @ X
     return np.sum(np.abs(F)**2)*dS
-

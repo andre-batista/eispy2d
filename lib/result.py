@@ -1504,11 +1504,6 @@ def get_figure(nsubplots=1, number_lines=1):
     nrows = round(np.sqrt(nsubplots))
     ncols = int(np.ceil(nsubplots/nrows))
 
-    if nrows == 1 and ncols == 1:
-        hspace = None
-    else:
-        hspace = .23*nrows - .22
-
     max_lines = np.array([0, 15, 13, 8, 5, 3, 2, 1, 1, 1, 1, 1])
     if number_lines > max_lines[nrows] and nrows > 2:
         legend_fontsize = 10-(number_lines-max_lines[nrows])*.65
@@ -1517,10 +1512,11 @@ def get_figure(nsubplots=1, number_lines=1):
     else:
         legend_fontsize = None
 
+    width, height = 6.4*ncols, 4.8*nrows
+
     # Figure creation
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols,
-                             figsize=(6.4*ncols, 4.8*nrows),
-                             gridspec_kw={'hspace': hspace})
+                             figsize=(width, height))
 
     if nrows == 1 and ncols == 1:
         axes = np.array([axes])
