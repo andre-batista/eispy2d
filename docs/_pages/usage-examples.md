@@ -1,4 +1,7 @@
-# Usage Examples
+---
+permalink: /usage-examples/
+title: "Usage Examples"
+---
 
 We provide some usage examples. Check out:
 

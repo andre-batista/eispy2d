@@ -1,0 +1,14 @@
+main:
+  - title: "Posts"
+    url: /posts/
+  - title: "Categories"
+    url: /categories/
+  - title: "Tags"
+    url: /tags/
+  - title: "Install"
+    url: /install/
+  - title: "Usage Examples"
+    url: /usage-examples/
+  - title: "About"
+    url: /about/
+  
