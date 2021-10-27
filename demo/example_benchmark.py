@@ -30,19 +30,20 @@ from evoalglib import selection as slc
 from evoalglib import crossover as cross
 
 # Problem configuration
-lambda_b = 1. # wavelength [m]
-Lx = Ly = 4. # D domain size [wavelengths]
-Ro = 6. # observation radius [wavelengths]
-NS = NM = 15 # number of sources and measurements
+f0 = 3e8 # linear frequency [Hz]
+Lx = Ly = .8 # D domain size [wavelengths]
+Ro = 1. # observation radius [wavelengths]
+NS, NM = 10, 9 # number of sources and measurements
 E0 = 1. # incident field magnitude
-epsilon_rb = 1. # background relative permittivity
-contrast_level = .25
-maximum_radius = 1. # [wavelengths]
+epsilon_rb = 4. # background relative permittivity
+contrast_level = 1.
+maximum_radius = .32 # [wavelengths] = 0.16 [m]
 resolution = (100, 100) # [pixels]
 map_pattern = exp.RANDOM_POLYGONS_PATTERN
 number_tests = 30
 noise_level = 1. # [%/sample]
-indicators = [rst.REL_PERMITTIVITY_PAD_ERROR]
+indicators = [rst.REL_PERMITTIVITY_PAD_ERROR,
+              rst.REL_PERMITTIVITY_OBJECT_ERROR]
 contrast_mode = exp.FIXED_CONTRAST
 density_mode = exp.SINGLE_OBJECT
 
@@ -51,11 +52,12 @@ population_size = 250
 variables_per_dimension = 7
 contrast_max = 1.
 total_max = 5.
+max_iterations = 5000
 
 # Build configuration object
 config = cfg.Configuration(name='cfg_test',
-                           wavelength=lambda_b,
-                           wavelength_unit=True,
+                           frequency=f0,
+                           wavelength_unit=False,
                            number_measurements=NM,
                            number_sources=NS,
                            image_size=[Ly, Lx],
@@ -67,17 +69,17 @@ config = cfg.Configuration(name='cfg_test',
 # Build test set object
 mytestset = tst.TestSet(name='tst_basic',
                         configuration=config,
-                        contrast=.25,
-                        object_size=1.,
-                        resolution=(100, 100),
+                        contrast=contrast_level,
+                        object_size=maximum_radius,
+                        resolution=resolution,
                         density=None,
-                        map_pattern=exp.RANDOM_POLYGONS_PATTERN,
-                        sample_size=30,
-                        noise=1.,
-                        indicators=rst.REL_PERMITTIVITY_PAD_ERROR,
-                        contrast_mode=exp.FIXED_CONTRAST,
+                        map_pattern=map_pattern,
+                        sample_size=number_tests,
+                        noise=noise_level,
+                        indicators=indicators,
+                        contrast_mode=contrast_mode,
                         object_size_mode=exp.FIXED_SIZE,
-                        density_mode=exp.SINGLE_OBJECT,
+                        density_mode=density_mode,
                         min_size_proportion=40,
                         allow_rotation=True,
                         random_position=True)
@@ -101,14 +103,15 @@ methods = [ba.FirstOrderBornApproximation(reg.Tikhonov(1e-1),
                                      ini.UniformRandomDistribution(),
                                      obj.WeightedSum(),
                                      rpt.DiscretizationElementBased(
-                                         ric.Richmond(config, (7, 7)), 1., 5.
+                                         ric.Richmond(config, (7, 7)),
+                                         contrast_max, total_max
                                      ),
                                      de.DifferentialEvolution(
                                          bc.Reflection(),
                                          slc.BinaryTournament(),
                                          de.RAND, .5, cross.Binomial(.5)
                                      ),
-                                     stp.StopCriteria(max_iterations=1000),
+                                     stp.StopCriteria(max_iterations=max_iterations),
                                      stc.OutputMode(
                                          stc.AVERAGE_CASE,
                                          rst.REL_PERMITTIVITY_PAD_ERROR,
@@ -116,7 +119,7 @@ methods = [ba.FirstOrderBornApproximation(reg.Tikhonov(1e-1),
                                      ),
                                      alias='de',
                                      parallelization=True,
-                                     number_executions=30,
+                                     number_executions=1,
                                      forward_solver=mom.MoM_CG_FFT())]
 
 # Define discretization

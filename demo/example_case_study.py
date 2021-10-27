@@ -12,6 +12,7 @@ be executed.
 """
 
 # Import modules
+import numpy as np
 from numpy import random as rnd
 import casestudy as cst
 import richmond as ric
@@ -35,29 +36,29 @@ from evoalglib import pso
 from evoalglib import ga
 
 # Problem parameters
-lambda_b = 1. # wavelength [m]
-Lx, Ly = 1., 1. # D domain size [wavelengths]
-NS, NM = 5, 5 # number of sources and measurements
-RO = 1.6 # observation radius [wavelengths]
-epsilon_rb = 1 # background relative permittivity
+f0 = 3e8 # linear frequency [m]
+Lx, Ly = .8, .8 # D domain size [m]
+NS, NM = 10, 9 # number of sources and measurements
+RO = 1. # observation radius [m]
+epsilon_rb = 4. # background relative permittivity
 E0 = 1 # incident wave magnitude [V/m]
 resolution = (60, 60) # ground-truth image resolution [pixels]
 noise_level = 1. # [%/sample]
-indicators = [rst.RESIDUAL_PAD_ERROR, rst.OBJECTIVE_FUNCTION]
+indicators = [rst.REL_PERMITTIVITY_PAD_ERROR, rst.OBJECTIVE_FUNCTION]
 contrast_level = 1.
-object_size = .1 # [wavelengths]
+object_size = .16 # [m]
 
 # Algorithm parameters
 population_size = 250
 variables_per_dimension = 7
 contrast_max = 1.
 total_field_max = 5.
-maximum_iterations = 1000
+maximum_iterations = 5000
 
 # Define domain and source parameters
 config = cfg.Configuration(name='cfg_test',
-                           wavelength=lambda_b,
-                           wavelength_unit=True,
+                           frequency=f0,
+                           wavelength_unit=False,
                            number_measurements=NM,
                            number_sources=NS,
                            image_size=[Ly, Lx],
@@ -73,23 +74,15 @@ inputdata = ipt.InputData(name='ipt_test',
                           noise=noise_level,
                           indicators=indicators)
 
-# Define the center of the scatterer
-lb = [-Ly/2+object_size, -Lx/2+object_size]
-ub = [Ly/2-object_size, Lx/2-object_size]
-center = [lb[0]+rnd.rand()*(ub[0]-lb[0]),
-          lb[1]+rnd.rand()*(ub[1]-lb[1])]
-
 # Draw figure
-inputdata.rel_permittivity, _ = draw.random(
-    rnd.randint(4, 15), # number of sides
-    object_size*lambda_b,
-    minimum_radius=.4*object_size*lambda_b,
-    center=center,
+inputdata.rel_permittivity, _ = draw.triangle(
+    object_size*np.sqrt(3),
+    center=[-.14, .09],
     axis_length_x=config.Lx,
     axis_length_y=config.Ly,
     resolution=resolution,
     background_rel_permittivity=epsilon_rb,
-    object_rel_permittivity=epsilon_rb+contrast_level
+    object_rel_permittivity=(contrast_level+1)*epsilon_rb
 )
 
 
