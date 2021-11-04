@@ -43,14 +43,16 @@ You may find usages examples [here](https://github.com/andre-batista/eispy2d/tre
 
 We've already written an article describing the library. While it is still under review, its *preprint* version is available at the arXiv repository via this [link](https://arxiv.org/abs/2111.02185#). If you use this library, you may acknowledge by citing it:
 
-```@misc{batista2021eispy2d,```  
-```      title={EISPY2D: An Open-Source Python Library for the Development and Comparison of Algorithms in Two-Dimensional Electromagnetic Inverse Scattering Problems},```  
-```      author={André Costa Batista and Ricardo Adriano and Lucas S. Batista},```  
-```      year={2021},```  
-```      eprint={2111.02185},```  
-```      archivePrefix={arXiv},```  
-```      primaryClass={physics.comp-ph}```  
-```}```  
+```
+@misc{batista2021eispy2d,
+      title={EISPY2D: An Open-Source Python Library for the Development and Comparison of Algorithms in Two-Dimensional Electromagnetic Inverse Scattering Problems}, 
+      author={André Costa Batista and Ricardo Adriano and Lucas S. Batista},
+      year={2021},
+      eprint={2111.02185},
+      archivePrefix={arXiv},
+      primaryClass={physics.comp-ph}
+}
+```
 
 ## Further information
 
