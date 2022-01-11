@@ -49,12 +49,16 @@ class CaseStudy(exp.Experiment):
                                        'None or InputData or str',
                                        str(type(new)))
 
-    def __init__(self, name, method=None, discretization=None, test=None,
-                 stochastic_runs=30, save_stochastic_runs=False):
-        super().__init__(name, method, discretization)
-        self.test = test
-        self.s_nexec = stochastic_runs
-        self.s_save = save_stochastic_runs
+    def __init__(self, name=None, method=None, discretization=None, test=None,
+                 stochastic_runs=30, save_stochastic_runs=False,
+                 import_filename=None, import_filepath=''):
+        if import_filename is not None:
+            self.importdata(import_filename, import_filepath)
+        else:
+            super().__init__(name, method, discretization)
+            self.test = test
+            self.s_nexec = stochastic_runs
+            self.s_save = save_stochastic_runs
     
     def importdata(self, file_name, file_path=''):
         data = super().importdata(file_name, file_path)
@@ -108,7 +112,11 @@ class CaseStudy(exp.Experiment):
                 for m in range(len(self.method)):
                     self.method[m].parallelization = False
                     if isinstance(self.method[m], dtm.Deterministic):
-                        if self._single_discretization:
+                        if self._single_discretization is None:
+                            self.results.append(
+                                self.method[m].solve(self.test)
+                            )
+                        elif self._single_discretization:
                             self.results.append(
                                 self.method[m].solve(self.test,
                                                      self.discretization)
@@ -122,7 +130,11 @@ class CaseStudy(exp.Experiment):
                         if self.s_save:
                             self.method[m].outputmode.rule = stc.EACH_EXECUTION
                         self.method[m].nexec = self.s_nexec
-                        if self._single_discretization:
+                        if self._single_discretization is None:
+                            self.results.append(
+                                self.method[m].solve(self.test)
+                            )
+                        elif self._single_discretization:
                             self.results.append(
                                 self.method[m].solve(self.test,
                                                      self.discretization)
@@ -140,7 +152,11 @@ class CaseStudy(exp.Experiment):
                         if self.s_save:
                             self.method[m].outputmode.rule = stc.EACH_EXECUTION
                         self.method[m].nexec = self.s_nexec
-                    if self._single_discretization:
+                    if self._single_discretization is None:
+                        self.results.append(
+                            self.method[m].solve(self.test)
+                        )
+                    elif self._single_discretization:
                         self.results.append(
                             self.method[m].solve(self.test,
                                                  self.discretization)
@@ -158,7 +174,12 @@ class CaseStudy(exp.Experiment):
                         if self.s_save:
                             self.method[m].outputmode.rule = stc.EACH_EXECUTION
                 num_cores = multiprocessing.cpu_count()
-                if self._single_discretization:
+                if self._single_discretization is None:
+                    self.results = (Parallel(n_jobs=num_cores)
+                                    (delayed(self.method[m].solve)
+                                     (self.test, print_info=False) for m in
+                                     range(len(self.method))))
+                elif self._single_discretization:
                     self.results = (Parallel(n_jobs=num_cores)
                                     (delayed(self.method[m].solve)
                                      (self.test, self.discretization,
@@ -241,7 +262,7 @@ class CaseStudy(exp.Experiment):
                             figure_title = 'Ground-Truth'
                         self.test.draw(image=ipt.BOTH_PROPERTIES, 
                                        axis=ax[:2],
-                                       figure_title=figure_title,
+                                       title=figure_title,
                                        fontsize=fontsize)
                         ifig = 2
                     else:
@@ -249,7 +270,7 @@ class CaseStudy(exp.Experiment):
                             figure_title = 'Ground-Truth'
                         self.test.draw(image=image, 
                                        axis=ax[0],
-                                       figure_title=figure_title,
+                                       title=figure_title,
                                        fontsize=fontsize)
                         ifig = 1
                 else:
@@ -438,13 +459,13 @@ class CaseStudy(exp.Experiment):
                 if image == BOTH_PROPERTIES:
                     self.test.draw(image=ipt.BOTH_PROPERTIES,
                                    axis=ax[:2],
-                                   figure_title=figure_title,
+                                   title=figure_title,
                                    fontsize=fontsize)
                     ifig = 2
                 else:
                     self.test.draw(image=image,
                                    axis=ax[0],
-                                   figure_title=figure_title,
+                                   title=figure_title,
                                    fontsize=fontsize)
                     ifig = 1
             else:
@@ -453,6 +474,8 @@ class CaseStudy(exp.Experiment):
             for m in midx:
                 if title is None or title == True:
                     figure_title = self.method[m].alias
+                elif type(title) is str:
+                    figure_title = title
                 if isinstance(self.method[m], dtm.Deterministic):
                     if image == BOTH_PROPERTIES:
                         self.results[m].plot_map(image=rst.BOTH_PROPERTIES,
@@ -499,18 +522,20 @@ class CaseStudy(exp.Experiment):
                     elif mode == BEST_EXECUTION:
                         data = exp.final_value(indicator, self.results[m])
                         n = np.argmin(data)
+                        if title is None or title is True:
+                            figure_title+ ' - %d' % (n+1)
                         if image == BOTH_PROPERTIES:
                             self.results[m][n].plot_map(
                                 image=rst.BOTH_PROPERTIES,
                                 axis=ax[ifig:ifig+2],
-                                title=figure_title+ ' - %d' % (n+1),
+                                title=figure_title,
                                 fontsize=fontsize
                             )
                             ifig += 2
                         else:
                             self.results[m][n].plot_map(
                                 image=image, axis=ax[ifig],
-                                title=figure_title+ ' - %d' % (n+1),
+                                title=figure_title,
                                 fontsize=fontsize
                             )
                             ifig += 1
@@ -518,7 +543,7 @@ class CaseStudy(exp.Experiment):
         
         if file_name is not None:
             plt.savefig(file_path + file_name + '.' + file_format,
-                        format=file_format)
+                        format=file_format, bbox_inches='tight')
         if show:
             plt.show()
         if file_name is not None:
@@ -529,7 +554,7 @@ class CaseStudy(exp.Experiment):
     def convergence(self, indicator, axis=None, method=None, file_name=None,
                     file_path='', file_format='eps', show=False, fontsize=10,
                     title=None, mean=False, yscale=None, sample_rate=None,
-                    widths=None, color=None):
+                    widths=None, color=None, legend_size=None):
         if (type(indicator) is not str
                 or (type(indicator) is list
                     and not all(type(i) is str for i in indicator))):
@@ -714,7 +739,8 @@ class CaseStudy(exp.Experiment):
             
             nfig, nlines = len(ind), len(midx)
             if axis is None:
-                fig, ax, lgd_size = rst.get_figure(nfig, nlines)
+                fig, ax, _ = rst.get_figure(nfig, nlines)
+                lgd_size = legend_size
             else:
                 if type(axis) is np.ndarray and axis.size != nfig:
                     raise error.WrongValueInput('CaseStudy.convergence',
@@ -726,9 +752,9 @@ class CaseStudy(exp.Experiment):
                                                'matplotlib.axes.Axes',
                                                str(type(axis)))
                 if nfig == 1 and isinstance(axis, plt.Axes):
-                    fig, ax, lgd_size = plt.gcf(), [axis], None
+                    fig, ax, lgd_size = plt.gcf(), [axis], legend_size
                 else:
-                    fig, ax, lgd_size = plt.gcf(), axis, None
+                    fig, ax, lgd_size = plt.gcf(), axis, legend_size
 
             if title == False:
                 figure_title = ''
@@ -983,7 +1009,7 @@ class CaseStudy(exp.Experiment):
     
         if file_name is not None:
             plt.savefig(file_path + file_name + '.' + file_format,
-                        format=file_format)
+                        format=file_format, bbox_inches='tight')
         if show:
             plt.show()
         if file_name is not None:
@@ -1103,7 +1129,7 @@ class CaseStudy(exp.Experiment):
     def confint(self, indicator, method=None, axis=None, file_name=None,
                 file_path='', file_format='eps', show=False, fontsize=10,
                 title=None, print_info=True, print_obj=sys.stdout,
-                confidence_level=.95):
+                confidence_level=.95, xscale=None):
         if type(indicator) is not str and type(indicator) is not list:
             raise error.WrongTypeInput('CaseStudy.confint', 'indicator',
                                        'str or str-list', str(type(indicator)))
@@ -1152,7 +1178,8 @@ class CaseStudy(exp.Experiment):
 
                 sts.confintplot(data, axes=axis[n], xlabel=rst.LABELS[ind],
                                 ylabel=self.method.alias, fontsize=fontsize,
-                                title=tit, confidence_level=confidence_level)
+                                title=tit, confidence_level=confidence_level,
+                                xscale=xscale)
                 n += 1
         else:
             if (method is not None and type(method) is not list
@@ -1225,7 +1252,8 @@ class CaseStudy(exp.Experiment):
                 elif title == False:
                     tit = ''
                 sts.confintplot(data, axes=axis[n], xlabel=rst.LABELS[ind],
-                                ylabel=names, title=tit, fontsize=fontsize)
+                                ylabel=names, title=tit, fontsize=fontsize,
+                                xscale=xscale)
                 n += 1
 
         if print_info:
@@ -1233,7 +1261,7 @@ class CaseStudy(exp.Experiment):
 
         if file_name is not None:
             plt.savefig(file_path + file_name + '.' + file_format,
-                        format=file_format)
+                        format=file_format, bbox_inches='tight')
         if show:
             plt.show()
         if file_name is not None:

@@ -24,9 +24,9 @@ import copy as cp
 import matplotlib.pyplot as plt
 
 import error
+import richmond as ric
 import configuration as cfg
 import result as rst
-import richmond as ric
 
 # Constants for easier access to fields of the saved pickle file
 NAME = 'name'
@@ -255,10 +255,8 @@ class InputData:
             else:
                 self.noise = None
 
-    def save(self, file_path=None):
+    def save(self, file_path=''):
         """Save object information."""
-        if file_path is not None:
-            self.path = file_path
         data = {
             NAME: self.name,
             CONFIGURATION: self.configuration,
@@ -273,7 +271,7 @@ class InputData:
             DNL: self.dnl
         }
 
-        with open(self.path + self.name, 'wb') as datafile:
+        with open(file_path + self.name, 'wb') as datafile:
             pickle.dump(data, datafile)
 
     def importdata(self, file_name, file_path=''):
@@ -292,7 +290,7 @@ class InputData:
         self.indicators = data[INDICATORS]
         self.dnl = data[DNL]
 
-    def draw(self, image=CONTRAST, axis=None, figure_title=None,
+    def draw(self, image=CONTRAST, axis=None, title=None,
              file_path='', file_format='eps', show=False, save=False,
              suptitle=None, fontsize=10):
         """Draw the relative permittivity/conductivity map.
@@ -352,19 +350,19 @@ class InputData:
         clb_sigma = r'$\sigma$ [S/m]'
         clb_contrast = r'$|\chi|$'
 
-        if figure_title == False:
-            title = ['']
-        elif figure_title is not None:
-            title = figure_title
+        if title is False:
+            tit = ['']
+        elif title is not None and title is not True:
+            tit = title
 
         if image == PERMITTIVITY:
 
-            if figure_title is None:
-                title = 'Relative Permittivity Map'
+            if title is None or title is True:
+                tit = 'Relative Permittivity Map'
 
             rst.add_image(ax[0],
                           self.rel_permittivity,
-                          title,
+                          tit,
                           clb_epsilon_r,
                           bounds=extent,
                           xlabel=xlabel,
@@ -373,12 +371,12 @@ class InputData:
         
         elif image == CONDUCTIVITY:
 
-            if figure_title is None:
-                title = 'Conductivity Map'
+            if title is None or title is True:
+                tit = 'Conductivity Map'
 
             rst.add_image(ax[0],
                           self.conductivity,
-                          title,
+                          tit,
                           clb_sigma,
                           bounds=extent,
                           xlabel=xlabel,
@@ -387,24 +385,24 @@ class InputData:
 
         elif image == BOTH_PROPERTIES:
 
-            if figure_title is None:
-                title = 'Relative Permittivity Map'
+            if title is None or title is True:
+                tit = 'Relative Permittivity Map'
 
             rst.add_image(ax[0],
                           self.rel_permittivity,
-                          title,
+                          tit,
                           clb_epsilon_r,
                           bounds=extent,
                           xlabel=xlabel,
                           ylabel=ylabel,
                           fontsize=fontsize)
             
-            if figure_title is None:
-                title = 'Conductivity Map'
+            if title is None or title is True:
+                tit = 'Conductivity Map'
 
             rst.add_image(ax[1],
                           self.conductivity,
-                          title,
+                          tit,
                           clb_sigma,
                           bounds=extent,
                           xlabel=xlabel,
@@ -416,8 +414,8 @@ class InputData:
         
         else:
             
-            if figure_title is None:
-                title = 'Contrast Map'
+            if title is None or title is True:
+                tit = 'Contrast Map'
             
             X = cfg.get_contrast_map(epsilon_r=self.rel_permittivity,
                                      sigma=self.conductivity,
@@ -425,7 +423,7 @@ class InputData:
 
             rst.add_image(ax[0],
                           np.abs(X),
-                          title,
+                          tit,
                           clb_contrast,
                           bounds=extent,
                           xlabel=xlabel,
@@ -436,7 +434,7 @@ class InputData:
 
         if save:
             plt.savefig(file_path + self.name + '.' + file_format,
-                        format=file_format)
+                        format=file_format, bbox_inches='tight')
         if show:
             plt.show()
         if save:
@@ -476,9 +474,9 @@ class InputData:
                         format=file_format)
             plt.close()
 
-    def plot_total_field(self, axis=None, source=None, figure_title=None,
+    def plot_total_field(self, axis=None, source=None, title=None,
                          file_path='', file_format='eps', show=False,
-                         fontsize=10):
+                         fontsize=10, file_name=None):
         """Summarize the method."""
         if self.total_field is None:
             raise error.EmptyAttribute('InputData', 'et')
@@ -549,23 +547,37 @@ class InputData:
         ifig = 0
         for i in source:
             img = self.total_field[:, i].reshape(self.resolution)
-            title = 'Source %d' % (i+1)
-            rst.add_image(ax[ifig], img, title, r'$|E_z|$ [V/m]',
+            if len(source) > 1:
+                tit = 'Source %d' % (i+1)
+            else:
+                if title is not None:
+                    tit = title
+                else:
+                    tit = 'Total Field, source %d' % (i+1)
+                    
+            rst.add_image(ax[ifig], img, tit, r'$|E_z|$ [V/m]',
                           bounds=(0, 1, 0, 1), xlabel=r'$L_x$',
                           ylabel=r'$L_y$', fontsize=fontsize)
             ifig += 1
-        if figure_title is None:
-            figure_title = 'Total Field - ' + self.name
+        if len(source) > 1:
+            if title is None:
+                figure_title = 'Total Field - ' + self.name
+            elif title is not None:
+                figure_title = title
+            plt.suptitle(figure_title, fontsize=1.3*fontsize, y=0.95)
 
-        plt.suptitle(figure_title, fontsize=1.3*fontsize, y=0.95)
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])        
+        if axis is None:
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])        
 
         if show:
             plt.show()
-        else:
+        if file_name is not None:
             plt.savefig(file_path + self.name + '_et.' + file_format,
                         format=file_format)
             plt.close()
+
+        if axis is None and file_name is None:
+            return axis
 
     def compute_dnl(self):
         self.dnl = degrees_nonlinearity(self)
@@ -646,8 +658,8 @@ class InputData:
 
 def degrees_nonlinearity(inputdata):
     discretization = ric.Richmond(inputdata.configuration,
-                                  inputdata.resolution,
-                                  state=True)
+                                       inputdata.resolution,
+                                       state=True)
     X = cfg.get_contrast_map(epsilon_r=inputdata.rel_permittivity,
                              sigma=inputdata.conductivity,
                              configuration=inputdata.configuration)

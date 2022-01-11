@@ -80,7 +80,7 @@ class BornIterativeMethod(dtm.Deterministic):
     """
 
     def __init__(self, forward_solver, regularization, stop_criteria,
-                 alias='bim'):
+                 alias='bim', import_filename=None, import_filepath=''):
         r"""Create the object.
 
         Parameters
@@ -118,11 +118,14 @@ class BornIterativeMethod(dtm.Deterministic):
             stopcriterion_measure : float, default: 1e-3
                 Threshold criterion for stop the algorithm.
         """
-        super().__init__(alias=alias, parallelization=None)
-        self.name = 'Born Iterative Method'
-        self.forward = forward_solver
-        self.regularization = regularization
-        self.stop_criteria = stop_criteria
+        if import_filename is not None:
+            self.importdata(import_filename, import_filepath)
+        else:
+            super().__init__(alias=alias, parallelization=None)
+            self.name = 'Born Iterative Method'
+            self.forward = forward_solver
+            self.regularization = regularization
+            self.stop_criteria = stop_criteria
 
     def solve(self, inputdata, discretization, print_info=True,
               print_file=sys.stdout):

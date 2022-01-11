@@ -21,7 +21,7 @@ from statsmodels.graphics.boxplots import violinplot
 import matplotlib.pyplot as plt
 import error
 import configuration as cfg
-import inputdata as ipt
+
 
 # Strings for easier implementation of plots
 XLABEL_STANDARD = r'x [$\lambda_b$]'
@@ -401,9 +401,9 @@ class Result:
             if title is None or title is True:
                 figure_title = 'Ground-Truth'
             if image == BOTH_PROPERTIES:
-                groundtruth.draw(image=ipt.BOTH_PROPERTIES,
+                groundtruth.draw(image=BOTH_PROPERTIES,
                                  axis=ax[:2],
-                                 figure_title=figure_title,
+                                 title=figure_title,
                                  show=False,
                                  save=False,
                                  fontsize=fontsize,)
@@ -411,7 +411,7 @@ class Result:
             elif image != TOTAL_FIELD:
                 groundtruth.draw(image=image,
                                  axis=ax[0],
-                                 figure_title=figure_title,
+                                 title=figure_title,
                                  show=False,
                                  save=False,
                                  fontsize=fontsize)
@@ -471,9 +471,8 @@ class Result:
                       bounds=extent, xlabel=xlabel, ylabel=ylabel,
                       fontsize=fontsize, interpolation=interpolation)
 
-        plt.tight_layout()
-
         if save:
+            plt.tight_layout()
             if file_name is None:
                 plt.savefig(file_path + self.name + '.' + file_format,
                             format=file_format)
@@ -481,6 +480,7 @@ class Result:
                 plt.savefig(file_path + file_name + '.' + file_format,
                             format=file_format)
         if show:
+            plt.tight_layout()
             plt.show()
         if save:
             plt.close()
@@ -1313,7 +1313,11 @@ def add_box(data, axis=None, meanline=False, labels=None, xlabel=None,
         mydata = data
 
     if positions is None:
-        positions = np.arange(1, len(data)+1)
+        try:
+            _ = len(data[0])
+            positions = np.arange(1, len(data)+1)
+        except:
+            positions = None
 
     bplot = axis.boxplot(mydata, patch_artist=True, labels=labels,
                          positions=positions, notch=notch, widths=widths)
@@ -1503,14 +1507,7 @@ def get_figure(nsubplots=1, number_lines=1):
     # Compute number of rows and columns
     nrows = round(np.sqrt(nsubplots))
     ncols = int(np.ceil(nsubplots/nrows))
-
-    max_lines = np.array([0, 15, 13, 8, 5, 3, 2, 1, 1, 1, 1, 1])
-    if number_lines > max_lines[nrows] and nrows > 2:
-        legend_fontsize = 10-(number_lines-max_lines[nrows])*.65
-    elif number_lines > max_lines[nrows] and nrows < 3:
-        legend_fontsize = 10-(number_lines-max_lines[nrows])*.55
-    else:
-        legend_fontsize = None
+    legend_fontsize = get_legend_fontsize(number_lines, nrows)
 
     width, height = 6.4*ncols, 4.8*nrows
 
@@ -1528,6 +1525,17 @@ def get_figure(nsubplots=1, number_lines=1):
             axes[i].set_visible(False)
 
     return fig, axes, legend_fontsize
+
+
+def get_legend_fontsize(number_lines, nrows):
+    max_lines = np.array([0, 15, 13, 8, 5, 3, 2, 1, 1, 1, 1, 1])
+    if number_lines > max_lines[nrows] and nrows > 2:
+        legend_fontsize = 10-(number_lines-max_lines[nrows])*.65
+    elif number_lines > max_lines[nrows] and nrows < 3:
+        legend_fontsize = 10-(number_lines-max_lines[nrows])*.55
+    else:
+        legend_fontsize = None
+    return legend_fontsize
 
 
 def compute_zeta_rn(es_o, es_a):

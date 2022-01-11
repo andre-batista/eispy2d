@@ -1,4 +1,5 @@
 import pickle
+import copy as cp
 import numpy as np
 from numpy import pi
 from numpy import random as rnd
@@ -277,7 +278,7 @@ class TestSet:
         
         self._testset_condition = _MISSING_FIELD_DATA
 
-    def generate_field_data(self, solver=None):
+    def generate_field_data(self, solver=None, parallelization=False):
         if solver is None:
             solver = mom.MoM_CG_FFT()
         if (rst.TOTALFIELD_MAGNITUDE_PAD in self.indicators
@@ -285,9 +286,23 @@ class TestSet:
             SAVE_INTERN_FIELD = True
         else:
             SAVE_INTERN_FIELD = False
-        for n in range(self.sample_size):
-            solver.solve(self.test[n],
-                         SAVE_INTERN_FIELD=SAVE_INTERN_FIELD)
+        if parallelization is False:
+            for n in range(self.sample_size):
+                solver.solve(self.test[n],
+                             SAVE_INTERN_FIELD=SAVE_INTERN_FIELD)
+        else:
+            solver.parallelization = False
+            solvers = [cp.deepcopy(solver)]*self.sample_size
+            num_cores = multiprocessing.cpu_count()
+            output = Parallel(n_jobs=num_cores)(
+                delayed(solvers[n].solve)(
+                    self.test[n], SAVE_INTERN_FIELD=SAVE_INTERN_FIELD
+                ) for n in range(self.sample_size)
+            )
+            for n in range(self.sample_size):
+                if SAVE_INTERN_FIELD:
+                    self.test[n].total_field = output[n][0]
+                self.test[n].scattered_field = output[n][2]
         self._testset_condition = _READY
 
     def plot(self, tests='all', axis=None, show=False, save=False,
@@ -333,7 +348,7 @@ class TestSet:
         else:
             return fig, axis
                 
-    def save(self, file_path=None):
+    def save(self, file_path=''):
         """Save the problem configuration within a pickle file.
 
         It will only be saved the attribute variables, not the object

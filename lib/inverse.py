@@ -43,7 +43,8 @@ class InverseSolver(ABC):
         The name of the method should be defined by default.
     """
 
-    def __init__(self, alias='', parallelization=False):
+    def __init__(self, alias='', parallelization=False, import_filename=None,
+                 import_filepath=''):
         """Create the object.
 
         Parameters
@@ -51,9 +52,12 @@ class InverseSolver(ABC):
             configuration : :class:`configuration.Configuration`
                 An object of problem configuration.
         """
-        self.name = ''
-        self.alias = alias
-        self.parallelization = parallelization
+        if import_filename is not None:
+            self.importdata(import_filename, import_filepath)
+        else:
+            self.name = ''
+            self.alias = alias
+            self.parallelization = parallelization
 
 
     @abstractmethod

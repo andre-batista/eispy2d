@@ -49,6 +49,14 @@ class Benchmark(exp.Experiment):
             self._testset = new
             self._single_testset = True
             self._testset_available = False
+        elif type(new) is list and len(new) == 1:
+            self._single_testset = True
+            if type(new[0]) is tst.TestSet:
+                self._testset = new[0].copy()
+                self._testset_available = True
+            elif type(new[0]) is str:
+                self._testset = new[0]
+                self._testset_available = False
         elif type(new) is list and all(isinstance(n, str) for n in new):
             self._testset = new.copy()
             self._single_testset = False
@@ -59,15 +67,19 @@ class Benchmark(exp.Experiment):
             self._single_testset = False
             self._testset_available = True
 
-    def __init__(self, name, method=None, discretization=None, testset=None):
-        super().__init__(name, method=method, discretization=discretization)
-        if (testset is not None and type(testset) is not tst.TestSet
-                and type(testset) is not list):
-            raise error.WrongTypeInput('Benchmark.__init__',
-                                       'testset',
-                                       'None, TestSet, or TestSet-list',
-                                       str(type(testset)))
-        self.testset = testset
+    def __init__(self, name='', method=None, discretization=None, testset=None,
+                 import_filename=None, import_filepath=''):
+        if import_filename is not None:
+            self.importdata(import_filename, import_filepath)
+        else:
+            super().__init__(name, method=method,
+                             discretization=discretization)
+            if (testset is not None and type(testset) is not tst.TestSet
+                    and type(testset) is not list):
+                raise error.WrongTypeInput('Benchmark.__init__', 'testset',
+                                           'None, TestSet, or TestSet-list',
+                                           str(type(testset)))
+            self.testset = testset
 
     def import_testsets(self, filename, filepath=''):
         if type(filename) is not str and type(filename) is not list:
@@ -174,7 +186,12 @@ class Benchmark(exp.Experiment):
                 for m in range(len(self.method)):
                     self.results.append([])
                     for n in range(self.testset.sample_size):
-                        if self._single_discretization:
+                        if self._single_discretization is None:
+                            self.results[m].append(
+                                self.method[m].solve(self.testset.test[n],
+                                                     print_info=False)
+                            )
+                        elif self._single_discretization:
                             self.results[m].append(
                                 self.method[m].solve(self.testset.test[n],
                                                      self.discretization,
@@ -190,7 +207,14 @@ class Benchmark(exp.Experiment):
             elif parallelization == PARALLELIZE_TESTS:
                 num_cores = multiprocessing.cpu_count()
                 for m in range(len(self.method)):
-                    if self._single_discretization:
+                    if self._single_discretization is None:
+                        self.results.append(
+                            Parallel(n_jobs=num_cores)
+                            (delayed(self.method[m].solve)(
+                                self.testset.test[n], print_info=False
+                            ) for n in range(self.testset.sample_size))
+                        )
+                    elif self._single_discretization:
                         self.results.append(
                             Parallel(n_jobs=num_cores)
                             (delayed(self.method[m].solve)(
@@ -209,7 +233,12 @@ class Benchmark(exp.Experiment):
             
             elif parallelization == PARALLELIZE_METHODS:
                 num_cores = multiprocessing.cpu_count()
-                if self._single_discretization:
+                if self._single_discretization is None:
+                    self.results = (Parallel(n_jobs=num_cores)
+                                    (delayed(_run_testset)(self.testset,
+                                                           self.method[m])
+                                     for m in range(len(self.method))))
+                elif self._single_discretization:
                     self.results = (Parallel(n_jobs=num_cores)
                                     (delayed(_run_testset)(self.testset,
                                                            self.method[m],
@@ -237,7 +266,14 @@ class Benchmark(exp.Experiment):
                     for t in range(len(self.testset)):
                         self.results[m].append([])
                         for n in range(self.testset[t].sample_size):
-                            if self._single_discretization:
+                            if self._single_discretization is None:
+                                self.results[m][t].append(
+                                    self.method[m].solve(
+                                        self.testset[t].test[n],
+                                        print_info=False
+                                    )
+                                )
+                            elif self._single_discretization:
                                 self.results[m][t].append(
                                     self.method[m].solve(
                                         self.testset[t].test[n],
@@ -258,7 +294,15 @@ class Benchmark(exp.Experiment):
                 for m in range(len(self.method)):
                     self.results.append([])
                     for t in range(len(self.testset)):
-                        if self._single_discretization:
+                        if self._single_discretization is None:
+                            self.results[m].append(
+                                Parallel(n_jobs=num_cores)
+                                (delayed(self.method[m].solve)(
+                                    self.testset[t].test[n],
+                                    print_info=False
+                                ) for n in range(self.testset[t].sample_size))
+                            )
+                        elif self._single_discretization:
                             self.results[m].append(
                                 Parallel(n_jobs=num_cores)
                                 (delayed(self.method[m].solve)(
@@ -279,7 +323,14 @@ class Benchmark(exp.Experiment):
                 num_cores = multiprocessing.cpu_count()
                 for m in range(len(self.method)):
                     self.results.append([])
-                    if self._single_discretization:
+                    if self._single_discretization is None:
+                        self.results[m].append(
+                            Parallel(n_jobs=num_cores)
+                            (delayed(_run_testset)(self.testset[t],
+                                                   self.method[m])
+                             for t in range(len(self.testset)))
+                        )
+                    elif self._single_discretization:
                         self.results[m].append(
                             Parallel(n_jobs=num_cores)
                             (delayed(_run_testset)(self.testset[t],
@@ -300,7 +351,14 @@ class Benchmark(exp.Experiment):
                 num_cores = multiprocessing.cpu_count()
                 output = []
                 for t in range(len(self.testset)):
-                    if self._single_discretization:
+                    if self._single_discretization is None:
+                        output.append(Parallel(n_jobs=num_cores)
+                                      (delayed(_run_testset)(
+                                          self.testset[t], self.method[m],
+                                        )
+                                       for m in range(len(self.method)))
+                        )
+                    elif self._single_discretization:
                         output.append(Parallel(n_jobs=num_cores)
                                       (delayed(_run_testset)(
                                           self.testset[t], self.method[m],
@@ -398,6 +456,8 @@ class Benchmark(exp.Experiment):
                 raise error.WrongValueInput('Benchmark.plot', 'axis',
                                            '%d-numpy.ndarray' %nfig,
                                            '%d-numpy.ndarray' %axis.size)
+            else:
+                lgd_size = None
             
             x = np.arange(1, self.results.size+1)
             if nfig == 1:
@@ -482,21 +542,23 @@ class Benchmark(exp.Experiment):
                 if nfig == 1:
                     axis = axis[0]
             elif (not isinstance(axis, axes.Axes)
-                    and not type(axis, np.ndarray)):
+                    and type(axis) is not np.ndarray):
                 raise error.WrongTypeInput('Benchmark.plot', 'axis',
                                            'Axes or Axes-numpy.ndarray',
                                            str(type(axis)))
-            elif nfig == 1 and type(axis, np.ndarray):
+            elif nfig == 1 and isinstance(axis, np.ndarray) and axis.size > 1:
                 raise error.WrongTypeInput('Benchmark.plot', 'axis',
                                            'Axes', str(type(axis)))
-            elif nfig > 1 and not type(axis, np.ndarray):
+            elif nfig > 1 and not isinstance(axis, np.ndarray):
                 raise error.WrongTypeInput('Benchmark.plot', 'axis',
                                            'Axes-numpy.ndarray',
                                            str(type(axis)))
-            elif nfig != axis.size:
+            elif isinstance(axis, np.ndarray) and nfig != axis.size:
                 raise error.WrongValueInput('Benchmark.plot', 'axis',
                                            '%d-numpy.ndarray' %nfig,
                                            '%d-numpy.ndarray' %axis.size)
+            else:
+                lgd_size = None
             x = np.arange(1, self.results.shape[1]+1)
             if nfig == 1:
                 if title is not None and type(title) is not str:
@@ -743,14 +805,15 @@ class Benchmark(exp.Experiment):
                 tidx = testset.copy()
             elif type(testset) is str:
                 tidx = [self._search_testset(testset)]
-                if tidx[0] == False:
-                    raise error.WrongValueInput('Benchmark.plot', 'testset',
-                                                [self.testset[n].name for n in
-                                                 range(len(self.testset))],
-                                                testset)
+                if tidx[0] is False:
+                    raise error.WrongValueInput(
+                        'Benchmark.plot', 'testset',
+                        str([self.testset[n].name for n in
+                             range(len(self.testset))]), testset
+                    )
             else:
                 tidx = self._search_method(testset)
-                if tidx == False:
+                if tidx is False:
                     raise error.WrongValueInput('Benchmark.plot', 'testset',
                                                 [self.testset[n].name for n in
                                                  range(len(self.testset))],
@@ -866,7 +929,9 @@ class Benchmark(exp.Experiment):
                                          fontsize=fontsize,
                                          title=plotstitles[ifig])
                             ifig += 1
-                        
+
+        plt.tight_layout()
+
         # Show or save results
         if file_name is not None:
             plt.savefig(file_path + file_name + '.' + file_format,
@@ -1385,7 +1450,9 @@ class Benchmark(exp.Experiment):
                                         notch=notch, fontsize=fontsize,
                                         yscale=yscale)
                             ifig += 1
-                        
+
+        plt.tight_layout()
+  
         # Show or save results
         if file_name is not None:
             plt.savefig(file_path + file_name + '.' + file_format,
@@ -1905,7 +1972,9 @@ class Benchmark(exp.Experiment):
                                            color=color, title=tit[ifig],
                                            fontsize=fontsize, yscale=yscale)
                             ifig += 1
-                        
+
+        plt.tight_layout()
+
         # Show or save results
         if file_name is not None:
             plt.savefig(file_path + file_name + '.' + file_format,
@@ -1939,10 +2008,12 @@ class Benchmark(exp.Experiment):
                 nfig = len(indicator)
             if axis is None:
                 fig, axis, _ = rst.get_figure(nfig)
+                new_axis = True
                 if nfig == 1:
                     axis = axis[0]
             else:
-                if len(axis) != nfig:
+                new_axis = False
+                if nfig > 1 and len(axis) != nfig:
                     raise error.Error('Benchmark.evolution: the number of axis'
                                       + ' objects(%d)' % len(axis) + ' must be'
                                       + ' equal to the number of figures (%d).'
@@ -2015,9 +2086,11 @@ class Benchmark(exp.Experiment):
                 nfig = len(indicator)
             if axis is None:
                 fig, axis, _ = rst.get_figure(nfig)
+                new_axis = True
                 if nfig == 1:
                     axis = axis[0]
             else:
+                new_axis = False
                 if len(axis) != nfig:
                     raise error.Error('Benchmark.evolution: the number of axis'
                                       + ' objects(%d)' % len(axis) + ' must be'
@@ -2077,6 +2150,8 @@ class Benchmark(exp.Experiment):
                 midx = range(len(self.method))
             elif type(method) is int:
                 midx = [method]
+            elif type(method) is str:
+                midx = [self._search_method(method)]
             else:
                 midx = self._search_method(method)
             if testset is None:
@@ -2097,14 +2172,18 @@ class Benchmark(exp.Experiment):
                 nlines = len(tidx)
             if axis is None:
                 fig, axis, lgd_size = rst.get_figure(nfig, nlines)
+                new_axis = True
             else:
-                if nfig != len(axis):
+                new_axis = False
+                if nfig > 1 and nfig != len(axis):
                     raise error.Error('Benchmark.evolution: the number of axis'
                                       + ' objects(%d)' % len(axis) + ' must be'
                                       + ' equal to the number of figures (%d).'
                                       % nfig)
+                elif nfig == 1 and isinstance(axis, plt.Axes):
+                    axis = [axis]
                 fig = plt.gcf()
-                _, _, lgd_size = rst.get_figure(nfig, nlines)
+                lgd_size = rst.get_legend_fontsize(nlines, 1)
             ifig = 0
             color = list(mcl.TABLEAU_COLORS.keys())
             for ind in inds:
@@ -2175,7 +2254,7 @@ class Benchmark(exp.Experiment):
             plt.show()
         if file_name is not None:
             plt.close()
-        elif not show:
+        if not show and file_name is None and new_axis:
             return axis          
 
     def reconstruction(self, image=CONTRAST, mode=None, indicator=None,
@@ -2194,7 +2273,7 @@ class Benchmark(exp.Experiment):
             elif type(method) is int:
                 method = [method]
             elif type(method) is str:
-                method = self._search_method(method)
+                method = [self._search_method(method)]
             elif type(method) is list:
                 if any([type(m) is str for m in method]):
                     method = self._search_method(method)
@@ -2208,8 +2287,12 @@ class Benchmark(exp.Experiment):
             elif type(testset) is int:
                 testset = [testset]
             elif type(testset) is str:
-                testset = self._search_testset(testset)
+                testset = [self._search_testset(testset)]
             elif type(testset) is list:
+                if len(testset) == 1 and type(testset[0]) is int:
+                    pass
+                elif len(testset) == 1 and type(testset[0]) is str:
+                    testset = [self._search_testset(testset)]
                 if any([type(t) is str for t in testset]):
                     testset = self._search_testset(testset)
                 else:
@@ -2218,23 +2301,23 @@ class Benchmark(exp.Experiment):
         # Set test
         if test is None:
             if self._single_method and self._single_testset:
-                test = range(self.results.size)
+                test = np.arange(self.results.size)
             elif not self._single_method and self._single_testset:
-                test = range(self.results.shape[1])
+                test = np.arange(self.results.shape[1])
             elif self._single_method and not self._single_testset:
                 test = []
                 for t in testset:
                     if self.results.ndim == 1:
-                        test.append(range(len(self.results[t])))
+                        test.append(np.arange(len(self.results[t])))
                     else:
-                        test.append(range(self.results.shape[1]))
+                        test.append(np.arange(self.results.shape[1]))
             else:
                 test = []
                 for t in testset:
                     if self.results.ndim == 2:
-                        test.append(range(len(self.results[0, t])))
+                        test.append(np.arange(len(self.results[0, t])))
                     elif self.results.ndim == 3:
-                        test.append(range(self.results.shape[2]))
+                        test.append(np.arange(self.results.shape[2]))
         elif type(test) is int:
             if self._single_testset:
                 test = [test]
@@ -2328,7 +2411,6 @@ class Benchmark(exp.Experiment):
             NFIG = NFIG*len(testset)
         if not self._single_method:
             NFIG = NFIG*len(method)
-
         # Set axis
         if axis is None:
             fig, ax, _ = rst.get_figure(NFIG)
@@ -2640,7 +2722,7 @@ class Benchmark(exp.Experiment):
                         if self._testset_available:
                             self.testset.test[t].draw(
                                 image=ipt.CONTRAST, axis=ax[n],
-                                figure_title=tit[n], fontsize=fontsize
+                                title=tit[n], fontsize=fontsize
                             )
                             n += 1
                         for m in method:
@@ -2769,7 +2851,7 @@ class Benchmark(exp.Experiment):
                             if self._testset_available:
                                 self.testset[t].test[k].draw(
                                     image=ipt.CONTRAST, axis=ax[n],
-                                    figure_title=tit[n], fontsize=fontsize
+                                    title=tit[n], fontsize=fontsize
                                 )
                                 n += 1
                             for m in method:
@@ -3194,7 +3276,7 @@ class Benchmark(exp.Experiment):
                 method = range(len(self.method))
             elif type(method) is str:
                 idx = self._search_method(method)
-                if idx == False:
+                if idx is False:
                     raise error.WrongValueInput('Benchmark.compare',
                                                 'method',
                                                 str([self.method[m].alias
@@ -3211,7 +3293,7 @@ class Benchmark(exp.Experiment):
                 method = [method]
             elif all(type(m) is str for m in method):
                 idx = self._search_method(method)
-                if idx == False:
+                if idx is False:
                     raise error.WrongValueInput('Benchmark.compare',
                                                 'method',
                                                 str([self.method[m].alias
@@ -3235,10 +3317,10 @@ class Benchmark(exp.Experiment):
                     testset = range(len(self.testset))
                 elif type(testset) is str:
                     idx = self._search_testset(testset)
-                    if idx == False:
+                    if idx is False:
                         raise error.WrongValueInput(
                             'Benchmark.compare', 'testset',
-                            str([self.testset[t].alias for t in 
+                            str([self.testset[t].name for t in 
                                  range(len(self.testset))]), testset
                         )
                     testset = [idx]
@@ -3251,13 +3333,16 @@ class Benchmark(exp.Experiment):
                     testset = [testset]
                 elif all(type(t) is str for t in testset):
                     idx = self._search_testset(testset)
-                    if idx == False:
+                    if idx is False:
                         raise error.WrongValueInput(
                             'Benchmark.compare', 'testset',
                             str([self.testset[t].name for t in
                                  range(len(self.testset))]), str(testset)
                         )
-                    testset = idx
+                    if idx is int:
+                        testset = [idx]
+                    else:
+                        testset = idx
                 elif all(type(t) is int for t in testset):
                     if any(t >= len(self.testset) for t in testset):
                         raise error.WrongValueInput('Benchmark.compare',
@@ -3296,7 +3381,16 @@ class Benchmark(exp.Experiment):
                                                'testset', 'None, int, str, '
                                                + 'int-list or str-list',
                                                str(type(testset)))       
-        
+        if all2one is not None and type(all2one) is str:
+            if self._single_method:
+                all2one = self._search_testset(all2one)
+            elif self._single_testset:
+                all2one = self._search_method(all2one)
+            elif samples == 'methods':
+                all2one = self._search_method(all2one)
+            elif samples == 'testsets':
+                all2one = self._search_testset(all2one)
+
         if self._single_method and self._single_testset:
             if reference is None:
                 raise error.Error('Benchmark.compare: when a single method '
@@ -3367,11 +3461,11 @@ class Benchmark(exp.Experiment):
                                                     self.results[m, :]))
                         samples_names.append(self.method[m].alias)
                     output = sts.compare_multiple(data, all2all=all2all,
-                                                  all2one=all2one)
+                                                  all2one=all2one, paired=True)
                     data_info = indicator[n] + ' of '
                     message += self._print_compare_multiple(
                         samples_names, output, all2one=all2one,
-                        extra_data_info=data_info
+                        extra_data_info=data_info, paired=True
                     )
                     
         elif self._single_method and not self._single_testset:
@@ -3434,14 +3528,15 @@ class Benchmark(exp.Experiment):
                         else:
                             samples_names.append(self.testset[t])
                     output = sts.compare_multiple(data, all2all=all2all,
-                                                  all2one=all2one)
+                                                  all2one=all2one, paired=False)
                     data_info = indicator[n] + ' of '
                     message += self._print_compare_multiple(
                         samples_names, output, all2one=all2one,
-                        extra_data_info=data_info
+                        extra_data_info=data_info, paired=False
                     )
 
         elif not self._single_method and not self._single_testset:
+            message = ''
             if samples == 'methods':
                 for t in testset:
                     if self._testset_available:
@@ -3498,7 +3593,6 @@ class Benchmark(exp.Experiment):
                                                                   output, True)
                             message += '\n'
                     else:
-                        message = ''
                         for n in range(len(indicator)):
                             data = []
                             samples_names = []
@@ -3510,13 +3604,15 @@ class Benchmark(exp.Experiment):
                                 samples_names.append(self.method[m].alias)
                             output = sts.compare_multiple(data,
                                                           all2all=all2all,
-                                                          all2one=all2one)
-                            data_info = (indicator[n] + " in test set'"
+                                                          all2one=all2one,
+                                                          paired=True)
+                            data_info = (indicator[n] + " in test set '"
                                          + test_name + "' of ")
                             message += self._print_compare_multiple(
                                 samples_names, output, all2one=all2one,
-                                extra_data_info=data_info
+                                extra_data_info=data_info, paired=True
                             )
+                            message += '\n'
             elif samples == 'testsets':
                 for m in method:
                     method_name = self.method[m].alias
@@ -3589,12 +3685,13 @@ class Benchmark(exp.Experiment):
                                 else:
                                     samples_names.append(self.testset[t])
                             output = sts.compare_multiple(data, all2all=all2all,
-                                                  all2one=all2one)
+                                                  all2one=all2one,
+                                                  paired=False)
                             data_info = (indicator[n] + 'of method '
                                          + method_name + 'for tests sets ')
                             message += self._print_compare_multiple(
                                 samples_names, output, all2one=all2one,
-                                extra_data_info=data_info
+                                extra_data_info=data_info, paired=False
                             )
             else:
                 raise error.WrongValueInput('Benchmark.compare', 'samples',
@@ -3620,7 +3717,7 @@ class Benchmark(exp.Experiment):
                 method = range(len(self.method))
             elif type(method) is str:
                 idx = self._search_method(method)
-                if idx == False:
+                if idx is False:
                     raise error.WrongValueInput('Benchmark.confint',
                                                 'method',
                                                 str([self.method[m].alias
@@ -3637,7 +3734,7 @@ class Benchmark(exp.Experiment):
                 method = [method]
             elif all(type(m) is str for m in method):
                 idx = self._search_method(method)
-                if idx == False:
+                if idx is False:
                     raise error.WrongValueInput('Benchmark.confint',
                                                 'method',
                                                 str([self.method[m].alias
@@ -3661,7 +3758,7 @@ class Benchmark(exp.Experiment):
                     testset = range(len(self.testset))
                 elif type(testset) is str:
                     idx = self._search_testset(testset)
-                    if idx == False:
+                    if idx is False:
                         raise error.WrongValueInput(
                             'Benchmark.confint', 'testset',
                             str([self.testset[t].alias for t in 
@@ -3677,7 +3774,7 @@ class Benchmark(exp.Experiment):
                     testset = [testset]
                 elif all(type(t) is str for t in testset):
                     idx = self._search_testset(testset)
-                    if idx == False:
+                    if idx is False:
                         raise error.WrongValueInput(
                             'Benchmark.confint', 'testset',
                             str([self.testset[t].name for t in
@@ -3949,11 +4046,11 @@ class Benchmark(exp.Experiment):
                             data = []
                             for m in method:
                                 data.append(
-                                    exp.final_value(indicator[n],
+                                    exp.final_value(ind,
                                                     self.results[m, t])
                                 )
                             sts.confintplot(data, axes=ax[n],
-                                            xlabel=rst.LABELS[indicator[n]],
+                                            xlabel=rst.LABELS[ind],
                                             ylabel=ylabel, title=tit[n],
                                             fontsize=fontsize)
                             n += 1
@@ -3962,11 +4059,11 @@ class Benchmark(exp.Experiment):
                             data = []
                             for t in testset:
                                 data.append(
-                                    exp.final_value(indicator[n],
+                                    exp.final_value(ind,
                                                     self.results[m, t])
                                 )
                             sts.confintplot(data, axes=ax[n],
-                                            xlabel=rst.LABELS[indicator[n]],
+                                            xlabel=rst.LABELS[ind],
                                             ylabel=ylabel, title=tit[n],
                                             fontsize=fontsize)
                             n += 1
@@ -3974,6 +4071,7 @@ class Benchmark(exp.Experiment):
         if print_info:
             print(message, file=print_obj)
         if plot_figure:
+            plt.tight_layout()
             if file_name is not None:
                 plt.savefig(file_path + file_name + '.' + file_format,
                             format=file_format, transparent=False)
@@ -3990,10 +4088,10 @@ class Benchmark(exp.Experiment):
                                        'str or str-list', str(type(name)))
         if type(name) is str:
             if self._single_testset:
-                return self.testset.name == name
+                return [self.testset.name == name]
             else:
-                for n in range(len(self.method)):
-                    if name == self.method[n].name:
+                for n in range(len(self.testset)):
+                    if name == self.testset[n].name:
                         return n
                 return False
         else:
@@ -4015,7 +4113,7 @@ class Benchmark(exp.Experiment):
                     return False
 
 
-def _run_testset(testset, method, discretization):
+def _run_testset(testset, method, discretization=None):
     results = []
     for n in range(testset.sample_size):
         results.append(method.solve(testset.test[n], discretization,

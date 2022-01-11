@@ -15,21 +15,22 @@ import evoalglib.representation as rpt
 class EvolutionaryAlgorithm(stc.Stochastic):
     def __init__(self, population_size, initialization, objective_function,
                  representation, mechanism, stop_criteria, outputmode,
-                 alias=None, parallelization=False, number_executions=1,
-                forward_solver=None):
-        if alias is None:
-            alias = 'ea'
-        super().__init__(outputmode, alias=alias,
-                         parallelization=parallelization,
-                         number_executions=number_executions)
-        self.name = 'Evolutionary Algorithm'
-        self.population_size = population_size
-        self.initiallization = initialization
-        self.objective_function = objective_function
-        self.representation = representation
-        self.mechanism = mechanism
-        self.forward = forward_solver
-        self.stop_criteria = stop_criteria
+                 alias='ea', parallelization=False, number_executions=1,
+                forward_solver=None, import_filename=None, import_filepath=''):
+        if import_filename is not None:
+            self.importdata(import_filename, import_filepath)
+        else:
+            super().__init__(outputmode, alias=alias,
+                             parallelization=parallelization,
+                             number_executions=number_executions)
+            self.name = 'Evolutionary Algorithm'
+            self.population_size = population_size
+            self.initiallization = initialization
+            self.objective_function = objective_function
+            self.representation = representation
+            self.mechanism = mechanism
+            self.forward = forward_solver
+            self.stop_criteria = stop_criteria
 
     def solve(self, inputdata, discretization=None, print_info=True,
               print_file=sys.stdout):
@@ -142,7 +143,7 @@ class EvolutionaryAlgorithm(stc.Stochastic):
                     message += 'evaluations: %d' % current_evaluations
                     print(message, file=print_file)
 
-        if print_info:
+        if print_info and iteration != base*10**power:
             message = 'Generation %d - ' % iteration
             message += 'fx: %.3e, ' % fopt
             message += 'evaluations: %d' % current_evaluations

@@ -181,8 +181,10 @@ class Experiment(ABC):
             message += 'Paired T-Test\n'
         elif not nonnormal and not paired and not equal_var:
             message += 'Welch Paired T-Test\n'
-        elif not nonnormal and nonnormal:
+        elif not paired and nonnormal:
             message += 'Mann-Whitney U test (Non-parametric)\n'
+        elif paired and nonnormal:
+            message += 'Wilcoxon Signed-Rank test (Non-parametric)\n'
         message += 'Data: ' + sample1_name + ' and ' + sample2_name
         if transformation is not None:
             message += ' (Transformation: ' + transformation + ')\n'
@@ -206,7 +208,7 @@ class Experiment(ABC):
         return message
 
     def _print_compare_multiple(self, samples_names, output, all2one=None,
-                                extra_data_info=None):
+                                extra_data_info=None, paired=False):
         statistic = output[0]
         pvalue=output[1]
         nonnormal=output[2]
@@ -215,11 +217,15 @@ class Experiment(ABC):
         all2all_out=output[5]
         all2one_out=output[6]
         message = ''
-        if not nonnormal and homocedascity:
+        if not nonnormal and paired:
+            message += 'Randomized Complete Block Design\n'
+        elif not nonnormal and homocedascity:
             message += 'One-Way Analysis of Variance\n'
         elif not nonnormal and not homocedascity:
             message += 'Welch One-Way Analysis of Variance\n'
-        elif nonnormal:
+        elif nonnormal and paired:
+            message += 'Friedman Rank Sum Test\n'
+        elif nonnormal and not paired:
             message += 'Kruskal-Wallis H-Test\n'
         message += 'Data: '
         if extra_data_info is not None:
@@ -234,12 +240,18 @@ class Experiment(ABC):
         message += 'Statistic: %.4f' % statistic + ', p-value: %.3e\n' % pvalue
         if all2all_out is not None:
             message += 'All-to-all comparison method: '
-            if not nonnormal and homocedascity:
+            if not nonnormal and paired:
+                message += ('Multiple Paired T-Test with Bonferroni '
+                            + 'correction\n')
+            elif not nonnormal and homocedascity:
                 message += "Tukey's Honest Significant Difference\n"
             elif not nonnormal and not homocedascity:
                 message += ('Multiple Welch Two Sample T-Test with Bonferroni '
                             + 'correction\n')
-            elif nonnormal:
+            elif nonnormal and paired:
+                message += ('Multiple Wilcoxon Signed-Rank test '
+                            + '(Non-parametric)\n')
+            elif nonnormal and not paired:
                 message += 'Multiple Mann-Whitney U test (Non-parametric)\n'
             n = 0
             for i in range(len(samples_names)-1):
@@ -280,12 +292,18 @@ class Experiment(ABC):
                     'int or str', str(type(all2one))
                 )
             message += 'All-to-one comparison method: '
-            if not nonnormal and homocedascity:
+            if not nonnormal and paired:
+                message += ('Multiple Paired T-Test with Bonferroni '
+                            + 'correction\n')
+            elif not nonnormal and homocedascity:
                 message += "Dunnett's Test\n"
             elif not nonnormal and not homocedascity:
                 message += ('Multiple Welch Two Sample T-Test with Bonferroni '
                             + 'correction\n')
-            elif nonnormal:
+            elif nonnormal and paired:
+                message += ('Multiple Wilcoxon Signed-Rank test '
+                            + '(Non-parametric)\n')
+            elif nonnormal and not paired:
                 message += 'Multiple Mann-Whitney U test (Non-parametric)\n'
             n = 0
             for i in range(len(samples_names)):

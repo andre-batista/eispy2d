@@ -7,6 +7,9 @@ At the end, the algorithms are run and the results are save for a-posteriori
 analysis.
 """
 
+import sys
+sys.path.insert(1, '../library/')
+
 # Import modules
 import bim
 import benchmark as bmk
@@ -52,7 +55,7 @@ population_size = 250
 variables_per_dimension = 7
 contrast_max = 1.
 total_max = 5.
-max_iterations = 5000
+max_iterations = 10000
 
 # Build configuration object
 config = cfg.Configuration(name='cfg_test',
@@ -119,7 +122,7 @@ methods = [ba.FirstOrderBornApproximation(reg.Tikhonov(1e-1),
                                      ),
                                      alias='de',
                                      parallelization=True,
-                                     number_executions=1,
+                                     number_executions=30,
                                      forward_solver=mom.MoM_CG_FFT())]
 
 # Define discretization

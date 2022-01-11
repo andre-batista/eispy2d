@@ -17,6 +17,7 @@ import numpy as np
 from numpy import random as rnd
 import pickle
 import error
+import configuration as cfg
 
 
 class ForwardSolver(ABC):
@@ -51,7 +52,7 @@ class ForwardSolver(ABC):
             Configuration object.
     """
 
-    def __init__(self):
+    def __init__(self, parallelization=False):
         """Create a forward solver object.
 
         Parameters
@@ -59,6 +60,7 @@ class ForwardSolver(ABC):
             None
         """
         self.name = None
+        self.parallelization = parallelization
 
     @abstractmethod
     def solve(self, inputdata, noise=None, PRINT_INFO=False,
@@ -105,14 +107,18 @@ class ForwardSolver(ABC):
         """Return the incident field for a given resolution."""
         return np.zeros((int, int), dtype=complex)
 
+    @abstractmethod
     def save(self, file_name, file_path=''):
         """Save simulation data."""
-        data = {
-            'name': self.name
-        }
+        return {'name': self.name,
+                'parallelization': self.parallelization}
 
-        with open(file_path + file_name, 'wb') as datafile:
-            pickle.dump(data, datafile)
+    @abstractmethod
+    def importdata(self, file_name, file_path=''):
+        data = cfg.import_dict(file_name, file_path)
+        self.name = data['name']
+        self.parallelization = data['parallelization']
+        return data
 
     @abstractmethod
     def __str__(self):

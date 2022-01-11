@@ -14,11 +14,15 @@ REGULARIZATION = 'regularization'
 FORWARD = 'forward'
 
 class FirstOrderBornApproximation(dtm.Deterministic):
-    def __init__(self, regularization, forward=mom.MoM_CG_FFT(), alias='ba'):
-        super().__init__(alias=alias, parallelization=False)
-        self.name = 'First-Order Born Approximation'
-        self.regularization = regularization
-        self.forward = forward
+    def __init__(self, regularization, forward=mom.MoM_CG_FFT(), alias='ba',
+                 import_filename=None, import_filepath=''):
+        if import_filename is not None:
+            self.importdata(import_filename, import_filepath)
+        else:
+            super().__init__(alias=alias, parallelization=False)
+            self.name = 'First-Order Born Approximation'
+            self.regularization = regularization
+            self.forward = forward
 
     def solve(self, inputdata, discretization, print_info=True,
               print_file=sys.stdout):

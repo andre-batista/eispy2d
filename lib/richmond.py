@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 from scipy.spatial.distance import pdist, cdist, squareform
 from numpy import pi
@@ -9,20 +10,32 @@ from scipy.interpolate import NearestNDInterpolator
 
 import configuration as cfg
 import regularization as reg
+import discretization as dct
 import collocation as clc
 import error
 
 
+GREENF_DATA = 'GS'
+GREENF_STATE = 'GD'
+
 class Richmond(clc.Collocation):
-    def __init__(self, configuration, elements, state=True):
-        super().__init__(configuration, 'pulse', elements)
-        self.GS = richmond_data(configuration, self.elements)
-        if state:
-            self.GD = richmond_state(configuration, self.elements)
+    def __init__(self, configuration=None, elements=None, state=True, alias='ric',
+                 import_filename=None, import_filepath=''):
+        if import_filename is not None:
+            self.importdata(import_filename, import_filepath)
         else:
-            self.GD = None
-        self.name = ('Richmond Method (%dx' % self.elements[0] + '%d)'
-                     % self.elements[1])
+            if configuration is None:
+                raise error.MissingInputError('Richmond.__init__',
+                                              'configuration')
+            super().__init__(configuration, 'pulse', elements, name=None,
+                             alias=alias)
+            self.GS = richmond_data(configuration, self.elements)
+            if state:
+                self.GD = richmond_state(configuration, self.elements)
+            else:
+                self.GD = None
+            self.name = ('Richmond Method (%dx' % self.elements[0] + '%d)'
+                         % self.elements[1])
     def residual_data(self, scattered_field, contrast=None, total_field=None,
                       current=None):
         Es, X, E, J = scattered_field, contrast, total_field, current
@@ -102,7 +115,7 @@ class Richmond(clc.Collocation):
         elif incident_field is not None:
             if self.GD is None:
                 raise error.MissingAttributesError('Richmond', 'GD')
-            elif (type(total_field) is bool and total_field == True
+            elif (type(total_field) is bool and total_field is True
                     and contrast is not None and current is None):
                 if linear_solver is not None:
                     K = clc.kernel_GDX(self.GD, X)
@@ -163,6 +176,9 @@ class Richmond(clc.Collocation):
                 for s in range(self.configuration.NS):
                     X[:, s] = J[:, s]/(Ei[:, s] + self.GD@J[:, s])
                 return X
+            elif (type(total_field) is bool and total_field is True
+                    and contrast is None and current is not None):
+                return Ei + self.GD@J
     def scattered_field(self, contrast=None, total_field=None, current=None):
         super().scattered_field(contrast=contrast, total_field=total_field,
                                 current=current)
@@ -251,8 +267,40 @@ class Richmond(clc.Collocation):
                 self.GD = None
             else:
                 self.GD = np.copy(new.GD)
+    def save(self, file_path=''):
+        data = {dct.NAME: self.name,
+                dct.ALIAS: self.alias,
+                dct.CONFIGURATION: self.configuration,
+                clc.TRIAL_FUNCTION: self.trial,
+                clc.ELEMENTS: self.elements,
+                GREENF_DATA: self.GS,
+                GREENF_STATE: self.GD}
+        with open(file_path + self.alias, 'wb') as datafile:
+            pickle.dump(data, datafile)
+    def importdata(self, file_name, file_path=''):
+        data = cfg.import_dict(file_name, file_path=file_path)
+        self.name = data[dct.NAME]
+        self.alias = data[dct.ALIAS]
+        self.configuration = data[dct.CONFIGURATION]
+        self.trial = data[clc.TRIAL_FUNCTION]
+        self.elements = data[clc.ELEMENTS]
+        self.GS = data[GREENF_DATA]
+        self.GD = data[GREENF_STATE]
+
     def __str__(self):
-        return self.name
+        message = 'Discretization: ' + self.name + '\n'
+        message += 'Alias: ' + self.alias + '\n'
+        message += "Green's Function for data space: "
+        if self.GS is not None:
+            message += "available\n"
+        else:
+            message += 'not available\n'
+        message += "Green's Function for state space: "
+        if self.GD is not None:
+            message += "available"
+        else:
+            message += 'not available'
+        return message
 
 
 def richmond_data(configuration, elements):
@@ -272,5 +320,5 @@ def richmond_state(configuration, elements):
     a = np.sqrt((x[0, 1]-x[0, 0])*(y[1, 0]-y[0, 0])/pi)
     R = squareform(pdist(np.transpose(np.vstack((x.flatten(), y.flatten())))))
     G = -1j*pi*kb*a/2*jv(1, kb*a)*h2v(0, kb*R)
-    np.fill_diagonal(G, -(1j/2)*(pi*kb*a*h2v(0, kb*a)-2j))
+    np.fill_diagonal(G, -(1j/2)*(pi*kb*a*h2v(1, kb*a)-2j))
     return G

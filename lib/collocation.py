@@ -1,18 +1,31 @@
+import error
+import pickle
 import numpy as np
 import discretization as dct
 from numba import jit
 
+TRIAL_FUNCTION = 'trial'
+ELEMENTS = 'elements'
 
 class Collocation(dct.Discretization):
-    def __init__(self, configuration, trial, elements, name=None):
-        super().__init__(configuration, name)
-        self.trial = trial
-        if type(elements) is int:
-            self.elements = (elements, elements)
+    def __init__(self, configuration=None, trial=None, elements=None,
+                 name=None, alias='clc', import_filename=None,
+                 import_filepath=''):
+        if import_filename is not None:
+            self.importdata(import_filename, import_filepath)
         else:
-            self.elements = (elements[0], elements[1])
-        self.name = ('Collocation Method (%dx' % self.elements[0] + '%d), '
-                     % self.elements[1] + 'trial function: ' + self.trial)
+            super().__init__(configuration=configuration, name=name,
+                             alias=alias)
+            self.trial = trial
+            if elements is None:
+                raise error.MissingInputError('Collocation.__init__',
+                                              'elements')
+            elif type(elements) is int:
+                self.elements = (elements, elements)
+            else:
+                self.elements = (elements[0], elements[1])
+            self.name = ('Collocation Method (%dx' % self.elements[0] + '%d), '
+                         % self.elements[1] + 'trial function: ' + self.trial)
     def copy(self, new=None):
         if new is None:
             return Collocation(self.configuration, self.trial, self.elements,
@@ -23,9 +36,19 @@ class Collocation(dct.Discretization):
             self.elements = new.elements
     def __str__(self):
         message = super().__str__()
-        message += self.name
+        message += 'Discretization:' + self.name + '\n'
+        message += 'Alias: ' + self.alias + '\n'
         return message
-
+    def save(self, file_path=''):
+        data = super().save(file_path=file_path)
+        data[TRIAL_FUNCTION] = self.trial
+        data[ELEMENTS] = self.elements
+        with open(file_path + self.alias, 'wb') as datafile:
+            pickle.dump(data, datafile)
+    def importdata(self, file_name, file_path=''):
+        data = super().importdata(file_name, file_path=file_path)
+        self.trial = data[TRIAL_FUNCTION]
+        self.elements = data[ELEMENTS]
 
 def kernel_GSE(GS, E):
     N, NS = E.shape

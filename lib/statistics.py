@@ -2,7 +2,7 @@ import warnings
 import numpy as np
 from numpy import std
 from matplotlib import pyplot as plt
-from scipy.stats import shapiro, boxcox, fligner, bartlett, ttest_ind
+from scipy.stats import shapiro, boxcox, fligner, friedmanchisquare, ttest_ind
 from scipy.stats import mannwhitneyu, wilcoxon, ttest_1samp, kruskal
 from scipy.stats import f as Fdist
 from scipy.stats import t as Tdist
@@ -19,6 +19,115 @@ import pingouin as pg
 
 import error
 import result as rst
+
+
+def rcbd(data, alpha=0.05):
+    r"""Randomized Complete Block Design"""
+    if type(data) is list:
+        y = np.array(data)
+    else:
+        y = np.copy(data)
+    a, b = y.shape
+    N = a*b
+    yid = np.sum(y, axis=1)
+    ydj = np.sum(y, axis=0)
+    ydd = np.sum(y)
+
+    SST = np.sum(y**2) - ydd**2/N
+    SSTreat = 1/b*np.sum(yid**2)-ydd**2/N
+    SSBlocks = 1/a*np.sum(ydj**2)-ydd**2/N
+    SSE = SST-SSTreat-SSBlocks
+
+    DOFnum = a-1
+    DOFden = (a-1)*(b-1)
+
+    MSTreat = SSTreat/(a-1)
+    MSE = SSE/((a-1)*(b-1))
+
+    F0 = MSTreat/MSE
+
+    alpha = 0.05
+
+    Fcrit = Fdist.ppf(1-alpha, DOFnum, DOFden)
+
+    pvalue = Fdist.sf(F0, DOFnum, DOFden)
+
+    return F0, pvalue, F0 < Fcrit
+
+
+def residuals(data, blocked=False):
+    if type(data) is np.ndarray:
+        y = data.tolist()
+    else:
+        y = data
+
+    a = len(data)
+    b = np.zeros(a, dtype=int)
+    for i in range(a):
+        b[i] = len(y[i])
+    N = np.sum(b)
+
+    if blocked is False:
+        means = np.zeros(a)
+        for i in range(a):
+            means[i] = np.mean(y[i])
+        res = np.zeros(N)
+        n = 0
+        for i in range(a):
+            for j in range(b[i]):
+                res[n] = y[i][j] - means[i]
+
+    else:
+        yid = np.zeros(a)
+        ydj = np.zeros(np.amax(b))
+        ydd = 0
+        for i in range(a):
+            yid[i] = np.sum(y[i])
+            for j in range(b[i]):
+                ydj[j] += y[i][j]
+                ydd += y[i][j]
+
+        yidb = yid/b
+        ydjb = ydj/a
+        yddb = ydd/N
+
+        res = np.zeros(N)
+        n = 0
+        for i in range(a):
+            for j in range(b[i]):
+                res[n] = y[i][j] - yidb[i] - ydjb[j] + yddb
+                n += 1
+
+    return res
+
+
+def ttest_paired(y1, y2, alternative='two-sided', alpha=0.05):
+    if y1.size != y2.size:
+        raise error.WrongTypeInput('ttest_paired', 'y1 and y2',
+                                   'y1.size == y2.size', 'y1.size == %d'
+                                   % y1.size + ' and y2.size == %d' % y2.size)
+    n = y1.size
+    d = y1-y2
+    dh = np.sum(d)/n
+    Sd = np.sqrt(np.sum((d-dh)**2)/(n-1))
+    t0 = dh/(Sd/np.sqrt(n))
+    if alternative == 'two-sided':
+        ta = Tdist.ppf(alpha/2, n-1)
+        tb = Tdist.ppf(1-alpha/2, n-1)
+        H0 = ta < t0 and t0 < tb
+        pvalue = 2*Tdist.cdf(-np.abs(t0), n-1)
+        confint = (dh-np.abs(ta)*Sd/np.sqrt(n), dh+tb*Sd/np.sqrt(n))
+    elif alternative == 'less':
+        tc = Tdist.ppf(alpha, n-1)
+        H0 = tc < t0
+        pvalue = Tdist.cdf(t0, n-1)
+        confint = ("-inf", dh+tc*Sd/np.sqrt(n))
+    elif alternative == 'greater':
+        tc = Tdist.ppf(1-alpha, n-1)
+        H0 = t0 < tc
+        pvalue = Tdist.sf(t0, n-1)
+        confint = (dh+np.abs(tc)*Sd/np.sqrt(n), "inf")
+    return t0, H0, pvalue, confint
 
 
 def factorial_analysis(data, alpha=0.05, group_names=None, ylabel=None):
@@ -317,7 +426,7 @@ def factorial_analysis(data, alpha=0.05, group_names=None, ylabel=None):
         return None
 
 
-def ttest_ind_nonequalvar(y1, y2, alpha=0.05):
+def ttest_ind_nonequalvar(y1, y2, alternative='two-sided', alpha=0.05):
     r"""Perform T-Test on independent samples with non-equal variances.
 
     Statistic test which compares two independent sample without
@@ -530,7 +639,7 @@ def fittedcurve(x, a, b, c):
     return a*x**b+c
 
 
-def data_transformation(data, residuals=False):
+def data_transformation(data, residuals_check=False, blocked=False):
     """Try data transformation for normal distribution assumptions.
 
     Currently, it only implements the Log and Square-Root
@@ -556,14 +665,14 @@ def data_transformation(data, residuals=False):
         Otherwise, it returns `None`.
     """
     # Try transformation over the data
-    if not residuals:
+    if not residuals_check:
 
         # Log Transformation
-        if shapiro(np.log(data))[1] > .05:
+        if all(d != 0 for d in data) and shapiro(np.log(data))[1] > .05:
             return np.log(data), 'log'
 
         # Square-root transformation
-        elif shapiro(np.sqrt(data))[1] > .05:
+        elif all(d > 0 for d in data) and shapiro(np.sqrt(data))[1] > .05:
             return np.sqrt(data), 'sqrt'
 
         # If both transformations fail
@@ -573,17 +682,7 @@ def data_transformation(data, residuals=False):
     # Try transformation over the residuals
     else:
 
-        # Compute the number of observations
-        N = 0
-        for m in range(len(data)):
-            N += data[m].size
-
-        # Compute the Log Transformation
-        res = np.zeros(N)
-        i = 0
-        for m in range(len(data)):
-            res[i:i+data[m].size] = np.log(data[m])-np.mean(np.log(data[m]))
-            i += data[m].size
+        res = residuals(np.log(data), blocked=blocked)
 
         # Try Log Transformation
         if shapiro(res)[1] > .05:
@@ -592,11 +691,7 @@ def data_transformation(data, residuals=False):
             return data, 'log'
 
         # Compute Square-Root Transformation
-        res = np.zeros(N)
-        i = 0
-        for m in range(len(data)):
-            res[i:i+data[m].size] = np.sqrt(data[m])-np.mean(np.sqrt(data[m]))
-            i += data[m].size
+        res = residuals(np.sqrt(data), blocked=blocked)
 
         # Try Square-Root Transformation
         if shapiro(res)[1] > .05:
@@ -764,7 +859,7 @@ def confint(data, alpha=.05, alternative="two-sided"):
 
 
 def confintplot(data, axes=None, xlabel=None, ylabel=None, title=None,
-                fontsize=10, confidence_level=0.95):
+                fontsize=10, confidence_level=0.95, xscale=None):
     """Plot the confidence interval of means.
 
     This routine plots a figure comparing the confidence interval of
@@ -845,6 +940,8 @@ def confintplot(data, axes=None, xlabel=None, ylabel=None, title=None,
         axes.set_ylim(ymin=-1, ymax=len(y))
     if title is not None:
         axes.set_title(title, fontsize=fontsize)
+    if xscale is not None:
+        axes.set_xscale(xscale)
 
     return fig, axes
 
@@ -1112,7 +1209,7 @@ def compare2samples(x1, x2, paired=False):
     return statistic, pvalue, alternative, delta, nonnormal, transf, equal_var
 
 
-def compare_multiple(data, all2all=False, all2one=None):
+def compare_multiple(data, all2all=False, all2one=None, paired=False):
     if type(data) is np.ndarray:
         samples = [data[n, :] for n in range(data.shape[0])]
     elif type(data) is not list and all(type(d) is np.ndarray for d in data):
@@ -1121,12 +1218,10 @@ def compare_multiple(data, all2all=False, all2one=None):
     else:
         samples = data.copy()
     NS = len(samples)
-    residuals = []
-    for s in range(NS):
-        for n in range(len(samples[s])):
-            residuals.append(samples[s][n]-np.mean(samples[s]))
-    if shapiro(residuals)[1] < .05:
-        out = data_transformation(samples, residuals=True)
+    res = residuals(samples, blocked=paired)
+    if shapiro(res)[1] < .05:
+        out = data_transformation(samples, residuals_check=True,
+                                  blocked=paired)
         if out is None:
             nonnormal, transf = True, None
         else:
@@ -1136,24 +1231,37 @@ def compare_multiple(data, all2all=False, all2one=None):
         nonnormal = False
         transf = None
     if not nonnormal:
-        residuals = []
-        for s in range(NS):
-            residuals.append([])
-            for n in range(len(samples[s])):
-                residuals[s].append(samples[s][n]-np.mean(samples[s]))
-        if fligner(*residuals)[1] > .05:
+        if fligner(*samples)[1] > .05:
             homocedascity = True
-            output = anova(samples, use_var='equal')
+            if paired:
+                statistic, pvalue, _ = rcbd(samples, alpha=0.05)
+            else:
+                output = anova(samples, use_var='equal')
+                statistic, pvalue = output.statistic, output.pvalue
         else:
-            output = anova(samples, use_var='unequal')
+            if paired:
+                statistic, pvalue, _ = rcbd(samples, alpha=0.05)
+            else:
+                output = anova(samples, use_var='unequal')
+                statistic, pvalue = output.statistic, output.pvalue
             homocedascity = False
-        statistic, pvalue = output.statistic, output.pvalue
     else:
-        statistic, pvalue = kruskal(*samples)
+        if paired:
+            statistic, pvalue = friedmanchisquare(*samples)
+        else:
+            statistic, pvalue = kruskal(*samples)
         homocedascity = None
     if all2all:
+        all2all_out = []
         if not nonnormal:
-            if homocedascity:
+            if paired:
+                alpha = 0.05/(NS*(NS-1)/2)
+                for i in range(NS-1):
+                    for j in range(i+1, NS):
+                        output = ttest_paired(samples[i], samples[j],
+                                              alpha=alpha)
+                        all2all_out.append((output[1], output[2], output[3])) # H0, p-value, confint
+            elif homocedascity:
                 aux, groups = [], []
                 for n in range(NS):
                     for i in range(len(samples[n])):
@@ -1161,14 +1269,13 @@ def compare_multiple(data, all2all=False, all2one=None):
                         groups.append('%d' %n)
                 aux, groups = np.array(aux), np.array(groups)
                 output = MultiComparison(aux, groups).tukeyhsd(alpha=.05)
-                all2all_out = []
+                
                 for n in range(len(output.reject)):
                     all2all_out.append((not output.reject[n],
                                         output.pvalues[n],
                                         output.confint[n])) # H0, p-value, confint
             else:
                 alpha = 0.05/(NS*(NS-1)/2)
-                all2all_out = []
                 for i in range(NS-1):
                     for j in range(i+1, NS):
                         output = ttest_ind_nonequalvar(samples[i], samples[j],
@@ -1176,10 +1283,15 @@ def compare_multiple(data, all2all=False, all2one=None):
                         all2all_out.append((output[0], output[2], output[4])) # H0, p-value, confint
                 
         else:
-            all2all_out = []
-            for i in range(NS-1):
-                for j in range(i+1, NS):
-                    all2all_out.append(mannwhitneyu(samples[i], samples[j])[1]) # p-value
+            if paired:
+                for i in range(NS-1):
+                    for j in range(i+1, NS):
+                        all2all_out.append(wilcoxon(samples[i], samples[j])[1]) # p-value
+            else:
+                for i in range(NS-1):
+                    for j in range(i+1, NS):
+                        all2all_out.append(mannwhitneyu(samples[i],
+                                                        samples[j])[1]) # p-value
     else:
         all2all_out = None
     if all2one is not None:
@@ -1191,7 +1303,15 @@ def compare_multiple(data, all2all=False, all2one=None):
                                         'all2one', '0 <= all2one < %d' % NS,
                                         str(all2one))
         if not nonnormal:
-            if homocedascity:
+            if paired:
+                alpha = 0.05/(NS-1)
+                all2one_out = []
+                for n in range(NS):
+                    if n != all2one:
+                        output = ttest_paired(samples[all2one], samples[n],
+                                              alpha=alpha)
+                        all2one_out.append(output[1], output[2], output[3]) # H0, p-value, confint
+            elif homocedascity:
                 y0 = samples[all2one]
                 y = []
                 for n in range(NS):
@@ -1208,10 +1328,16 @@ def compare_multiple(data, all2all=False, all2one=None):
                         all2one_out.append(output[0], output[2], output[4]) # H0, p-value, confint
         else:
             all2one_out = []
-            for n in range(NS):
-                if n != all2one:
-                    all2one_out.append(mannwhitneyu(samples[all2one],
+            if paired:
+                for n in range(NS):
+                    if n != all2one:
+                        all2one_out.append(wilcoxon(samples[all2one],
                                                     samples[n])[1]) # p-value
+            else:
+                for n in range(NS):
+                    if n != all2one:
+                        all2one_out.append(mannwhitneyu(samples[all2one],
+                                                        samples[n])[1]) # p-value
     else:
         all2one_out = None
     return (statistic, pvalue, nonnormal, transf, homocedascity, all2all_out,

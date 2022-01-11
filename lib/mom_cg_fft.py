@@ -16,6 +16,7 @@ References
 """
 
 import time
+import pickle
 import numpy as np
 from numpy import linalg as lag
 from numpy import fft
@@ -45,7 +46,8 @@ class MoM_CG_FFT(fwr.ForwardSolver):
             Tolerance level of error.
     """
 
-    def __init__(self, tolerance=1e-3, maximum_iterations=5000):
+    def __init__(self, tolerance=1e-3, maximum_iterations=5000,
+                 parallelization=True):
         """Create the object.
 
         Parameters
@@ -65,7 +67,7 @@ class MoM_CG_FFT(fwr.ForwardSolver):
             maximum_iteration : int, default: 10000
                 Maximum number of iterations.
         """
-        super().__init__()
+        super().__init__(parallelization=parallelization)
         self.TOL = tolerance
         self.MAX_IT = maximum_iterations
         self.name = 'Method of Moments - CG-FFT'
@@ -185,21 +187,24 @@ class MoM_CG_FFT(fwr.ForwardSolver):
             et = np.zeros((N, NS), dtype=complex)
             niter = np.zeros(NS)
             error = np.zeros((self.MAX_IT, NS))
-            num_cores = multiprocessing.cpu_count()
 
-            results = (Parallel(n_jobs=num_cores)(delayed(self.CG_FFT)
-                                                  (G,
-                                                   b[:, ns].reshape((-1, 1)),
-                                                   NX, NY, 1,
-                                                   Xr,
-                                                   self.MAX_IT, self.TOL,
-                                                   False)
-                                                  for ns in range(NS)))
+            if self.parallelization is True:
+                num_cores = multiprocessing.cpu_count()
 
-            for ns in range(NS):
-                et[:, ns] = results[ns][0].flatten()
-                niter[ns] = results[ns][1]
-                error[:, ns] = results[ns][2].flatten()
+                results = (Parallel(n_jobs=num_cores)(delayed(self.CG_FFT)(
+                    G, b[:, ns].reshape((-1, 1)), NX, NY, 1, Xr, self.MAX_IT,
+                    self.TOL, False
+                ) for ns in range(NS)))
+
+                for ns in range(NS):
+                    et[:, ns] = results[ns][0].flatten()
+                    niter[ns] = results[ns][1]
+                    error[:, ns] = results[ns][2].flatten()
+
+            else:
+                et, niter, error = self.CG_FFT(G, b, NX, NY, NS, Xr,
+                                               self.MAX_IT, self.TOL,
+                                               PRINT_INFO)
 
             time_cg_fft = time.time()-tic
             if PRINT_INFO:
@@ -209,24 +214,33 @@ class MoM_CG_FFT(fwr.ForwardSolver):
             et = np.zeros((N, NS, NF), dtype=complex)
             niter = np.zeros(NF)
             error = np.zeros((self.MAX_IT, NF))
-            num_cores = multiprocessing.cpu_count()
+            if self.parallelization is True:
+                num_cores = multiprocessing.cpu_count()
 
-            results = (Parallel(n_jobs=num_cores)(delayed(self.CG_FFT)
-                                                  (np.squeeze(G[:, :, nf]),
-                                                   np.squeeze(b[:, :, nf]),
-                                                   NX, NY, NS,
-                                                   np.squeeze(Xr[:, :, nf]),
-                                                   self.MAX_IT, self.TOL,
-                                                   False)
-                                                  for nf in range(NF)))
+                results = (Parallel(n_jobs=num_cores)(delayed(self.CG_FFT)(
+                    np.squeeze(G[:, :, nf]), np.squeeze(b[:, :, nf]), NX, NY,
+                    NS, np.squeeze(Xr[:, :, nf]), self.MAX_IT, self.TOL, False
+                ) for nf in range(NF)))
 
-            for nf in range(NF):
-                et[:, :, nf] = results[nf][0]
-                niter[nf] = results[nf][1]
-                error[:, nf] = results[nf][2]
-                print('Frequency: %.3f ' % (f[nf]/1e9) + '[GHz] - '
-                      + 'Number of iterations: %d - ' % (niter[nf]+1)
-                      + 'Error: %.3e' % error[int(niter[nf]), nf])
+                for nf in range(NF):
+                    et[:, :, nf] = results[nf][0]
+                    niter[nf] = results[nf][1]
+                    error[:, nf] = results[nf][2]
+                    print('Frequency: %.3f ' % (f[nf]/1e9) + '[GHz] - '
+                          + 'Number of iterations: %d - ' % (niter[nf]+1)
+                          + 'Error: %.3e' % error[int(niter[nf]), nf])
+            else:
+                for nf in range(NF):
+                    results = self.CG_FFT(np.squeeze(G[:, :, nf]),
+                                          np.squeeze(b[:, :, nf]), NX, NY, NS,
+                                          np.squeeze(Xr[:, :, nf]),
+                                          self.MAX_IT, self.TOL, PRINT_INFO)
+                    et[:, :, nf] = results[0]
+                    niter[nf] = results[1]
+                    error[:, nf] = results[2]
+                    print('Frequency: %.3f ' % (f[nf]/1e9) + '[GHz] - '
+                          + 'Number of iterations: %d - ' % (niter[nf]+1)
+                          + 'Error: %.3e' % error[int(niter[nf]), nf])
 
         if SAVE_INTERN_FIELD:
             inputdata.total_field = np.conj(et)
@@ -254,6 +268,18 @@ class MoM_CG_FFT(fwr.ForwardSolver):
 
         else:
             return np.conj(et), np.conj(ei)
+
+    def save(self, file_name, file_path=''):
+        data = super().save()
+        data['tolerance'] = self.TOL
+        data['maximum_iterations'] = self.MAX_IT
+        with open(file_path + file_name, 'wb') as datafile:
+            pickle.dump(data, datafile)
+
+    def importdata(self, file_name, file_path=''):
+        data = super().importdata(file_name, file_path=file_path)
+        self.TOL = data['tolerance']
+        self.MAX_IT = data['maximum_iterations']
 
     def __get_extended_matrix(self, Rmn, kb, an, NX, NY):
         """Return the extended matrix of Method of Moments.

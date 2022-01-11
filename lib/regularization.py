@@ -44,13 +44,33 @@ class Tikhonov(Regularization):
             self.alpha = None
     def solve(self, K, y):
         if self.choice == TIK_FIXED:
-            return tikhonov(K, y, self.alpha)
+            if y.ndim == 1:
+                return tikhonov(K, y, self.alpha)
+            elif y.dim == 2:
+                x = np.zeros((K.shape[1], y.shape[1]), dtype=K.dtype)
+                for n in range(y.shape[1]):
+                    x[:, n] = tikhonov(K, y[:, n].flatten(), self.alpha)
+                return x
         elif self.choice == TIK_MOZOROV:
-            alpha = mozorov_choice(K, y)
-            return tikhonov(K, y, alpha)
+            if y.ndim == 1:
+                alpha = mozorov_choice(K, y)
+                return tikhonov(K, y, alpha)
+            elif y.ndim == 2:
+                x = np.zeros((K.shape[1], y.shape[1]), dtype=K.dtype)
+                for n in range(y.shape[1]):
+                    alpha = mozorov_choice(K, y[:, n].flatten())
+                    x[:, n] = tikhonov(K, y[:, n].flatten(), alpha)
+                return x
         elif self.choice == TIK_LCURVE:
-            alpha = lcurve_choice(K, y)
-            return tikhonov(K, y, alpha)
+            if y.ndim == 1:
+                alpha = lcurve_choice(K, y)
+                return tikhonov(K, y, alpha)
+            elif y.ndim == 2:
+                x = np.zeros((K.shape[1], y.shape[1]), dtype=K.dtype)
+                for n in range(y.shape[1]):
+                    alpha = lcurve_choice(K, y[:, n].flatten())
+                    x[:, n] = tikhonov(K, y[:, n].flatten(), alpha)
+                return x
     def __str__(self):
         message = super().__str__()
         message += 'Tikhonov\n'
@@ -65,7 +85,15 @@ class Landweber(Regularization):
         super().__init__()
         self.M = iterations
     def solve(self, K, y):
-        return landweber(K, y, self.M)
+        if y.ndim == 1:
+            x = np.zeros(K.shape[1], dtype=K.dtype)
+            return landweber(K, y, x, self.M)
+        elif y.ndim == 2:
+            x = np.zeros((K.shape[1], y.shape[1]), dtype=K.dtype)
+            for n in range(y.shape[1]):
+                t = np.zeros(K.shape[1], dtype=K.dtype)
+                x[:, n] = landweber(K, y[:, n].flatten(), t, self.M)
+            return x
     def __str__(self):
         message = super().__str__()
         message += 'Landweber\n'
@@ -78,7 +106,13 @@ class ConjugatedGradient(Regularization):
         super().__init__()
         self.M = iterations
     def solve(self, K, y):
-        return conjugated_gradient(K, y, self.M)
+        if y.ndim == 1:
+            return conjugated_gradient(K, y, self.M)
+        elif y.ndim == 2:
+            x = np.zeros((K.shape[1], y.shape[1]), dtype=K.dtype)
+            for n in range(y.shape[1]):
+                x[:, n] = conjugated_gradient(K, y[:, n].flatten(), self.M)
+            return x
     def __str__(self):
         message = super().__str__()
         message += 'Conjugated Gradient\n'
@@ -86,17 +120,57 @@ class ConjugatedGradient(Regularization):
         return message
 
 
-class SpectralCutOff(Regularization):
-    def __init__(self, threshold):
+class LeastSquares(Regularization):
+    def __init__(self, cutoff=None):
         super().__init__()
-        self.alpha = threshold
+        self.cutoff = cutoff
     def solve(self, K, y):
-        return spectral_cutoff(K, y, self.alpha)
+        if y.ndim == 1:
+            return least_squares(K, y, self.cutoff)
+        elif y.ndim == 2:
+            x = np.zeros((K.shape[1], y.shape[1]), dtype=K.dtype)
+            for n in range(y.shape[1]):
+                x[:, n] = least_squares(K, y[:, n].flatten(), self.cutoff)
+            return x
     def __str__(self):
         message = super().__str__()
-        message += 'Spectral Cut-Off\n'
-        message += 'Threshold level: %.3e' % self.alpha
+        message += 'Least Squares\n'
+        message += 'Cut-Off ratio: %.3e' % self.alpha
         return message
+
+
+class SingularValueDecomposition(Regularization):
+    def __init__(self, tikhonov=.0, cutoff=.0):
+        super().__init__()
+        self.tikhonov = tikhonov
+        self.cutoff = cutoff
+    def solve(self, K=None, y=None, U=None, s=None, V=None):
+        if K is not None and y is not None:
+            if y.ndim == 1:
+                return svd(K=K, y=y, alpha=self.tikhonov, min_sv=self.cutoff)
+            elif y.ndim == 2:
+                x = np.zeros((K.shape[1], y.shape[1]), dtype=K.dtype)
+                for n in range(y.shape[1]):
+                    x[:, n] = svd(K=K, y=y[:, n].flatten(),
+                                  alpha=self.tikhonov, min_sv=self.cutoff)
+                return x
+        elif (y is not None and U is not None and s is not None
+                and V is not None):
+            if y.ndim == 1:
+                return svd(U=U, s=s, V=V, y=y, alpha=self.tikhonov,
+                           min_sv=self.cutoff)
+            elif y.ndim == 2:
+                x = np.zeros((V.shape[1], y.shape[1]), dtype=K.dtype)
+                for n in range(y.shape[1]):
+                    x[:, n] = svd(U=U, s=s, V=V, y=y[:, n].flatten(),
+                                  alpha=self.tikhonov, min_sv=self.cutoff)
+                return x
+    def __str__(self):
+        message = super().__str__()
+        message += 'Singular Value Decomposition\n'
+        message += 'Tikhonov Regularization Parameter: %.1e\n' % self.tikhonov
+        message += 'Singular value cut-off ratio: %.1e\n' % self.cutoff
+        return message 
 
 
 @jit(nopython=True)
@@ -255,7 +329,8 @@ def lcurve_choice(K, y, bounds=(-20, 0), number_terms=21):
         f2[i] = lag.norm(x)
 
     # Normalization
-    f1, f2 = f1/np.amax(f1), f2/np.amax(f2)
+    f1 = (f1-np.amin(f1))/(np.amax(f1)-np.amin(f1))
+    f2 = (f2-np.amin(f2))/(np.amax(f2)-np.amin(f2))
 
     # Best solution (Closest solution to the utopic one)
     knee = np.argmin(np.sqrt(f1**2 + f2**2))
@@ -263,7 +338,7 @@ def lcurve_choice(K, y, bounds=(-20, 0), number_terms=21):
 
 
 @jit(nopython=True, parallel=True)
-def landweber(K, y, iterations):
+def landweber(K, y, x, iterations):
     r"""Perform the Landweber regularization.
 
     Solve the linear ill-posed system through Landweber regularization
@@ -288,7 +363,6 @@ def landweber(K, y, iterations):
        of inverse problems. Vol. 120. Springer Science & Business Media,
        2011.
     """
-    x = np.zeros(K.shape[1])
     a = 1/lag.norm(K)**2
     for m in range(iterations):
         x = x + a*K.T.conj()@(y-K@x)
@@ -328,20 +402,22 @@ def conjugated_gradient(K, y, iterations):
        2011.
     """
     p = -K.conj().T@y
-    x = np.zeros(K.shape[1], dtype=complex)
+    x = 0j*np.zeros(K.shape[1])
     for m in range(iterations):
         Kp = K@p
         res = K@x-y
-        tm = np.inner(res, np.conj(Kp))/lag.norm(Kp)**2
+        tm = np.sum(res * np.conj(Kp))/np.sum(np.abs(Kp)**2)
+        # tm = np.inner(res, np.conj(Kp))/lag.norm(Kp)**2
         x = x - tm*p
         Kres = K.conj().T@(K@x-y)
-        gamma = (lag.norm(Kres)**2/lag.norm(K.conj().T@res)**2)
+        gamma = np.sum(np.abs(Kres)**2)/np.sum(np.abs(K.conj().T@res))
+        # gamma = (lag.norm(Kres)**2/lag.norm(K.conj().T@res)**2)
         p = Kres + gamma*p
     return x
 
 
 @jit(nopython=True)
-def spectral_cutoff(K, y, alpha):
+def least_squares(K, y, cutoff):
     """Return the Spectral Cut-off solution to a linear matrix equation.
 
     See explanation at `<https://numpy.org/doc/stable/reference
@@ -358,4 +434,36 @@ def spectral_cutoff(K, y, alpha):
         alpha : float
             Truncation level of singular values.
     """
-    return lag.lstsq(K, y, alpha)[0]
+    return lag.lstsq(K, y, rcond=cutoff)[0]
+
+@jit(nopython=True)
+def svd(K=None, y=None, alpha=None, min_sv=None, U=None, s=None, V=None):
+    if K is not None and y is None:
+        U, s, Vh = lag.svd(K)
+        V = np.transpose(np.conj(Vh))
+        return U, s, V
+    elif K is not None and y is not None:
+        if alpha is None:
+            alpha = 0.
+        if min_sv is None:
+            min_sv = 1e-50
+        U, s, Vh = lag.svd(K)
+        V = np.transpose(np.conj(Vh))
+        x = s[0]/(s[0]**2 + alpha)*np.sum(y*np.conj(U[0, :]))*V[0, :]
+        for n in range(1, s.size):
+            if s[n] < min_sv:
+                break
+            x += s[n]/(s[n]**2 + alpha)*np.sum(y*np.conj(U[n, :]))*V[n, :]
+        return x
+    elif (K is None and y is not None and U is not None and s is not None
+            and V is not None):
+        if alpha is None:
+            alpha = 0.
+        if min_sv is None:
+            min_sv = 1e-50
+        x = s[0]/(s[0]**2 + alpha)*np.sum(y*np.conj(U[0, :]))*V[0, :]
+        for n in range(1, s.size):
+            if s[n] < min_sv:
+                break
+            x += s[n]/(s[n]**2 + alpha)*np.sum(y*np.conj(U[n, :]))*V[n, :]
+        return x

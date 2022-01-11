@@ -11,6 +11,9 @@ be executed.
 
 """
 
+import sys
+sys.path.insert(1, '../library/')
+
 # Import modules
 import numpy as np
 from numpy import random as rnd

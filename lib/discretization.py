@@ -1,10 +1,23 @@
 import error
+import configuration as cfg
 from abc import ABC, abstractmethod
 
+NAME = 'name'
+ALIAS = 'alias'
+CONFIGURATION = 'configuration'
+
 class Discretization(ABC):
-    def __init__(self, configuration, name=None):
-        self.configuration = configuration.copy()
-        self.name = None
+    def __init__(self, configuration=None, name=None, alias='',
+                 import_filename=None, import_filepath=''):
+        if import_filename is not None:
+            self.importdata(import_filename, import_filepath)
+        else:
+            if configuration is not None:
+                self.configuration = configuration.copy()
+            else:
+                self.configuration = None
+            self.name = name
+            self.alias = alias
     @abstractmethod
     def residual_data(self, scattered_field, contrast=None, total_field=None,
                       current=None):
@@ -57,6 +70,18 @@ class Discretization(ABC):
         else:
             self.name = new.name
             self.configuration = new.configuration
+    @abstractmethod
+    def save(self, file_path=''):
+        return {NAME: self.name,
+                ALIAS: self.alias,
+                CONFIGURATION: self.configuration}
+    @abstractmethod
+    def importdata(self, file_name, file_path=''):
+        data = cfg.import_dict(file_name, file_path)
+        self.name = data[NAME]
+        self.alias = data[ALIAS]
+        self.configuration = data[CONFIGURATION]
+        return data
     @abstractmethod
     def __str__(self):
         return "Discretization: "
