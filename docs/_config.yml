@@ -58,7 +58,7 @@ plugins:
 author:
   name   : "eispy2d"
   avatar : "/assets/images/logo.png"
-  bio    : "Open-Source Python Library for algorithms for Electromagnetic Inverse Scattering Problems."
+  bio    : "Open-Source Python Library for developing and testing algorithms for Electromagnetic Inverse Scattering Problems."
   links:
     - label: "Email"
       icon: "fas fa-fw fa-envelope-square"
