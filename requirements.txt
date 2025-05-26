@@ -1,9 +1,0 @@
-numba
-numpy
-scipy
-matplotlib
-joblib
-statsmodels
-scikit-image
-pingouin
-ipykernel
