@@ -1,6 +1,6 @@
 import error
 import numpy as np
-from numpy import NaN
+from numpy import nan as NaN
 from evoalglib.mechanism import Mechanism, get_indexes
 
 

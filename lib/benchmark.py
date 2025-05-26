@@ -13,7 +13,7 @@ import inputdata as ipt
 import experiment as exp
 import testset as tst
 import stochastic as stc
-import statistics as sts
+import statisticsutils as sts
 import error
 
 TESTSET = 'testset'

@@ -12,7 +12,7 @@ be executed.
 """
 
 import sys
-sys.path.insert(1, '../library/')
+sys.path.insert(1, '../lib/')
 
 # Import modules
 import numpy as np

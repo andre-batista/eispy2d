@@ -1,5 +1,5 @@
 import numpy as np
-from numpy import NaN
+from numpy import nan as NaN
 from abc import ABC, abstractmethod
 from numpy.random import normal, rand
 

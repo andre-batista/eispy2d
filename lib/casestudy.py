@@ -11,7 +11,7 @@ import result as rst
 import experiment as exp
 import deterministic as dtm
 import stochastic as stc
-import statistics as sts
+import statisticsutils as sts
 import error
 
 TEST = 'test'
