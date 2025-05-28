@@ -1,18 +1,24 @@
-r"""Method of Moments - Conjugate-Gradient FFT Method.
+r"""Analytical Solution for Electromagnetic Scattering by Cylinders.
 
-This module provides the implementation of Method of Moments (MoM) with
-the Conjugated-Gradient FFT formulation. It solves the forward problem
-following the Forward Solver abstract class.
+This module provides the analytical solution for electromagnetic scattering
+by dielectric and conducting cylinders. It solves the forward problem
+following the Forward Solver abstract class using exact mathematical
+formulations based on cylindrical wave expansions.
+
+The implementation supports both perfect dielectric and perfect conductor
+cylinders, providing exact solutions that can be used for validation of
+numerical methods and benchmarking purposes.
 
 References
 ----------
-.. [1] P. Zwamborn and P. M. van den Berg, "The three dimensional weak
-   form of the conjugate gradient FFT method for solving scattering
-   problems," in IEEE Transactions on Microwave Theory and Techniques,
-   vol. 40, no. 9, pp. 1757-1766, Sept. 1992, doi: 10.1109/22.156602.
+.. [1] Chew, Weng Cho. "Waves and fields in inhomogeneous media." 
+   IEEE press, 1995.
 
-.. [2] Chen, Xudong. "Computational methods for electromagnetic inverse
-   scattering". John Wiley & Sons, 2018.
+.. [2] Balanis, Constantine A. "Advanced engineering electromagnetics." 
+   John Wiley & Sons, 2012.
+
+.. [3] Harrington, Roger F. "Time-harmonic electromagnetic fields." 
+   IEEE press, 2001.
 """
 
 import pickle
@@ -31,38 +37,34 @@ PERFECT_CONDUCTOR_PROBLEM = 'perfect_conductor'
 
 
 class Analytical(fwr.ForwardSolver):
-    """Method of Moments - Conjugated-Gradient FFT Method.
+    """Analytical Solution for Electromagnetic Scattering by Cylinders.
 
-    This class implements the Method of Moments following the
-    Conjugated-Gradient FFT formulation.
+    This class implements analytical solutions for electromagnetic scattering
+    by dielectric and perfectly conducting cylinders using cylindrical wave
+    expansions. It provides exact solutions that can be used for validation
+    of numerical methods and benchmarking purposes.
 
     Attributes
     ----------
-        MAX_IT : int
-            Maximum number of iterations.
-        TOL : float
-            Tolerance level of error.
+    name : str
+        Name identifier for the solver.
+    contrast : float or None
+        Relative permittivity contrast of the cylinder.
+    radius : float or None
+        Radius of the cylinder in wavelengths.
     """
 
     def __init__(self, contrast=None, radius=None):
-        """Create the object.
+        """Create the analytical solver object.
 
         Parameters
         ----------
-            configuration : string or :class:`Configuration`:Configuration
-                Either a configuration object or a string with the name
-                of file in which the configuration is saved. In this
-                case, the file path may also be provided.
-
-            configuration_filepath : string, optional
-                A string with the path to the configuration file (when
-                the file name is provided).
-
-            tolerance : float, default: 1e-6
-                Minimum error tolerance.
-
-            maximum_iteration : int, default: 10000
-                Maximum number of iterations.
+        contrast : float, optional
+            Relative permittivity contrast of the dielectric cylinder.
+            Required for perfect dielectric problems.
+        radius : float, optional
+            Radius of the cylinder in wavelengths. Required for both
+            dielectric and conductor problems.
         """
         super().__init__()
         self.name = "Analytical Solution to Cylinder Scattering"
@@ -72,21 +74,21 @@ class Analytical(fwr.ForwardSolver):
     def incident_field(self, resolution, configuration):
         """Compute the incident field matrix.
 
-        Given the configuration information stored in the object, it
-        computes the incident field matrix considering plane waves in
-        different from different angles.
+        Computes the incident field matrix for plane waves from different
+        angles based on the configuration parameters.
 
         Parameters
         ----------
-            resolution : 2-tuple
-                The image size of D-domain in pixels (y and x).
+        resolution : 2-tuple
+            The image size of D-domain in pixels (y, x).
+        configuration : Configuration
+            Configuration object containing problem parameters.
 
         Returns
         -------
-            ei : :class:`numpy.ndarray`
-                Incident field matrix. The rows correspond to the points
-                in the image following `C`-order and the columns
-                corresponds to the sources.
+        ei : numpy.ndarray
+            Incident field matrix. Rows correspond to points in the image
+            following C-order and columns correspond to sources.
         """
         NY, NX = resolution
         phi = cfg.get_angles(configuration.NS)
@@ -114,7 +116,29 @@ class Analytical(fwr.ForwardSolver):
 
     def solve(self, inputdata, noise=None, PRINT_INFO=False,
               COMPUTE_SCATTERED_FIELD=True, SAVE_INTERN_FIELD=True):
-        """Summarize the method."""
+        """Solve the analytical scattering problem.
+
+        Determines the problem type (dielectric or conductor) and calls
+        the appropriate analytical solution method.
+
+        Parameters
+        ----------
+        inputdata : InputData
+            Input data object containing configuration and problem setup.
+        noise : float, optional
+            Noise level to add to scattered field (not used in this method).
+        PRINT_INFO : bool, default: False
+            Print iteration information (not used in analytical solution).
+        COMPUTE_SCATTERED_FIELD : bool, default: True
+            Compute scattered field (not used in this method).
+        SAVE_INTERN_FIELD : bool, default: True
+            Save the total field in the D-domain.
+
+        Raises
+        ------
+        WrongValueInput
+            If neither perfect_dielectric nor good_conductor is True.
+        """
         
         if inputdata.configuration.perfect_dielectric:
             self.dielectric_cylinder(inputdata,
@@ -135,30 +159,24 @@ class Analytical(fwr.ForwardSolver):
 
     def dielectric_cylinder(self, inputdata, SAVE_INTERN_FIELD=True,
                             SAVE_MAP=False):
-        """Solve the forward problem.
+        """Solve scattering by a dielectric cylinder analytically.
+
+        Computes the analytical solution for electromagnetic scattering
+        by a dielectric cylinder using cylindrical wave expansions.
 
         Parameters
         ----------
-            scenario : :class:`inputdata:InputData`
-                An object describing the dielectric property map.
+        inputdata : InputData
+            Input data object containing configuration and problem setup.
+        SAVE_INTERN_FIELD : bool, default: True
+            Save the total field in the D-domain.
+        SAVE_MAP : bool, default: False
+            Save the relative permittivity map.
 
-            PRINT_INFO : boolean, default: False
-                Print iteration information.
-
-            COMPUTE_INTERN_FIELD : boolean, default: True
-                Compute the total field in D-domain.
-
-        Return
+        Raises
         ------
-            es, et, ei : :class:`numpy:ndarray`
-                Matrices with the scattered, total and incident field
-                information.
-
-        Examples
-        --------
-        >>> solver = MoM_CG_FFT(configuration)
-        >>> es, et, ei = solver.solve(scenario)
-        >>> es, ei = solver.solve(scenario, COMPUTE_INTERN_FIELD=False)
+        MissingAttributesError
+            If radius or contrast attributes are None.
         """
         if self.radius is None:
             raise error.MissingAttributesError('Analytical', 'radius')
@@ -213,30 +231,24 @@ class Analytical(fwr.ForwardSolver):
 
     def conductor_cylinder(self, inputdata, SAVE_INTERN_FIELD=True,
                            SAVE_MAP=False):
-        """Solve the forward problem.
+        """Solve scattering by a perfectly conducting cylinder analytically.
+
+        Computes the analytical solution for electromagnetic scattering
+        by a perfectly conducting cylinder using cylindrical wave expansions.
 
         Parameters
         ----------
-            scenario : :class:`inputdata:InputData`
-                An object describing the dielectric property map.
+        inputdata : InputData
+            Input data object containing configuration and problem setup.
+        SAVE_INTERN_FIELD : bool, default: True
+            Save the total field in the D-domain.
+        SAVE_MAP : bool, default: False
+            Save the conductivity map.
 
-            PRINT_INFO : boolean, default: False
-                Print iteration information.
-
-            COMPUTE_INTERN_FIELD : boolean, default: True
-                Compute the total field in D-domain.
-
-        Return
+        Raises
         ------
-            es, et, ei : :class:`numpy:ndarray`
-                Matrices with the scattered, total and incident field
-                information.
-
-        Examples
-        --------
-        >>> solver = MoM_CG_FFT(configuration)
-        >>> es, et, ei = solver.solve(scenario)
-        >>> es, ei = solver.solve(scenario, COMPUTE_INTERN_FIELD=False)
+        MissingAttributesError
+            If radius attribute is None.
         """
         if self.radius is None:
             raise error.MissingAttributesError('Analytical', 'radius')
@@ -283,6 +295,15 @@ class Analytical(fwr.ForwardSolver):
             inputdata.conductivity = np.copy(sigma)
 
     def save(self, file_name, file_path=''):
+        """Save the analytical solver object to file.
+
+        Parameters
+        ----------
+        file_name : str
+            Name of the file to save.
+        file_path : str, default: ''
+            Path where to save the file.
+        """
         data = super().save()
         data['radius'] = self.radius
         data['contrast'] = self.contrast
@@ -290,12 +311,27 @@ class Analytical(fwr.ForwardSolver):
             pickle.dump(data, datafile)
 
     def importdata(self, file_name, file_path=''):
+        """Import analytical solver data from file.
+
+        Parameters
+        ----------
+        file_name : str
+            Name of the file to import.
+        file_path : str, default: ''
+            Path of the file to import.
+        """
         data = super().importdata(file_name, file_path=file_path)
         self.radius = data['radius']
         self.contrast = data['contrast']
 
     def __str__(self):
-        """Print method parametrization."""
+        """Return string representation of the analytical solver.
+
+        Returns
+        -------
+        str
+            String description including radius and contrast if available.
+        """
         message = super().__str__()
         if self.radius is not None:
             message += 'Radius: %.2e [wavelengths] ' % self.radius 
