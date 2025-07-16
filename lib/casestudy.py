@@ -1,3 +1,62 @@
+"""
+Case Study Module for Electromagnetic Inverse Scattering
+
+This module provides the CaseStudy class, which extends the Experiment class
+to handle comprehensive case studies for electromagnetic inverse scattering
+problems. A case study includes test data, method configuration, and tools
+for statistical analysis, visualization, and comparison of reconstruction
+results.
+
+The CaseStudy class supports both deterministic and stochastic methods,
+parallel execution strategies, and comprehensive result analysis including
+convergence plots, boxplots, statistical comparisons, and confidence intervals.
+
+Classes
+-------
+CaseStudy : Extends experiment.Experiment
+    Comprehensive case study framework for inverse scattering problems
+
+Constants
+---------
+TEST : str
+    Dictionary key for test data storage
+STOCHASTIC_RUNS : str
+    Dictionary key for number of stochastic runs
+SAVE_STOCHASTIC_RUNS : str
+    Dictionary key for stochastic run saving flag
+PARALLELIZE_METHOD : str
+    Parallelization strategy for methods
+PARALLELIZE_EXECUTIONS : str
+    Parallelization strategy for executions
+PERMITTIVITY : str
+    Identifier for permittivity property
+CONDUCTIVITY : str
+    Identifier for conductivity property
+BOTH_PROPERTIES : str
+    Identifier for both electromagnetic properties
+CONTRAST : str
+    Identifier for contrast property
+ALL_EXECUTIONS : str
+    Mode for displaying all stochastic executions
+BEST_EXECUTION : str
+    Mode for displaying best stochastic execution
+
+Examples
+--------
+>>> # Create a case study with single method
+>>> case = CaseStudy(name='test_case', method=my_method, 
+...                  discretization=my_disc, test=my_test)
+>>> case.run(parallelization=True)
+>>> case.reconstruction(show=True)
+
+>>> # Create a case study with multiple methods
+>>> case = CaseStudy(name='comparison', method=[method1, method2], 
+...                  discretization=my_disc, test=my_test)
+>>> case.run()
+>>> case.boxplot('total_error', show=True)
+>>> case.compare('total_error')
+"""
+
 import sys
 import numpy as np
 from joblib import Parallel, delayed
@@ -28,13 +87,121 @@ ALL_EXECUTIONS = 'all'
 BEST_EXECUTION = 'best'
 
 class CaseStudy(exp.Experiment):
+    """
+    Comprehensive case study framework for electromagnetic inverse scattering.
+    
+    This class extends the Experiment class to provide a complete framework
+    for conducting case studies in electromagnetic inverse scattering problems.
+    It supports both deterministic and stochastic methods, parallel execution,
+    and comprehensive result analysis including statistical comparisons and
+    visualizations.
+    
+    A case study includes:
+    - Test data (ground truth) for validation
+    - One or more inverse scattering methods
+    - Discretization parameters
+    - Stochastic execution configuration
+    - Result analysis and visualization tools
+    
+    Parameters
+    ----------
+    name : str, optional
+        Name identifier for the case study
+    method : object or list of objects, optional
+        Inverse scattering method(s) to be evaluated
+    discretization : object or list of objects, optional
+        Discretization parameters for the methods
+    test : InputData or str, optional
+        Test data for validation or filename if string
+    stochastic_runs : int, default=30
+        Number of stochastic executions for statistical analysis
+    save_stochastic_runs : bool, default=False
+        Whether to save individual stochastic execution results
+    import_filename : str, optional
+        Filename to import case study configuration from
+    import_filepath : str, default=''
+        Path to import file
+    
+    Attributes
+    ----------
+    test : InputData or str
+        Test data for validation
+    s_nexec : int
+        Number of stochastic executions
+    s_save : bool
+        Flag for saving stochastic runs
+    results : object or list
+        Results from method execution(s)
+    
+    Methods
+    -------
+    run(parallelization=None, save_stochastic_executions=False)
+        Execute the case study with specified parallelization
+    reconstruction(image='contrast', **kwargs)
+        Visualize reconstruction results
+    convergence(indicator, **kwargs)
+        Plot convergence analysis
+    boxplot(indicator, **kwargs)
+        Create boxplot for statistical analysis
+    compare(indicator, method=None, all2all=False, all2one=None)
+        Perform statistical comparison between methods
+    confint(indicator, **kwargs)
+        Calculate and visualize confidence intervals
+    
+    Examples
+    --------
+    >>> # Single method case study
+    >>> case = CaseStudy(name='bim_test', method=bim_method, 
+    ...                  discretization=disc, test=test_data)
+    >>> case.run(parallelization=True)
+    >>> case.reconstruction(show=True)
+    
+    >>> # Multiple method comparison
+    >>> methods = [bim_method, born_method]
+    >>> case = CaseStudy(name='comparison', method=methods, 
+    ...                  discretization=disc, test=test_data)
+    >>> case.run()
+    >>> case.compare('total_error')
+    >>> case.boxplot('total_error', show=True)
+    
+    >>> # Stochastic analysis
+    >>> case = CaseStudy(name='stochastic', method=pso_method, 
+    ...                  discretization=disc, test=test_data,
+    ...                  stochastic_runs=50, save_stochastic_runs=True)
+    >>> case.run()
+    >>> case.convergence('total_error', mean=True, show=True)
+    """
 
     @property
     def test(self):
+        """
+        Get the test data for validation.
+        
+        Returns
+        -------
+        InputData or str or None
+            Test data object, filename string, or None if not set
+        """
         return self._test
 
     @test.setter
     def test(self, new):
+        """
+        Set the test data for validation.
+        
+        Parameters
+        ----------
+        new : InputData, str, or None
+            New test data. Can be:
+            - InputData object: copied and marked as available
+            - str: filename stored but not loaded (marked as unavailable)
+            - None: test data cleared
+            
+        Raises
+        ------
+        error.WrongTypeInput
+            If new is not InputData, str, or None
+        """
         if new is None:
             self._test = None
             self._test_available = False
@@ -52,6 +219,40 @@ class CaseStudy(exp.Experiment):
     def __init__(self, name=None, method=None, discretization=None, test=None,
                  stochastic_runs=30, save_stochastic_runs=False,
                  import_filename=None, import_filepath=''):
+        """
+        Initialize a case study for electromagnetic inverse scattering.
+        
+        Creates a new case study with specified parameters or imports from
+        an existing saved case study file.
+        
+        Parameters
+        ----------
+        name : str, optional
+            Name identifier for the case study
+        method : object or list of objects, optional
+            Inverse scattering method(s) to be evaluated
+        discretization : object or list of objects, optional
+            Discretization parameters for the methods
+        test : InputData or str, optional
+            Test data for validation or filename if string
+        stochastic_runs : int, default=30
+            Number of stochastic executions for statistical analysis
+        save_stochastic_runs : bool, default=False
+            Whether to save individual stochastic execution results
+        import_filename : str, optional
+            Filename to import case study configuration from
+        import_filepath : str, default=''
+            Path to import file
+            
+        Examples
+        --------
+        >>> # Create new case study
+        >>> case = CaseStudy(name='test', method=my_method, 
+        ...                  discretization=my_disc, test=my_test)
+        
+        >>> # Import from saved file
+        >>> case = CaseStudy(import_filename='saved_case.pkl')
+        """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
         else:
@@ -61,12 +262,48 @@ class CaseStudy(exp.Experiment):
             self.s_save = save_stochastic_runs
     
     def importdata(self, file_name, file_path=''):
+        """
+        Import case study configuration from a saved file.
+        
+        Loads a previously saved case study configuration including test data,
+        stochastic execution parameters, and all inherited experiment settings.
+        
+        Parameters
+        ----------
+        file_name : str
+            Name of the file to import from
+        file_path : str, default=''
+            Path to the file location
+            
+        Examples
+        --------
+        >>> case = CaseStudy()
+        >>> case.importdata('my_case.pkl', '/path/to/files/')
+        """
         data = super().importdata(file_name, file_path)
         self.test = data[TEST]
         self.s_nexec = data[STOCHASTIC_RUNS]
         self.s_save = data[SAVE_STOCHASTIC_RUNS]
 
     def save(self, file_path='', save_test=False):
+        """
+        Save the case study configuration to a file.
+        
+        Saves the complete case study configuration including test data,
+        stochastic execution parameters, and all inherited experiment settings
+        using pickle serialization.
+        
+        Parameters
+        ----------
+        file_path : str, default=''
+            Path where the file will be saved
+        save_test : bool, default=False
+            Whether to save the complete test data object or just the name
+            
+        Examples
+        --------
+        >>> case.save('/path/to/save/', save_test=True)
+        """
         data = super().save(file_path)
 
         if save_test:
@@ -83,6 +320,50 @@ class CaseStudy(exp.Experiment):
             pickle.dump(data, datafile)
 
     def run(self, parallelization=None, save_stochastic_executions=False):
+        """
+        Execute the case study with the configured methods.
+        
+        Runs the inverse scattering method(s) on the test data with specified
+        parallelization strategy. Supports both deterministic and stochastic
+        methods with different parallelization approaches.
+        
+        Parameters
+        ----------
+        parallelization : bool, str, or None, default=None
+            Parallelization strategy:
+            - None or True: Enable parallelization (default strategy)
+            - False: Disable parallelization
+            - 'method': Parallelize across methods
+            - 'executions': Parallelize across executions
+        save_stochastic_executions : bool, default=False
+            Whether to save individual stochastic execution results
+            (parameter name kept for backward compatibility)
+            
+        Raises
+        ------
+        error.MissingAttributesError
+            If test data is not available
+            
+        Notes
+        -----
+        The method automatically detects single vs. multiple methods and
+        applies appropriate parallelization strategies:
+        
+        - For single deterministic methods: Simple parallel execution
+        - For single stochastic methods: Parallel stochastic executions
+        - For multiple methods: Choice between method-level or execution-level parallelization
+        
+        Examples
+        --------
+        >>> # Run with default parallelization
+        >>> case.run()
+        
+        >>> # Run without parallelization
+        >>> case.run(parallelization=False)
+        
+        >>> # Run with method-level parallelization
+        >>> case.run(parallelization='method')
+        """
         if not self._test_available:
             raise error.MissingAttributesError('CaseStudy', 'test')
         if self._single_method:
@@ -196,6 +477,71 @@ class CaseStudy(exp.Experiment):
                        file_name=None, file_path='', file_format='eps',
                        show=False, fontsize=10, title=None, indicator=None,
                        include_true=False, mode=ALL_EXECUTIONS):
+        """
+        Visualize reconstruction results from the case study.
+        
+        Creates visualization plots of the reconstructed electromagnetic
+        properties, with options to include ground truth, compare multiple
+        methods, and handle stochastic results.
+        
+        Parameters
+        ----------
+        image : str, default='contrast'
+            Property to visualize:
+            - 'epsilon_r': Relative permittivity
+            - 'sigma': Conductivity
+            - 'both': Both properties
+            - 'contrast': Contrast function
+        axis : matplotlib.axes.Axes or ndarray, optional
+            Axes for plotting. If None, new figure is created
+        method : int, str, or list, optional
+            Method indices or names to plot. If None, all methods are used
+        file_name : str, optional
+            Name for saving the figure
+        file_path : str, default=''
+            Path for saving the figure
+        file_format : str, default='eps'
+            Format for saving the figure
+        show : bool, default=False
+            Whether to display the figure
+        fontsize : int, default=10
+            Font size for labels and titles
+        title : str, bool, or None, optional
+            Figure title. If None, automatic titles are used
+        indicator : str, optional
+            Performance indicator for selecting best execution
+        include_true : bool, default=False
+            Whether to include ground truth in the visualization
+        mode : str, default='all'
+            Mode for stochastic results:
+            - 'all': Show all executions
+            - 'best': Show only best execution
+            
+        Returns
+        -------
+        matplotlib.axes.Axes or None
+            Axes object if axis is None and show is False
+            
+        Raises
+        ------
+        error.WrongValueInput
+            If image type is invalid for the problem configuration
+            
+        Examples
+        --------
+        >>> # Basic reconstruction plot
+        >>> case.reconstruction(show=True)
+        
+        >>> # Include ground truth with both properties
+        >>> case.reconstruction(image='both', include_true=True, show=True)
+        
+        >>> # Compare specific methods
+        >>> case.reconstruction(method=[0, 1], show=True)
+        
+        >>> # Save reconstruction plot
+        >>> case.reconstruction(file_name='reconstruction', 
+        ...                    file_path='/results/', show=True)
+        """
         if (image != PERMITTIVITY and image != CONDUCTIVITY
                 and image != BOTH_PROPERTIES and image != CONTRAST):
             raise error.WrongValueInput('CaseStudy.reconstruction',
@@ -555,6 +901,72 @@ class CaseStudy(exp.Experiment):
                     file_path='', file_format='eps', show=False, fontsize=10,
                     title=None, mean=False, yscale=None, sample_rate=None,
                     widths=None, color=None, legend_size=None):
+        """
+        Plot convergence analysis for performance indicators.
+        
+        Visualizes the convergence behavior of specified performance indicators
+        throughout the iterative process. Supports both deterministic and
+        stochastic methods with options for mean curves and boxplots.
+        
+        Parameters
+        ----------
+        indicator : str or list of str
+            Performance indicator(s) to plot (e.g., 'total_error', 'data_error')
+        axis : matplotlib.axes.Axes or ndarray, optional
+            Axes for plotting. If None, new figure is created
+        method : int, str, or list, optional
+            Method indices or names to plot. If None, all methods are used
+        file_name : str, optional
+            Name for saving the figure
+        file_path : str, default=''
+            Path for saving the figure
+        file_format : str, default='eps'
+            Format for saving the figure
+        show : bool, default=False
+            Whether to display the figure
+        fontsize : int, default=10
+            Font size for labels and titles
+        title : str, bool, list, or None, optional
+            Figure title(s). If None, automatic titles are used
+        mean : bool, default=False
+            Whether to show mean curves for stochastic methods
+        yscale : str, optional
+            Y-axis scale ('linear', 'log', etc.)
+        sample_rate : int, optional
+            Sampling rate for stochastic convergence (default=20)
+        widths : float or array-like, optional
+            Width of boxplots for stochastic methods
+        color : str, optional
+            Color for plots
+        legend_size : int, optional
+            Font size for legend
+            
+        Returns
+        -------
+        tuple or None
+            (fig, axis) if axis is None and show is False
+            
+        Raises
+        ------
+        error.WrongTypeInput
+            If indicator is not string or list of strings
+        error.WrongValueInput
+            If indicator is not in the valid indicator set
+            
+        Examples
+        --------
+        >>> # Basic convergence plot
+        >>> case.convergence('total_error', show=True)
+        
+        >>> # Multiple indicators
+        >>> case.convergence(['total_error', 'data_error'], show=True)
+        
+        >>> # Mean convergence for stochastic methods
+        >>> case.convergence('total_error', mean=True, show=True)
+        
+        >>> # Compare methods
+        >>> case.convergence('total_error', method=[0, 1], show=True)
+        """
         if (type(indicator) is not str
                 or (type(indicator) is list
                     and not all(type(i) is str for i in indicator))):
@@ -847,6 +1259,68 @@ class CaseStudy(exp.Experiment):
     def boxplot(self, indicator, axis=None, method=None, file_name=None,
                 file_path='', file_format='eps', show=False, fontsize=10,
                 title=None, mean=False, yscale=None, notch=False):
+        """
+        Create boxplot visualization for stochastic method results.
+        
+        Generates boxplot visualizations of performance indicators for
+        stochastic methods to show statistical distributions of results
+        across multiple executions.
+        
+        Parameters
+        ----------
+        indicator : str or list of str
+            Performance indicator(s) to plot (e.g., 'total_error', 'data_error')
+        axis : matplotlib.axes.Axes or ndarray, optional
+            Axes for plotting. If None, new figure is created
+        method : int, str, or list, optional
+            Method indices or names to plot. If None, all stochastic methods are used
+        file_name : str, optional
+            Name for saving the figure
+        file_path : str, default=''
+            Path for saving the figure
+        file_format : str, default='eps'
+            Format for saving the figure
+        show : bool, default=False
+            Whether to display the figure
+        fontsize : int, default=10
+            Font size for labels and titles
+        title : str, bool, list, or None, optional
+            Figure title(s). If None, automatic titles are used
+        mean : bool, default=False
+            Whether to show mean indicators (unused parameter)
+        yscale : str, optional
+            Y-axis scale ('linear', 'log', etc.)
+        notch : bool, default=False
+            Whether to show notches in boxplots
+            
+        Returns
+        -------
+        tuple or None
+            (fig, ax) if axis is None and show is False
+            
+        Raises
+        ------
+        error.Error
+            If no stochastic methods with saved runs are available
+        error.WrongTypeInput
+            If indicator is not string or list of strings
+        error.WrongValueInput
+            If indicator is not in the valid indicator set
+            
+        Examples
+        --------
+        >>> # Basic boxplot
+        >>> case.boxplot('total_error', show=True)
+        
+        >>> # Multiple indicators
+        >>> case.boxplot(['total_error', 'data_error'], show=True)
+        
+        >>> # Compare stochastic methods
+        >>> case.boxplot('total_error', method=[0, 1], show=True)
+        
+        >>> # Boxplot with notches
+        >>> case.boxplot('total_error', notch=True, show=True)
+        """
         if (self._single_method
                 and (isinstance(self.method, dtm.Deterministic)
                      or not self.s_save)):
@@ -1018,6 +1492,57 @@ class CaseStudy(exp.Experiment):
             return fig, ax
 
     def compare(self, indicator, method=None, all2all=False, all2one=None):
+        """
+        Perform statistical comparison between methods.
+        
+        Conducts statistical tests to compare performance indicators between
+        different methods. Supports pairwise comparisons and multiple comparison
+        procedures for stochastic methods.
+        
+        Parameters
+        ----------
+        indicator : str or list of str
+            Performance indicator(s) to compare (e.g., 'total_error', 'data_error')
+        method : int, str, or list, optional
+            Method indices or names to compare. If None, all methods are used
+        all2all : bool, default=False
+            Whether to perform all-to-all comparisons in multiple comparison
+        all2one : int, optional
+            Index of reference method for all-to-one comparisons
+            
+        Raises
+        ------
+        error.WrongTypeInput
+            If indicator is not string or list of strings
+        error.WrongValueInput
+            If indicator is not in the valid indicator set
+        error.Error
+            If case study configuration is invalid for comparison
+            
+        Notes
+        -----
+        The method automatically selects appropriate statistical tests:
+        - Two-sample tests for stochastic vs. stochastic comparisons
+        - One-sample tests for stochastic vs. deterministic comparisons
+        - Multiple comparison procedures for more than two methods
+        
+        Only stochastic methods with saved runs can be compared statistically.
+        Deterministic methods are included as reference points.
+        
+        Examples
+        --------
+        >>> # Compare two methods
+        >>> case.compare('total_error', method=[0, 1])
+        
+        >>> # Compare multiple indicators
+        >>> case.compare(['total_error', 'data_error'])
+        
+        >>> # All-to-one comparison
+        >>> case.compare('total_error', all2one=0)
+        
+        >>> # All-to-all comparison
+        >>> case.compare('total_error', all2all=True)
+        """
         if type(indicator) is not str and type(indicator) is not list:
             raise error.WrongTypeInput('CaseStudy.compare', 'indicator',
                                        'str or str-list', str(type(indicator)))
@@ -1130,6 +1655,72 @@ class CaseStudy(exp.Experiment):
                 file_path='', file_format='eps', show=False, fontsize=10,
                 title=None, print_info=True, print_obj=sys.stdout,
                 confidence_level=.95, xscale=None):
+        """
+        Calculate and visualize confidence intervals for performance indicators.
+        
+        Computes confidence intervals for performance indicators from stochastic
+        method executions and creates visualization plots with optional
+        statistical information output.
+        
+        Parameters
+        ----------
+        indicator : str or list of str
+            Performance indicator(s) to analyze (e.g., 'total_error', 'data_error')
+        method : int, str, or list, optional
+            Method indices or names to analyze. If None, all methods are used
+        axis : matplotlib.axes.Axes or ndarray, optional
+            Axes for plotting. If None, new figure is created
+        file_name : str, optional
+            Name for saving the figure
+        file_path : str, default=''
+            Path for saving the figure
+        file_format : str, default='eps'
+            Format for saving the figure
+        show : bool, default=False
+            Whether to display the figure
+        fontsize : int, default=10
+            Font size for labels and titles
+        title : str, bool, list, or None, optional
+            Figure title(s). If None, automatic titles are used
+        print_info : bool, default=True
+            Whether to print statistical information
+        print_obj : file-like object, default=sys.stdout
+            Object to print statistical information to
+        confidence_level : float, default=0.95
+            Confidence level for interval calculation (0 < confidence_level < 1)
+        xscale : str, optional
+            X-axis scale ('linear', 'log', etc.)
+            
+        Returns
+        -------
+        matplotlib.axes.Axes or None
+            Axes object if axis is None and show is False
+            
+        Raises
+        ------
+        error.WrongTypeInput
+            If indicator is not string or list of strings
+        error.WrongValueInput
+            If indicator is not in the valid indicator set
+            
+        Notes
+        -----
+        Confidence intervals are calculated using appropriate statistical methods
+        based on the distribution of the performance indicator values. The method
+        requires stochastic methods with saved executions.
+        
+        Examples
+        --------
+        >>> # Basic confidence interval plot
+        >>> case.confint('total_error', show=True)
+        
+        >>> # Multiple indicators with custom confidence level
+        >>> case.confint(['total_error', 'data_error'], 
+        ...              confidence_level=0.99, show=True)
+        
+        >>> # Specific method analysis
+        >>> case.confint('total_error', method=0, show=True)
+        """
         if type(indicator) is not str and type(indicator) is not list:
             raise error.WrongTypeInput('CaseStudy.confint', 'indicator',
                                        'str or str-list', str(type(indicator)))
@@ -1270,6 +1861,28 @@ class CaseStudy(exp.Experiment):
             return fig, axis
 
     def __str__(self):
+        """
+        Return string representation of the case study.
+        
+        Creates a formatted string containing comprehensive information about
+        the case study configuration, including inherited experiment details,
+        test data status, and stochastic execution parameters.
+        
+        Returns
+        -------
+        str
+            Formatted string representation of the case study
+            
+        Examples
+        --------
+        >>> print(case)
+        CASE STUDY
+        Name: my_case
+        Method: Born Iterative Method
+        Test: test_scenario_1
+        Save stochastic runs? yes
+        Number of stochastic runs: 50
+        """
         message = 'CASE STUDY\n' + super().__str__()
         message += 'Test: '
         if self._test_available:

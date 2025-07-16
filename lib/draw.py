@@ -1,3 +1,106 @@
+r"""Geometric Shape Drawing Functions for Electromagnetic Inverse Scattering.
+
+This module provides a comprehensive collection of functions for drawing various
+geometric shapes with specified electromagnetic properties. These functions are
+designed to create synthetic test objects for electromagnetic inverse scattering
+simulations and algorithm validation.
+
+The module supports drawing both simple and complex shapes with customizable
+electromagnetic properties (relative permittivity and conductivity), positioning,
+rotation, and scaling. All shapes can be drawn on existing images or create new
+ones with specified resolution and background properties.
+
+Key Features:
+- Support for both dielectric and conductive objects
+- Flexible positioning and rotation capabilities
+- Multiple drawing modes (new image or overlay on existing)
+- Consistent interface across all shape functions
+- Proper coordinate system handling with origin at image center
+- Rotation around object center with degree-based angles
+
+Functions Overview:
+- Basic shapes: square, circle, ellipse, triangle, line, cross
+- Polygons: polygon, rhombus, trapezoid, parallelogram
+- Stars: star4, star5, star6 (4, 5, and 6-pointed stars)
+- Composite shapes: ring (annulus)
+- Random shapes: random (irregular polygon)
+- Patterns: wave, random_waves
+
+Each function returns a tuple of (relative_permittivity, conductivity) arrays
+representing the electromagnetic properties of the created scene.
+
+Coordinate System:
+- Origin (0, 0) is at the center of the image
+- X-axis points right, Y-axis points up
+- Angles are measured in degrees, counterclockwise from +X axis
+- Image coordinates use standard matrix indexing (row, column)
+
+Examples
+--------
+>>> import draw
+>>> import numpy as np
+>>> import matplotlib.pyplot as plt
+
+>>> # Create a simple dielectric square
+>>> epsilon_r, sigma = draw.square(
+...     side_length=0.5,
+...     resolution=(64, 64),
+...     object_rel_permittivity=2.0,
+...     background_rel_permittivity=1.0
+... )
+
+>>> # Create a conducting circle
+>>> epsilon_r, sigma = draw.circle(
+...     radius=0.3,
+...     resolution=(128, 128),
+...     object_conductivity=1.0,
+...     center=[0.1, -0.1],
+...     rotate=45.0
+... )
+
+>>> # Overlay multiple objects
+>>> epsilon_r, sigma = draw.square(
+...     side_length=0.8,
+...     resolution=(100, 100),
+...     object_rel_permittivity=1.5
+... )
+>>> epsilon_r, sigma = draw.circle(
+...     radius=0.2,
+...     object_rel_permittivity=3.0,
+...     rel_permittivity=epsilon_r,
+...     conductivity=sigma
+... )
+
+>>> # Visualize results
+>>> plt.figure(figsize=(10, 4))
+>>> plt.subplot(1, 2, 1)
+>>> plt.imshow(epsilon_r, cmap='jet', extent=[-1, 1, -1, 1])
+>>> plt.title('Relative Permittivity')
+>>> plt.colorbar()
+>>> plt.subplot(1, 2, 2)
+>>> plt.imshow(sigma, cmap='viridis', extent=[-1, 1, -1, 1])
+>>> plt.title('Conductivity')
+>>> plt.colorbar()
+>>> plt.show()
+
+Notes
+-----
+All functions follow a consistent parameter naming convention:
+- Geometric parameters come first (size, dimensions)
+- Image parameters follow (axis_length_x, axis_length_y, resolution)
+- Background electromagnetic properties
+- Object electromagnetic properties
+- Positioning and rotation parameters
+- Optional existing image arrays for overlay operations
+
+The functions handle input validation and provide appropriate error messages
+for missing required parameters. Either resolution or existing image arrays
+must be provided.
+
+For wave-based patterns, the functions support both periodic and random
+wave generation with customizable amplitude and frequency characteristics.
+"""
+
 import numpy as np
 from numpy import pi
 from numpy import logical_and
@@ -10,41 +113,109 @@ def square(side_length, axis_length_x=2., axis_length_y=2., resolution=None,
            object_rel_permittivity=1., object_conductivity=0.,
            center=[0., 0.], rotate=0., rel_permittivity=None,
            conductivity=None):
-    """Draw a square.
+    """Draw a square with specified electromagnetic properties.
+
+    This function creates a square object with customizable electromagnetic
+    properties, positioning, and rotation on a 2D grid. The square can be
+    drawn on a new image or overlaid on existing permittivity and conductivity
+    arrays.
 
     Parameters
     ----------
-        side_length : float
-            Length of the side of the square.
+    side_length : float
+        Length of the square's side in the same units as axis_length_x/y.
+        Must be positive and smaller than the image dimensions.
+    axis_length_x : float, default=2.0
+        Physical length of the image in the x-direction. Defines the
+        coordinate system extent from -axis_length_x/2 to +axis_length_x/2.
+    axis_length_y : float, default=2.0
+        Physical length of the image in the y-direction. Defines the
+        coordinate system extent from -axis_length_y/2 to +axis_length_y/2.
+    resolution : tuple of int, optional
+        Image resolution as (NY, NX) where NY is the number of pixels in
+        y-direction and NX is the number of pixels in x-direction.
+        Required if rel_permittivity and conductivity are not provided.
+    background_rel_permittivity : float, default=1.0
+        Relative permittivity of the background medium. Must be >= 1.0
+        for physical validity.
+    background_conductivity : float, default=0.0
+        Conductivity of the background medium in S/m. Must be >= 0.0.
+    object_rel_permittivity : float, default=1.0
+        Relative permittivity of the square object. Must be >= 1.0.
+    object_conductivity : float, default=0.0
+        Conductivity of the square object in S/m. Must be >= 0.0.
+    center : list of float, default=[0.0, 0.0]
+        Center position of the square as [x, y] coordinates relative to
+        the image center. Values should be within the image bounds.
+    rotate : float, default=0.0
+        Rotation angle of the square around its center in degrees.
+        Positive values correspond to counterclockwise rotation.
+    rel_permittivity : numpy.ndarray, optional
+        Existing relative permittivity array to overlay the square on.
+        If provided, the square will be added to this array.
+    conductivity : numpy.ndarray, optional
+        Existing conductivity array to overlay the square on.
+        If provided, the square will be added to this array.
 
-        axis_length_x, axis_length_y : float, default: 2.0
-            Length of the size of the image.
+    Returns
+    -------
+    tuple of numpy.ndarray
+        A tuple (epsilon_r, sigma) containing:
+        - epsilon_r: 2D array of relative permittivity values
+        - sigma: 2D array of conductivity values in S/m
+        Both arrays have the same shape as specified by resolution
+        or the input arrays.
 
-        resolution : 2-tuple
-            Image resolution, in y and x directions, i.e., (NY, NX).
-            *Either this argument or rel_permittivity or
-            conductivity must be given!*
+    Raises
+    ------
+    MissingInputError
+        If neither resolution nor both rel_permittivity and conductivity
+        arrays are provided.
 
-        background_rel_permittivity : float, default: 1.0
+    Notes
+    -----
+    The coordinate system places the origin (0, 0) at the image center.
+    The rotation is applied around the object's center, not the image center.
+    
+    The function uses pixel-based rasterization, so very thin features may
+    not be accurately represented at low resolutions.
 
-        background_conductivity : float, default: 0.0
-
-        object_rel_permittivity : float, default: 1.0
-
-        object_conductivity : float, default: 0.0
-
-        center : list, default: [0.0, 0.0]
-            Center of the object in the image. The center of the image
-            corresponds to the origin of the coordinates.
-
-        rel_permittivity : :class:`numpy.ndarray`, default:None
-            A predefined image in which the object will be drawn.
-
-        conductivity : :class:`numpy.ndarray`, default:None
-            A predefined image in which the object will be drawn.
-
-        rotate : float, default: 0.0 degrees
-            Rotation of the object around its center. In degrees.
+    Examples
+    --------
+    >>> import draw
+    >>> import numpy as np
+    
+    >>> # Create a simple dielectric square
+    >>> epsilon_r, sigma = draw.square(
+    ...     side_length=0.5,
+    ...     resolution=(64, 64),
+    ...     object_rel_permittivity=2.0
+    ... )
+    >>> print(f"Square created with shape: {epsilon_r.shape}")
+    Square created with shape: (64, 64)
+    
+    >>> # Create a rotated conducting square
+    >>> epsilon_r, sigma = draw.square(
+    ...     side_length=0.3,
+    ...     resolution=(100, 100),
+    ...     object_conductivity=1.0,
+    ...     center=[0.1, -0.1],
+    ...     rotate=45.0
+    ... )
+    
+    >>> # Overlay on existing arrays
+    >>> epsilon_r, sigma = draw.square(
+    ...     side_length=0.2,
+    ...     object_rel_permittivity=3.0,
+    ...     rel_permittivity=epsilon_r,
+    ...     conductivity=sigma
+    ... )
+    
+    See Also
+    --------
+    circle : Draw circular objects
+    ellipse : Draw elliptical objects
+    polygon : Draw regular polygons
     """
     # Check input requirements
     if resolution is None and (rel_permittivity is None

@@ -1,13 +1,60 @@
-r"""The Conjugated Gradient Method.
+r"""
+Conjugated Gradient Method for Electromagnetic Inverse Scattering
 
-This module implements the Conjugated Gradient Method [1]_ as a derivation of
-Solver class. The method solves the nonlinear inverse problem iteratively.
+This module implements the Conjugated Gradient Method (CGM) for solving
+nonlinear electromagnetic inverse scattering problems. The method is based
+on gradient-based optimization techniques and uses the conjugate gradient
+algorithm to iteratively reconstruct the electromagnetic properties of
+scatterers from scattered field measurements.
+
+The implementation includes various initialization strategies, step size
+optimization methods, and stopping criteria for robust convergence.
+
+Classes
+-------
+ConjugatedGradientMethod : Extends deterministic.Deterministic
+    Main implementation of the conjugated gradient method
+
+Constants
+---------
+INITIAL_GUESS : str
+    Dictionary key for initial guess strategy
+BACKGROUND : str
+    Background initial guess strategy
+BACKPROPAGATION : str
+    Backpropagation initial guess strategy
+IMAGE : str
+    Image-based initial guess strategy
+QUALITATIVE : str
+    Qualitative initial guess strategy
+STEP : str
+    Dictionary key for step size method
+FIXED : str
+    Fixed step size method
+OPTIMUM : str
+    Optimum step size method
+STOP_CRITERIA : str
+    Dictionary key for stopping criteria
 
 References
 ----------
 .. [1] Lobel, P., et al. "Conjugate gradient method for solving inverse
    scattering with experimental data." IEEE Antennas and Propagation
-   Magazine 38.3 (1996): 48-51.   
+   Magazine 38.3 (1996): 48-51.
+
+Examples
+--------
+>>> # Create CGM with background initial guess
+>>> cgm = ConjugatedGradientMethod(initial_guess='background',
+...                                step='optimum',
+...                                stop_criteria=my_criteria)
+>>> result = cgm.solve(input_data, discretization)
+
+>>> # Create CGM with qualitative initial guess
+>>> cgm = ConjugatedGradientMethod(initial_guess='qualitative',
+...                                step='fixed',
+...                                stop_criteria=my_criteria)
+>>> result = cgm.solve(input_data, discretization)
 """
 
 # Standard libraries
@@ -38,89 +85,152 @@ OPTIMUM = 'optimum'
 STOP_CRITERIA = 'stop_criteria'
 
 class ConjugatedGradientMethod(dtm.Deterministic):
-    r"""The Born Interative Method (BIM).
-
-    This class implements a classical nonlinear inverse solver [1]_. The
-    method is based on coupling forward and inverse solvers in an
-    iterative process. Therefore, it depends on the definition of a
-    forward solver implementation and an linear inverse one.
-
+    r"""
+    Conjugated Gradient Method for nonlinear inverse scattering.
+    
+    This class implements the Conjugated Gradient Method (CGM) for solving
+    nonlinear electromagnetic inverse scattering problems. The method uses
+    gradient-based optimization with conjugate gradient updates to iteratively
+    reconstruct the electromagnetic properties of unknown scatterers from
+    scattered field measurements.
+    
+    The algorithm minimizes the following objective function:
+    
+    .. math::
+        J(\chi) = \|\mathbf{E}^s - \mathbf{G}^s \chi \mathbf{L}^{-1} \mathbf{E}^i\|^2
+    
+    where :math:`\chi` is the contrast function, :math:`\mathbf{E}^s` is the
+    scattered field, :math:`\mathbf{G}^s` is the Green's function matrix,
+    and :math:`\mathbf{L}^{-1}` is the inverse of the Lippmann-Schwinger
+    operator.
+    
+    Parameters
+    ----------
+    initial_guess : str
+        Strategy for initial guess:
+        - 'background': Start with background medium
+        - 'backpropagation': Use backpropagation algorithm
+        - 'image': Use direct image reconstruction
+        - 'qualitative': Use qualitative method (OSM)
+    step : str
+        Step size computation method:
+        - 'fixed': Fixed step size based on gradient
+        - 'optimum': Optimal step size via line search
+    stop_criteria : object
+        Stopping criteria object defining convergence conditions
+    alias : str, default='cgm'
+        Alias name for the method
+    import_filename : str, optional
+        Filename to import method parameters from
+    import_filepath : str, default=''
+        Path to import file
+    
     Attributes
     ----------
-        forward : :class:`forward.Forward`:
-            An implementation of the abstract class which defines a
-            forward method which solves the total electric field.
-
-        inverse : :class:`inverse.Inverse`:
-            An implementation of the abstract class which defines method
-            for solving the linear inverse scattering problem.
-
-        MAX_IT : int
-            The number of iterations.
-
-        sc_measure : str
-            Stop criterion for the algorithm. The algorithm will stop
-            when the amount of variation from the current iteration in
-            respect to the last one is below some threshold percentage:
-
-            .. math:: \frac{|\zeta^i-\zeta^{i-1}|}{\zeta^{i-1}}*100
-                      \leq \eta
-
-        stopcriterion_measure : float
-            Threshold criterion for stop the algorithm.
-
-        divergence_tolerance : int, default: 5
-            Number of iterations in which it will be accepted a
-            divergence occurrence, i.e., the new solution has a larger
-            evaluation than the previous considering the stop criterion
-            measure.
-
+    name : str
+        Human-readable name of the method
+    initial_guess : str
+        Initial guess strategy
+    step : str
+        Step size computation method
+    stop_criteria : object
+        Stopping criteria configuration
+    
+    Methods
+    -------
+    solve(inputdata, discretization, print_info=True, print_file=sys.stdout)
+        Solve the inverse scattering problem
+    save(file_path='')
+        Save method configuration to file
+    importdata(file_name, file_path='')
+        Import method configuration from file
+    copy(new=None)
+        Create a copy of the method
+    
+    Notes
+    -----
+    The conjugate gradient method is particularly effective for problems where
+    the gradient computation is efficient. The method uses the Polak-Ribière
+    formula for computing conjugate directions:
+    
+    .. math::
+        \mathbf{d}^{(k+1)} = -\mathbf{g}^{(k+1)} + \beta^{(k+1)} \mathbf{d}^{(k)}
+    
+    where :math:`\beta^{(k+1)} = \frac{(\mathbf{g}^{(k+1)} - \mathbf{g}^{(k)})^T \mathbf{g}^{(k+1)}}{\|\mathbf{g}^{(k)}\|^2}`
+    
     References
     ----------
-    .. [1] Wang, Y. M., and Weng Cho Chew. "An iterative solution of the
-       two‐dimensional electromagnetic inverse scattering problem."
-       International Journal of Imaging Systems and Technology 1.1 (1989):
-       100-108.
+    .. [1] Lobel, P., et al. "Conjugate gradient method for solving inverse
+       scattering with experimental data." IEEE Antennas and Propagation
+       Magazine 38.3 (1996): 48-51.
+    .. [2] Nocedal, J., & Wright, S. J. (2006). Numerical optimization.
+       Springer Science & Business Media.
+    
+    Examples
+    --------
+    >>> # Basic usage with background initial guess
+    >>> cgm = ConjugatedGradientMethod(initial_guess='background',
+    ...                                step='optimum',
+    ...                                stop_criteria=my_stop_criteria)
+    >>> result = cgm.solve(input_data, discretization)
+    
+    >>> # Using qualitative initial guess
+    >>> cgm = ConjugatedGradientMethod(initial_guess='qualitative',
+    ...                                step='fixed',
+    ...                                stop_criteria=my_stop_criteria)
+    >>> result = cgm.solve(input_data, discretization)
+    
+    >>> # Import from saved configuration
+    >>> cgm = ConjugatedGradientMethod(import_filename='cgm_config.pkl')
     """
 
     def __init__(self, initial_guess, step, stop_criteria,
                  alias='cgm', import_filename=None, import_filepath=''):
-        r"""Create the object.
-
+        r"""
+        Initialize the Conjugated Gradient Method.
+        
+        Creates a new instance of the CGM with specified initialization
+        strategy, step size method, and stopping criteria.
+        
         Parameters
         ----------
-            configuration : :class:`configuration.Configuration`
-                It may be either an object of problem configuration or
-                a string to a pre-saved file or a 2-tuple with the file
-                name and path, respectively.
-
-            version : str
-                A string naming the version of this method. It may be
-                useful when using different implementation of forward
-                and inverse solvers.
-
-            forward_solver : :class:`forward.Forward`
-                An implementation of the abstract class Forward which
-                defines a method for computing the total intern field.
-
-            inverse_solver : :class:`inverse.Inverse`
-                An implementation of the abstract class Inverse which
-                defines a method for solving the linear inverse problem.
-
-            maximum_iterations : int, default: 10
-                Maximum number of iterations.
-
-            stopcriterion_measure : str, default: None
-                Define the measure for stop criterion. The algorithm
-                will stop when the amount of variation from the current
-                iteration in respect to the last one is below some
-                threshold percentage:
-
-                .. math:: \frac{|\zeta^i-\zeta^{i-1}|}{\zeta^{i-1}}*100
-                          \leq \eta
-
-            stopcriterion_measure : float, default: 1e-3
-                Threshold criterion for stop the algorithm.
+        initial_guess : str
+            Strategy for initial guess:
+            - 'background': Start with background medium (zero contrast)
+            - 'backpropagation': Use backpropagation algorithm for initialization
+            - 'image': Use direct image reconstruction as initial guess
+            - 'qualitative': Use qualitative method (OSM) for initialization
+        step : str
+            Step size computation method:
+            - 'fixed': Fixed step size based on gradient and residual
+            - 'optimum': Optimal step size via line search optimization
+        stop_criteria : object
+            Stopping criteria object that defines convergence conditions
+            (e.g., maximum iterations, error tolerance)
+        alias : str, default='cgm'
+            Alias name for the method used in saving/loading
+        import_filename : str, optional
+            If provided, import method parameters from this file
+        import_filepath : str, default=''
+            Path to the import file
+            
+        Examples
+        --------
+        >>> # Create CGM with background initial guess and optimal step
+        >>> cgm = ConjugatedGradientMethod(initial_guess='background',
+        ...                                step='optimum',
+        ...                                stop_criteria=my_criteria)
+        
+        >>> # Create CGM with qualitative initial guess and fixed step
+        >>> cgm = ConjugatedGradientMethod(initial_guess='qualitative',
+        ...                                step='fixed',
+        ...                                stop_criteria=my_criteria)
+        
+        >>> # Import from saved configuration
+        >>> cgm = ConjugatedGradientMethod(initial_guess='background',
+        ...                                step='optimum',
+        ...                                stop_criteria=my_criteria,
+        ...                                import_filename='cgm_config.pkl')
         """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
@@ -133,16 +243,85 @@ class ConjugatedGradientMethod(dtm.Deterministic):
 
     def solve(self, inputdata, discretization, print_info=True,
               print_file=sys.stdout):
-        """Solve a nonlinear inverse problem.
-
+        """
+        Solve the nonlinear inverse scattering problem using CGM.
+        
+        Applies the conjugated gradient method to iteratively reconstruct
+        the electromagnetic properties of unknown scatterers from scattered
+        field measurements. The method minimizes the data misfit using
+        gradient-based optimization with conjugate gradient updates.
+        
         Parameters
         ----------
-            instance : :class:`inputdata.InputData`
-                An object which defines a case problem with scattered
-                field and some others information.
-
-            print_info : bool
-                Print or not the iteration information.
+        inputdata : inputdata.InputData
+            Input data object containing:
+            - scattered_field: Measured scattered electric field
+            - configuration: Problem configuration (frequency, geometry, etc.)
+            - resolution: Target resolution for reconstruction
+            - indicators: List of performance indicators to compute
+        discretization : object
+            Discretization object containing:
+            - elements: Grid dimensions (NY, NX)
+            - GS: Green's function matrix for scattered field
+            - GD: Green's function matrix for domain interaction
+        print_info : bool, default=True
+            Whether to print iteration information during solving
+        print_file : file-like object, default=sys.stdout
+            File object for printing iteration information
+            
+        Returns
+        -------
+        result.Result
+            Result object containing:
+            - rel_permittivity: Reconstructed relative permittivity
+            - conductivity: Reconstructed conductivity (if applicable)
+            - total_error: Final data misfit error
+            - data_error: Data error evolution
+            - execution_time: Total execution time
+            - number_iterations: Number of iterations performed
+            - number_evaluations: Number of function evaluations
+            
+        Notes
+        -----
+        The algorithm implements the following steps:
+        
+        1. **Initialization**: Set initial contrast guess based on strategy
+        2. **Gradient Computation**: Compute gradient of objective function
+        3. **Conjugate Direction**: Update search direction using Polak-Ribière formula
+        4. **Step Size**: Compute optimal or fixed step size
+        5. **Update**: Update contrast function
+        6. **Convergence Check**: Check stopping criteria
+        
+        The objective function being minimized is:
+        
+        .. math::
+            J(\chi) = \|\mathbf{E}^s - \mathbf{G}^s \chi (\mathbf{I} - \mathbf{G}^d \chi)^{-1} \mathbf{E}^i\|^2
+        
+        where :math:`\chi` is the contrast function matrix.
+        
+        Initial guess strategies:
+        - **background**: Zero contrast (background medium)
+        - **backpropagation**: Backpropagation-based initialization
+        - **image**: Direct image reconstruction
+        - **qualitative**: Orthogonality Sampling Method (OSM)
+        
+        Step size methods:
+        - **fixed**: :math:`\alpha = \frac{\mathbf{v}^H \boldsymbol{\rho}}{\|\mathbf{v}\|^2}`
+        - **optimum**: Line search optimization
+        
+        Examples
+        --------
+        >>> cgm = ConjugatedGradientMethod(initial_guess='background',
+        ...                                step='optimum',
+        ...                                stop_criteria=my_criteria)
+        >>> result = cgm.solve(input_data, discretization)
+        >>> print(f"Final error: {result.total_error}")
+        >>> print(f"Iterations: {result.number_iterations}")
+        
+        >>> # Solve with custom output
+        >>> with open('cgm_log.txt', 'w') as f:
+        ...     result = cgm.solve(input_data, discretization, 
+        ...                       print_file=f)
         """
         result = super().solve(inputdata, discretization,
                                print_info=print_info, print_file=print_file)
@@ -317,12 +496,51 @@ class ConjugatedGradientMethod(dtm.Deterministic):
         return result
 
     def _print_title(self, inputdata, discretization, print_file=sys.stdout):
+        """
+        Print method title and configuration information.
+        
+        Prints the method title along with key configuration parameters
+        including initial guess strategy, step size method, and stopping criteria.
+        
+        Parameters
+        ----------
+        inputdata : inputdata.InputData
+            Input data object containing problem configuration
+        discretization : object
+            Discretization object containing grid information
+        print_file : file-like object, default=sys.stdout
+            File object for printing information
+            
+        Examples
+        --------
+        >>> cgm._print_title(input_data, discretization)
+        Conjugated Gradient Method
+        Initial guess: background
+        Step: optimum
+        Maximum iterations: 100
+        """
         super()._print_title(inputdata, discretization, print_file=print_file)
         print('Initial guess: ' + self.initial_guess, file=print_file)
         print('Step: ' + self.step, file=print_file)
         print(self.stop_criteria, file=print_file)
 
     def save(self, file_path=''):
+        """
+        Save the CGM configuration to a file.
+        
+        Saves the complete method configuration including initial guess strategy,
+        step size method, and stopping criteria using pickle serialization.
+        
+        Parameters
+        ----------
+        file_path : str, default=''
+            Path where the configuration file will be saved
+            
+        Examples
+        --------
+        >>> cgm.save('/path/to/save/')
+        >>> cgm.save()  # Save in current directory
+        """
         data = super().save(file_path=file_path)
         data[INITIAL_GUESS] = self.initial_guess
         data[STEP] = self.step
@@ -331,22 +549,90 @@ class ConjugatedGradientMethod(dtm.Deterministic):
             pickle.dump(data, datafile)
 
     def importdata(self, file_name, file_path=''):
+        """
+        Import CGM configuration from a saved file.
+        
+        Loads a previously saved CGM configuration including initial guess
+        strategy, step size method, and stopping criteria.
+        
+        Parameters
+        ----------
+        file_name : str
+            Name of the file to import from
+        file_path : str, default=''
+            Path to the file location
+            
+        Examples
+        --------
+        >>> cgm = ConjugatedGradientMethod(initial_guess='background',
+        ...                                step='optimum',
+        ...                                stop_criteria=my_criteria)
+        >>> cgm.importdata('cgm_config.pkl', '/path/to/files/')
+        """
         data = super().importdata(file_name, file_path=file_path)
         self.initial_guess = data[INITIAL_GUESS]
         self.step = data[STEP]
         self.stop_criteria= data[STOP_CRITERIA]
 
     def copy(self, new=None):
+        """
+        Create a copy of the CGM instance.
+        
+        Creates either a new independent instance or copies configuration
+        to an existing instance.
+        
+        Parameters
+        ----------
+        new : ConjugatedGradientMethod or None, default=None
+            If None, creates a new independent instance
+            If provided, copies configuration to this instance
+            
+        Returns
+        -------
+        ConjugatedGradientMethod or None
+            New instance if new=None, otherwise None
+            
+        Examples
+        --------
+        >>> # Create independent copy
+        >>> cgm_copy = cgm.copy()
+        
+        >>> # Copy configuration to existing instance
+        >>> cgm_new = ConjugatedGradientMethod(initial_guess='background',
+        ...                                    step='fixed',
+        ...                                    stop_criteria=other_criteria)
+        >>> cgm.copy(cgm_new)  # cgm_new now has cgm's configuration
+        """
         if new is None:
             return ConjugatedGradientMethod(self.initial_guess, self.step,
                                             self.stop_criteria, alias=self.alias)
         else:
             super().copy(new)
-            self.initial_guess = new.initial_guess
-            self.step = new.step
-            self.stop_criteria = new.stop_criteria
+            new.initial_guess = self.initial_guess
+            new.step = self.step
+            new.stop_criteria = self.stop_criteria
 
     def __str__(self):
+        """
+        Return string representation of the CGM configuration.
+        
+        Creates a formatted string containing the method configuration
+        including initial guess strategy, step size method, and stopping criteria.
+        
+        Returns
+        -------
+        str
+            Formatted string representation of the CGM configuration
+            
+        Examples
+        --------
+        >>> print(cgm)
+        Conjugated Gradient Method
+        Initial guess: background
+        Step: optimum
+        Maximum iterations: 100
+        Error tolerance: 1e-4
+        """
         message = super().__str__()
         message += 'Initial guess: ' + self.initial_guess + '\n'
         message += 'Step: ' + self.step + '\n'
