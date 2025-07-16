@@ -1,3 +1,37 @@
+"""Benchmark Class for Performance Evaluation of Inverse Scattering Algorithms.
+
+This module provides the Benchmark class for systematic performance evaluation
+of electromagnetic inverse scattering algorithms. It extends the Experiment
+class to handle multiple test sets and provides comprehensive analysis tools
+including parallel processing capabilities, statistical analysis, and
+visualization functions.
+
+The Benchmark class supports various parallelization strategies and provides
+methods for plotting results, generating box plots, violin plots, and
+statistical comparisons between different algorithms.
+
+Classes
+-------
+Benchmark : exp.Experiment
+    Main class for benchmarking inverse scattering algorithms.
+
+Functions
+---------
+_run_testset : function
+    Helper function to run a single test set with parallelization.
+
+Constants
+---------
+TESTSET : str
+    Key for test set data in serialization.
+PARALLELIZE_TESTSETS : str
+    Parallelization mode for test sets.
+PARALLELIZE_METHODS : str
+    Parallelization mode for methods.
+PARALLELIZE_TESTS : str
+    Parallelization mode for individual tests.
+"""
+
 import sys
 import numpy as np
 from joblib import Parallel, delayed
@@ -30,13 +64,86 @@ BEST_TEST = 'best'
 
 
 class Benchmark(exp.Experiment):
-    
+    """Benchmark Class for Performance Evaluation of Inverse Scattering Algorithms.
+
+    This class provides a comprehensive framework for systematic performance
+    evaluation of electromagnetic inverse scattering algorithms. It extends
+    the Experiment class to handle multiple test sets and provides various
+    analysis and visualization tools.
+
+    The Benchmark class supports different parallelization strategies to
+    efficiently run large-scale performance evaluations and provides statistical
+    analysis capabilities for comparing algorithm performance.
+
+    Parameters
+    ----------
+    name : str, default: ''
+        Name identifier for the benchmark instance.
+    method : InverseMethod or list of InverseMethod, optional
+        Single method or list of methods to be benchmarked.
+    discretization : Discretization or list of Discretization, optional
+        Single discretization or list of discretizations to be used.
+    testset : TestSet or list of TestSet, optional
+        Single test set or list of test sets for evaluation.
+    import_filename : str, optional
+        Filename to import previously saved benchmark state.
+    import_filepath : str, default: ''
+        Path to the file containing saved benchmark state.
+
+    Attributes
+    ----------
+    testset : TestSet or list of TestSet
+        Test set(s) used for benchmarking.
+    results : numpy.ndarray
+        Results from benchmark execution.
+    _single_testset : bool
+        Whether using a single test set or multiple.
+    _testset_available : bool
+        Whether test set data is available.
+
+    Methods
+    -------
+    import_testsets(filename, filepath='')
+        Import test sets from files.
+    run(parallelization=None)
+        Execute the benchmark with optional parallelization.
+    plot(indicator, **kwargs)
+        Generate line plots of benchmark results.
+    boxplot(indicator, **kwargs)
+        Generate box plots of benchmark results.
+    violinplot(indicator, **kwargs)
+        Generate violin plots of benchmark results.
+    save(file_path='', save_testset=False)
+        Save benchmark state to file.
+    importdata(file_name, file_path='')
+        Import benchmark state from file.
+    """
+
     @property
     def testset(self):
+        """Get the test set(s) used for benchmarking.
+
+        Returns
+        -------
+        TestSet or list of TestSet or str or list of str
+            The test set(s) or their names if not loaded.
+        """
         return self._testset
     
     @testset.setter
     def testset(self, new):
+        """Set the test set(s) for benchmarking.
+
+        Parameters
+        ----------
+        new : TestSet or list of TestSet or str or list of str or None
+            Test set(s) to be used for benchmarking. Can be:
+            - None: No test set
+            - TestSet: Single test set object
+            - str: Single test set name/path
+            - list of TestSet: Multiple test set objects
+            - list of str: Multiple test set names/paths
+        """
         if new is None:
             self._testset = None
             self._single_testset = None
@@ -69,6 +176,28 @@ class Benchmark(exp.Experiment):
 
     def __init__(self, name='', method=None, discretization=None, testset=None,
                  import_filename=None, import_filepath=''):
+        """Initialize the Benchmark instance.
+
+        Parameters
+        ----------
+        name : str, default: ''
+            Name identifier for the benchmark instance.
+        method : InverseMethod or list of InverseMethod, optional
+            Single method or list of methods to be benchmarked.
+        discretization : Discretization or list of Discretization, optional
+            Single discretization or list of discretizations to be used.
+        testset : TestSet or list of TestSet, optional
+            Single test set or list of test sets for evaluation.
+        import_filename : str, optional
+            Filename to import previously saved benchmark state.
+        import_filepath : str, default: ''
+            Path to the file containing saved benchmark state.
+
+        Raises
+        ------
+        WrongTypeInput
+            If testset is not None, TestSet, or list of TestSet.
+        """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
         else:
@@ -82,6 +211,26 @@ class Benchmark(exp.Experiment):
             self.testset = testset
 
     def import_testsets(self, filename, filepath=''):
+        """Import test sets from files.
+
+        Loads test set(s) from the specified file(s) and sets them as the
+        benchmark's test set(s).
+
+        Parameters
+        ----------
+        filename : str or list of str
+            Name(s) of the file(s) containing test set data.
+        filepath : str or list of str, default: ''
+            Path(s) to the file(s). If single string, used for all files.
+            If list, must have same length as filename.
+
+        Raises
+        ------
+        WrongTypeInput
+            If filename or filepath are not str or list of str.
+        WrongValueInput
+            If filepath list length doesn't match filename list length.
+        """
         if type(filename) is not str and type(filename) is not list:
             raise error.WrongTypeInput('Benchmark.import_testsets',
                                        'filename',
@@ -111,6 +260,35 @@ class Benchmark(exp.Experiment):
                             for n in range(len(filename))]
         
     def run(self, parallelization=None):
+        """Execute the benchmark with optional parallelization.
+
+        Runs all methods on all test sets and stores the results. Supports
+        various parallelization strategies to improve performance for large
+        benchmarks.
+
+        Parameters
+        ----------
+        parallelization : {None, False, True, 'test', 'testset', 'method'}, optional
+            Parallelization strategy:
+            - None or False: No parallelization (sequential execution)
+            - True: Parallel execution of tests (single method, single testset)
+            - 'test': Parallelize individual test instances
+            - 'testset': Parallelize test sets
+            - 'method': Parallelize methods
+
+        Raises
+        ------
+        MissingAttributesError
+            If testset is not available.
+        WrongValueInput
+            If parallelization parameter has invalid value.
+
+        Notes
+        -----
+        The method automatically sets stochastic algorithms to AVERAGE_CASE
+        mode for consistent benchmarking. Results are stored in the `results`
+        attribute as a numpy array.
+        """
         if not self._testset_available:
             raise error.MissingAttributesError('Benchmark', 'testset')
         
@@ -393,7 +571,25 @@ class Benchmark(exp.Experiment):
                 self.results = np.array(self.results, dtype=object)
                 
     def save(self, file_path='', save_testset=False): 
-        """Save object information."""
+        """Save benchmark state to file.
+
+        Saves the benchmark configuration and optionally the test set data
+        to a file for later retrieval.
+
+        Parameters
+        ----------
+        file_path : str, default: ''
+            Path where to save the benchmark file.
+        save_testset : bool, default: False
+            Whether to save the full test set data or just references.
+            If False, only test set names are saved.
+
+        Notes
+        -----
+        The file is saved with the benchmark's name as filename using pickle
+        serialization. Test set data can be large, so save_testset=False is
+        recommended for most use cases.
+        """
         data = super().save(file_path)
 
         if save_testset:
@@ -410,12 +606,73 @@ class Benchmark(exp.Experiment):
             pickle.dump(data, datafile)
     
     def importdata(self, file_name, file_path=''):
+        """Import benchmark state from file.
+
+        Loads a previously saved benchmark configuration from file.
+
+        Parameters
+        ----------
+        file_name : str
+            Name of the file containing saved benchmark state.
+        file_path : str, default: ''
+            Path to the file containing saved benchmark state.
+
+        Notes
+        -----
+        This method restores the benchmark configuration including methods,
+        discretizations, and test set references. If test set data was not
+        saved with the benchmark, the test sets need to be imported separately.
+        """
         data = super().importdata(file_name, file_path)
         self.testset = data[TESTSET]
 
     def plot(self, indicator, axis=None, testset=None, method=None,
              yscale=None, show=False, file_name=None, file_path='',
              file_format='eps', title=None, fontsize=10):
+        """Generate line plots of benchmark results.
+
+        Creates line plots showing the performance of algorithms across
+        test instances. Supports multiple indicators, methods, and test sets.
+
+        Parameters
+        ----------
+        indicator : str or list of str
+            Performance indicator(s) to plot. Must be valid result indicators.
+        axis : matplotlib.axes.Axes or numpy.ndarray of Axes, optional
+            Matplotlib axes to plot on. If None, new figure is created.
+        testset : int or str or list, optional
+            Test set(s) to include in plot. Can be indices, names, or list.
+        method : int or str or list, optional
+            Method(s) to include in plot. Can be indices, names, or list.
+        yscale : {'linear', 'log'}, optional
+            Y-axis scale for the plot.
+        show : bool, default: False
+            Whether to display the plot.
+        file_name : str, optional
+            Name for saving the plot file (without extension).
+        file_path : str, default: ''
+            Path where to save the plot file.
+        file_format : str, default: 'eps'
+            File format for saving the plot.
+        title : str or bool or list of str, optional
+            Title(s) for the plot(s). Can be string, boolean, or list.
+        fontsize : int, default: 10
+            Font size for plot text.
+
+        Returns
+        -------
+        matplotlib.axes.Axes or numpy.ndarray of Axes
+            The axes used for plotting (if show=False and file_name=None).
+
+        Raises
+        ------
+        MissingAttributesError
+            If results are not available.
+        WrongTypeInput
+            If indicator has wrong type.
+        WrongValueInput
+            If indicator values are invalid.
+        """
         # Check the existence of results
         if self.results is None:
             raise error.MissingAttributesError('Benchmark', 'results')
@@ -947,6 +1204,55 @@ class Benchmark(exp.Experiment):
                 yscale=None, show=False, file_name=None, file_path='',
                 file_format='eps', title=None, fontsize=10, color='b',
                 notch=False):
+        """Generate box plots of benchmark results.
+
+        Creates box plots showing the distribution of algorithm performance
+        across test instances. Useful for comparing algorithm variability
+        and identifying outliers.
+
+        Parameters
+        ----------
+        indicator : str or list of str
+            Performance indicator(s) to plot. Must be valid result indicators.
+        axis : matplotlib.axes.Axes or numpy.ndarray of Axes, optional
+            Matplotlib axes to plot on. If None, new figure is created.
+        testset : int or str or list, optional
+            Test set(s) to include in plot. Can be indices, names, or list.
+        method : int or str or list, optional
+            Method(s) to include in plot. Can be indices, names, or list.
+        yscale : {'linear', 'log'}, optional
+            Y-axis scale for the plot.
+        show : bool, default: False
+            Whether to display the plot.
+        file_name : str, optional
+            Name for saving the plot file (without extension).
+        file_path : str, default: ''
+            Path where to save the plot file.
+        file_format : str, default: 'eps'
+            File format for saving the plot.
+        title : str or bool or list of str, optional
+            Title(s) for the plot(s). Can be string, boolean, or list.
+        fontsize : int, default: 10
+            Font size for plot text.
+        color : str, default: 'b'
+            Color for the box plots.
+        notch : bool, default: False
+            Whether to draw notched box plots.
+
+        Returns
+        -------
+        matplotlib.axes.Axes or numpy.ndarray of Axes
+            The axes used for plotting (if show=False and file_name=None).
+
+        Raises
+        ------
+        MissingAttributesError
+            If results are not available.
+        WrongTypeInput
+            If indicator has wrong type.
+        WrongValueInput
+            If indicator values are invalid.
+        """
         if self.results is None:
             raise error.MissingAttributesError('Benchmark', 'results')
         if indicator is None or not(type(indicator) is str
@@ -1468,6 +1774,55 @@ class Benchmark(exp.Experiment):
                 yscale=None, show=False, file_name=None, file_path='',
                 file_format='eps', title=None, fontsize=10, color='b',
                 notch=False):
+        """Generate violin plots of benchmark results.
+
+        Creates violin plots showing the probability density of algorithm
+        performance across test instances. Combines aspects of box plots
+        and kernel density estimation to show distribution shape.
+
+        Parameters
+        ----------
+        indicator : str or list of str
+            Performance indicator(s) to plot. Must be valid result indicators.
+        axis : matplotlib.axes.Axes or numpy.ndarray of Axes, optional
+            Matplotlib axes to plot on. If None, new figure is created.
+        testset : int or str or list, optional
+            Test set(s) to include in plot. Can be indices, names, or list.
+        method : int or str or list, optional
+            Method(s) to include in plot. Can be indices, names, or list.
+        yscale : {'linear', 'log'}, optional
+            Y-axis scale for the plot.
+        show : bool, default: False
+            Whether to display the plot.
+        file_name : str, optional
+            Name for saving the plot file (without extension).
+        file_path : str, default: ''
+            Path where to save the plot file.
+        file_format : str, default: 'eps'
+            File format for saving the plot.
+        title : str or bool or list of str, optional
+            Title(s) for the plot(s). Can be string, boolean, or list.
+        fontsize : int, default: 10
+            Font size for plot text.
+        color : str, default: 'b'
+            Color for the violin plots.
+        notch : bool, default: False
+            Whether to draw notched violin plots.
+
+        Returns
+        -------
+        matplotlib.axes.Axes or numpy.ndarray of Axes
+            The axes used for plotting (if show=False and file_name=None).
+
+        Raises
+        ------
+        MissingAttributesError
+            If results are not available.
+        WrongTypeInput
+            If indicator has wrong type.
+        WrongValueInput
+            If indicator values are invalid.
+        """
         if self.results is None:
             raise error.MissingAttributesError('Benchmark', 'results')
         if indicator is None or not(type(indicator) is str
@@ -1990,6 +2345,48 @@ class Benchmark(exp.Experiment):
                   labels=None, xlabel=None, title=None, fontsize=10,
                   yscale=None, variable='testset', show=False, file_name=None,
                   file_path='', file_format='eps'):
+        """Plot evolution of performance indicators across test sets or methods.
+
+        Creates plots showing how algorithm performance evolves across
+        different test sets or methods, useful for analyzing trends and
+        comparing algorithm behavior.
+
+        Parameters
+        ----------
+        indicator : str
+            Performance indicator to plot.
+        axis : matplotlib.axes.Axes, optional
+            Matplotlib axes to plot on. If None, new figure is created.
+        method : int or str or list, optional
+            Method(s) to include in plot.
+        testset : int or str or list, optional
+            Test set(s) to include in plot.
+        labels : list of str, optional
+            Custom labels for the plot lines.
+        xlabel : str, optional
+            Label for the x-axis.
+        title : str, optional
+            Title for the plot.
+        fontsize : int, default: 10
+            Font size for plot text.
+        yscale : {'linear', 'log'}, optional
+            Y-axis scale for the plot.
+        variable : {'testset', 'method'}, default: 'testset'
+            Variable to plot evolution across.
+        show : bool, default: False
+            Whether to display the plot.
+        file_name : str, optional
+            Name for saving the plot file.
+        file_path : str, default: ''
+            Path where to save the plot file.
+        file_format : str, default: 'eps'
+            File format for saving the plot.
+
+        Raises
+        ------
+        Error
+            If called with single method and single testset.
+        """
         if self._single_method and self._single_testset:
             raise error.Error('Benchmark.evolution: this function is not '
                               + 'available for benchmarks with single method '
@@ -2262,6 +2659,47 @@ class Benchmark(exp.Experiment):
                        show=False, file_name=None, file_path='',
                        file_format='eps', title=None, fontsize=10,
                        source=None):
+        """Display reconstruction results from benchmark execution.
+
+        Visualizes the reconstructed images from algorithm execution,
+        allowing comparison of different methods and test cases.
+
+        Parameters
+        ----------
+        image : {'contrast', 'total field'}, default: 'contrast'
+            Type of image to display.
+        mode : str, optional
+            Display mode for the reconstruction.
+        indicator : str, optional
+            Performance indicator to use for selection.
+        axis : matplotlib.axes.Axes, optional
+            Matplotlib axes to plot on. If None, new figure is created.
+        testset : int or str or list, optional
+            Test set(s) to include in visualization.
+        method : int or str or list, optional
+            Method(s) to include in visualization.
+        test : int or str or list, optional
+            Specific test instance(s) to visualize.
+        show : bool, default: False
+            Whether to display the plot.
+        file_name : str, optional
+            Name for saving the plot file.
+        file_path : str, default: ''
+            Path where to save the plot file.
+        file_format : str, default: 'eps'
+            File format for saving the plot.
+        title : str, optional
+            Title for the plot.
+        fontsize : int, default: 10
+            Font size for plot text.
+        source : int, optional
+            Source index for field visualization.
+
+        Raises
+        ------
+        MissingAttributesError
+            If results are not available.
+        """
         # Check result
         if self.results is None:
             raise error.MissingAttributesError('Benchmark', 'results')
@@ -2929,6 +3367,42 @@ class Benchmark(exp.Experiment):
     def normality(self, indicator, axis=None, method=None, testset=None,
                   fontsize=None, title=None, show=False, file_name=None,
                   file_path='', file_format='eps'):
+        """Test and visualize normality of performance indicators.
+
+        Performs statistical normality tests and creates Q-Q plots to
+        assess whether the performance indicators follow a normal distribution.
+        This is useful for determining appropriate statistical tests.
+
+        Parameters
+        ----------
+        indicator : str
+            Performance indicator to test for normality.
+        axis : matplotlib.axes.Axes, optional
+            Matplotlib axes to plot on. If None, new figure is created.
+        method : int or str or list, optional
+            Method(s) to include in analysis.
+        testset : int or str or list, optional
+            Test set(s) to include in analysis.
+        fontsize : int, optional
+            Font size for plot text.
+        title : str, optional
+            Title for the plot.
+        show : bool, default: False
+            Whether to display the plot.
+        file_name : str, optional
+            Name for saving the plot file.
+        file_path : str, default: ''
+            Path where to save the plot file.
+        file_format : str, default: 'eps'
+            File format for saving the plot.
+
+        Raises
+        ------
+        WrongTypeInput
+            If indicator is not a string.
+        WrongValueInput
+            If indicator is not a valid performance indicator.
+        """
         if indicator is None:
             raise error.WrongTypeInput('Benchmark.normality', 'indicator',
                                        'str or str-list',str(type(indicator)))
@@ -3263,6 +3737,40 @@ class Benchmark(exp.Experiment):
 
     def compare(self, indicator, method=None, testset=None, reference=None,
                 all2all=False, all2one=None, samples='methods'):
+        """Perform statistical comparison of algorithm performance.
+
+        Conducts statistical tests to compare the performance of different
+        algorithms, providing p-values and significance tests for determining
+        if performance differences are statistically significant.
+
+        Parameters
+        ----------
+        indicator : str
+            Performance indicator to compare.
+        method : int or str or list, optional
+            Method(s) to include in comparison.
+        testset : int or str or list, optional
+            Test set(s) to include in comparison.
+        reference : int or str, optional
+            Reference method for comparison.
+        all2all : bool, default: False
+            Whether to perform all-to-all comparison.
+        all2one : int or str, optional
+            Method to use as reference for all-to-one comparison.
+        samples : {'methods', 'testsets'}, default: 'methods'
+            Whether to compare across methods or test sets.
+
+        Returns
+        -------
+        dict
+            Dictionary containing statistical comparison results including
+            p-values and test statistics.
+
+        Raises
+        ------
+        WrongTypeInput
+            If indicator is None or invalid.
+        """
         if indicator is None:
             raise error.WrongTypeInput('Benchmark.compare', 'indicator',
                                        str(rst.INDICATOR_SET), 'None')
@@ -3704,6 +4212,54 @@ class Benchmark(exp.Experiment):
                 print_obj=sys.stdout, show=False, file_name=None, file_path='',
                 file_format='eps', fontsize=10, axis=None, title=None,
                 confidence_level=.95, group='methods'):
+        """Compute and visualize confidence intervals for performance indicators.
+
+        Calculates confidence intervals for algorithm performance metrics
+        and creates visualizations to show the statistical uncertainty
+        in the performance estimates.
+
+        Parameters
+        ----------
+        indicator : str
+            Performance indicator to compute confidence intervals for.
+        method : int or str or list, optional
+            Method(s) to include in analysis.
+        testset : int or str or list, optional
+            Test set(s) to include in analysis.
+        print_info : bool, default: True
+            Whether to print confidence interval information.
+        print_obj : file-like object, default: sys.stdout
+            File object to write information to.
+        show : bool, default: False
+            Whether to display the plot.
+        file_name : str, optional
+            Name for saving the plot file.
+        file_path : str, default: ''
+            Path where to save the plot file.
+        file_format : str, default: 'eps'
+            File format for saving the plot.
+        fontsize : int, default: 10
+            Font size for plot text.
+        axis : matplotlib.axes.Axes, optional
+            Matplotlib axes to plot on. If None, new figure is created.
+        title : str, optional
+            Title for the plot.
+        confidence_level : float, default: 0.95
+            Confidence level for interval computation (between 0 and 1).
+        group : {'methods', 'testsets'}, default: 'methods'
+            Whether to group by methods or test sets.
+
+        Returns
+        -------
+        dict
+            Dictionary containing confidence interval information including
+            lower bounds, upper bounds, and means.
+
+        Raises
+        ------
+        WrongTypeInput
+            If indicator is None or invalid.
+        """
         if indicator is None:
             raise error.WrongTypeInput('Benchmark.confint', 'indicator',
                                        str(rst.INDICATOR_SET), 'None')
@@ -4083,6 +4639,25 @@ class Benchmark(exp.Experiment):
                 return fig, axis
 
     def _search_testset(self, name):
+        """Search for test set(s) by name.
+
+        Helper method to find test set indices by their names.
+
+        Parameters
+        ----------
+        name : str or list of str
+            Name(s) of test set(s) to search for.
+
+        Returns
+        -------
+        int or list of int or bool
+            Index or indices of matching test sets, or False if not found.
+
+        Raises
+        ------
+        WrongTypeInput
+            If name is not str or list of str.
+        """
         if type(name) is not str and type(name) is not list:
             raise error.WrongTypeInput('Benchmark._check_testset', 'name',
                                        'str or str-list', str(type(name)))
@@ -4114,6 +4689,25 @@ class Benchmark(exp.Experiment):
 
 
 def _run_testset(testset, method, discretization=None):
+    """Helper function to run a single test set with a method.
+
+    Executes a single inverse scattering method on all test instances
+    in a test set. Used for parallelization in the Benchmark class.
+
+    Parameters
+    ----------
+    testset : TestSet
+        Test set containing the test instances to run.
+    method : InverseMethod
+        Inverse scattering method to execute.
+    discretization : Discretization, optional
+        Discretization scheme to use. If None, method uses its default.
+
+    Returns
+    -------
+    list
+        List of Result objects from running the method on each test instance.
+    """
     results = []
     for n in range(testset.sample_size):
         results.append(method.solve(testset.test[n], discretization,
