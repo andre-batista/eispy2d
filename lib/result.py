@@ -1,14 +1,82 @@
-"""A module for results information.
+r"""Results storage and visualization module for electromagnetic inverse scattering.
 
-The results module provides the :class:`Results` which contains the
-resultant information of a single execution of a method for a given
-input data and the corresponding problem configuration. The class is also
-a tool for plotting results. The following class is defined
+This module provides comprehensive functionality for storing, analyzing, and visualizing
+results from electromagnetic inverse scattering algorithms. It contains the main
+:class:`Result` class for storing reconstruction results and error metrics, along with
+plotting utilities for visualization of reconstructed images and convergence curves.
 
-:class:`Results`
-    a class for storing results information of a single execution.
+The module supports various error metrics for quantitative evaluation of reconstruction
+quality, including residual norm errors, percentage average deviation (PAD) errors,
+and shape/position errors. It also provides sophisticated plotting capabilities for
+displaying contrast maps, field distributions, and convergence behavior.
 
-The list of routines...
+Key Features
+------------
+- Comprehensive result storage with multiple error metrics
+- Advanced plotting capabilities for maps and convergence curves
+- Support for both permittivity and conductivity reconstructions
+- Flexible visualization options with customizable layouts
+- Statistical analysis tools for reconstruction quality assessment
+- Pickle-based serialization for result persistence
+
+Classes
+-------
+Result
+    Main class for storing and managing reconstruction results from inverse scattering methods.
+
+Functions
+---------
+add_image
+    Add image plots to matplotlib axes with standardized formatting.
+add_plot
+    Add line plots to matplotlib axes for convergence visualization.
+add_box
+    Add box plots for statistical analysis of reconstruction metrics.
+get_figure
+    Create figure layouts for different plot configurations.
+indicator_label
+    Get formatted labels for error indicators.
+check_indicator
+    Validate error indicator names.
+compute_*
+    Various functions for computing specific error metrics.
+
+Constants
+---------
+Error Indicator Constants
+    RESIDUAL_NORM_ERROR, RESIDUAL_PAD_ERROR, REL_PERMITTIVITY_PAD_ERROR, etc.
+    String constants for accessing different error metrics.
+
+Plot Label Constants
+    XLABEL_STANDARD, YLABEL_STANDARD, COLORBAR_REL_PERMITTIVITY, etc.
+    Pre-defined labels for consistent plot formatting.
+
+Image Type Constants
+    PERMITTIVITY, CONDUCTIVITY, CONTRAST, TOTAL_FIELD, BOTH_PROPERTIES
+    Constants for specifying different visualization types.
+
+Notes
+-----
+The module integrates closely with the electromagnetic inverse scattering framework,
+providing standardized result storage and visualization capabilities. It supports
+both single-frequency and multi-frequency reconstruction results.
+
+Examples
+--------
+>>> import result as rst
+>>> 
+>>> # Create result object
+>>> result = rst.Result(name='test_reconstruction')
+>>> 
+>>> # Store reconstruction data
+>>> result.rel_permittivity = reconstructed_permittivity
+>>> result.conductivity = reconstructed_conductivity
+>>> 
+>>> # Plot results
+>>> result.plot_map(image=rst.BOTH_PROPERTIES, show=True)
+>>> 
+>>> # Plot convergence
+>>> result.plot_convergence(indicators=[rst.RESIDUAL_NORM_ERROR], show=True)
 """
 
 from math import pi
@@ -139,67 +207,108 @@ TITLES = {RESIDUAL_NORM_ERROR: 'Residual Norm',
 
 
 class Result:
-    """A class for storing results information of a single execution.
+    r"""Storage and analysis class for electromagnetic inverse scattering results.
 
-    Each executation of method for a giving input data with
-    corresponding configuration will result in information which will be
-    stored in this class.
+    This class provides comprehensive storage and analysis capabilities for results
+    from electromagnetic inverse scattering algorithms. It stores reconstructed
+    fields, material properties, and various error metrics, while providing
+    sophisticated plotting and analysis tools.
+
+    The class supports multiple error indicators for quantitative evaluation of
+    reconstruction quality, including residual norm errors, percentage average
+    deviation (PAD) errors, and shape/position analysis. It also provides
+    extensive plotting capabilities for visualizing reconstructed images and
+    convergence behavior.
 
     Attributes
     ----------
-        name
-            A string identifying the stored result. It may be a
-            combination of the method, input data and configuration
-            names.
+    name : str
+        Unique identifier for the stored result, typically combining method,
+        input data, and configuration names.
+    method_name : str
+        Name of the inverse scattering method that generated this result.
+    configuration : :class:`configuration.Configuration`
+        Problem configuration object containing frequency, geometry, and other
+        parameters used in the reconstruction.
+    total_field : :class:`numpy.ndarray`
+        Reconstructed total electric field distribution in the investigation
+        domain. Shape: (N_pixels, N_sources). Units: [V/m].
+    scattered_field : :class:`numpy.ndarray`
+        Computed scattered electric field at measurement points. 
+        Shape: (N_measurements, N_sources). Units: [V/m].
+    rel_permittivity : :class:`numpy.ndarray`
+        Reconstructed relative permittivity distribution. 
+        Shape: (N_x, N_y). Dimensionless.
+    conductivity : :class:`numpy.ndarray`
+        Reconstructed conductivity distribution. 
+        Shape: (N_x, N_y). Units: [S/m].
+    execution_time : float
+        Total execution time for the reconstruction algorithm. Units: [sec].
+    number_evaluations : int
+        Number of objective function evaluations (relevant for stochastic methods).
+    number_iterations : int
+        Number of iterations performed by the reconstruction algorithm.
+    objective_function : list
+        History of objective function values throughout the iterative process.
 
-        method_name
-            A string with the name of the method which yield this result.
+    Error Metrics
+    -------------
+    zeta_rn : list
+        Residual norm error: :math:`\\zeta_{RN} = ||\\mathbf{E}^s_{meas} - \\mathbf{E}^s_{comp}||_2`
+    zeta_rpad : list
+        Residual percentage average deviation: :math:`\\zeta_{RPAD} = \\frac{100}{N_m} \\sum_{i=1}^{N_m} \\frac{|E^s_{meas,i} - E^s_{comp,i}|}{|E^s_{meas,i}|}`
+    zeta_epad : list
+        Permittivity percentage average deviation: :math:`\\zeta_{\\epsilon PAD} = \\frac{100}{N_p} \\sum_{i=1}^{N_p} \\frac{|\\epsilon_{r,true,i} - \\epsilon_{r,rec,i}|}{\\epsilon_{r,true,i}}`
+    zeta_ebe : list
+        Background permittivity error for pixels outside the object region.
+    zeta_eoe : list
+        Object permittivity error for pixels inside the object region.
+    zeta_sad : list
+        Conductivity average deviation: :math:`\\zeta_{\\sigma AD} = \\frac{1}{N_p} \\sum_{i=1}^{N_p} |\\sigma_{true,i} - \\sigma_{rec,i}|`
+    zeta_sbe : list
+        Background conductivity error for pixels outside the object region.
+    zeta_soe : list
+        Object conductivity error for pixels inside the object region.
+    zeta_tv : list
+        Total variation: :math:`\\zeta_{TV} = \\sum_{i,j} |\\nabla \\chi_{i,j}|`
+    zeta_p : list
+        Position error: percentage difference in object centroid location.
+    zeta_s : list
+        Shape error: percentage difference in object area/shape.
+    zeta_tfmpad : list
+        Total field magnitude percentage average deviation.
+    zeta_tfpad : list
+        Total field phase average deviation.
 
-        configuration_filename
-            A string containing the file name in which configuration
-            info is stored.
+    Examples
+    --------
+    >>> import result as rst
+    >>> import numpy as np
+    >>> 
+    >>> # Create result object
+    >>> result = rst.Result(name='csi_reconstruction')
+    >>> 
+    >>> # Store reconstruction data
+    >>> result.rel_permittivity = np.random.rand(64, 64) * 2 + 1
+    >>> result.conductivity = np.random.rand(64, 64) * 0.1
+    >>> 
+    >>> # Update with error metrics
+    >>> result.zeta_rn.append(1e-3)
+    >>> result.zeta_epad.append(15.5)
+    >>> 
+    >>> # Plot results
+    >>> result.plot_map(image=rst.BOTH_PROPERTIES, show=True)
+    >>> result.plot_convergence(show=True)
+    >>> 
+    >>> # Save results
+    >>> result.save(file_path='/path/to/results/')
 
-        configuration_filepath
-            A string containing the path to the file which stores the
-            configuration info.
-
-        input_filename
-            A string containing the file name in which instance info is
-            stored.
-
-        input_filepath
-            A string containing the path to the file which stores the
-            instance info.
-
-        et
-            The total field matrix which is estimated by the inverse
-            nonlinear solver. Unit: [V/m]
-
-        es
-            The scattered field matrix resulting from the estimation of
-            the total field and contrast map. Unit: [V/m]
-
-        epsilon_r
-            The image matrix containing the result of the relative
-            permittivity map estimation.
-
-        sigma
-            The image matrix containing the result of the conductivity
-            map estimation. Unit: [S/m]
-
-        execution_time
-            The amount of time for running the method.
-
-        number_evaluations
-            Number of times in which the objective function was
-            evaluated (for stochastic algorithms).
-
-        number_iterations
-            Number of iterations.
-
-        objective_function
-            The array with the recorded evaluations of the objective
-            function throughout the iterations.
+    Notes
+    -----
+    The class automatically computes various error metrics when the
+    :meth:`update_error` method is called with appropriate input data
+    and ground truth information. Error metrics are stored as lists
+    to track evolution during iterative reconstruction processes.
     """
     def __init__(self, name=None, method_name=None,
                  configuration=None, scattered_field=None,
@@ -208,10 +317,81 @@ class Result:
                  number_evaluations=None, objective_function=None,
                  number_iterations=None, import_filename=None,
                  import_filepath=''):
-        """Build the object.
+        r"""Initialize a Result object for storing reconstruction results.
 
-        You may provide here the value of all attributes. But only name
-        is required.
+        Creates a new Result object to store electromagnetic inverse scattering
+        reconstruction results. The object can be initialized with reconstruction
+        data directly or loaded from a previously saved file.
+
+        Parameters
+        ----------
+        name : str, optional
+            Unique identifier for this result. Required if not loading from file.
+            Typically combines method name, input data, and configuration info.
+        method_name : str, optional
+            Name of the reconstruction method that generated this result.
+            Examples: 'CSI', 'DBIM', 'Born', 'Gauss-Newton'.
+        configuration : :class:`configuration.Configuration`, optional
+            Problem configuration object containing frequency, geometry, and
+            material parameters used in the reconstruction.
+        scattered_field : :class:`numpy.ndarray`, optional
+            Computed scattered field at measurement points.
+            Shape: (N_measurements, N_sources). Units: [V/m].
+        total_field : :class:`numpy.ndarray`, optional
+            Reconstructed total field in the investigation domain.
+            Shape: (N_pixels, N_sources). Units: [V/m].
+        rel_permittivity : :class:`numpy.ndarray`, optional
+            Reconstructed relative permittivity map.
+            Shape: (N_x, N_y). Dimensionless.
+        conductivity : :class:`numpy.ndarray`, optional
+            Reconstructed conductivity map.
+            Shape: (N_x, N_y). Units: [S/m].
+        execution_time : float, optional
+            Total execution time for the reconstruction. Units: [sec].
+        number_evaluations : int, optional
+            Number of objective function evaluations (for stochastic methods).
+        number_iterations : int, optional
+            Number of iterations performed by the reconstruction algorithm.
+        objective_function : list or float, optional
+            Objective function value(s) recorded during reconstruction.
+        import_filename : str, optional
+            Name of file containing previously saved Result object.
+            If provided, all other parameters are ignored.
+        import_filepath : str, optional
+            Directory path containing the import file. Default is current directory.
+
+        Raises
+        ------
+        error.MissingInputError
+            If name is None and import_filename is None.
+        FileNotFoundError
+            If import_filename is specified but file cannot be found.
+
+        Examples
+        --------
+        >>> # Create new result object
+        >>> result = Result(name='csi_test', method_name='CSI')
+        >>> 
+        >>> # Create with reconstruction data
+        >>> result = Result(
+        ...     name='dbim_reconstruction',
+        ...     method_name='DBIM',
+        ...     rel_permittivity=epsilon_r_map,
+        ...     conductivity=sigma_map,
+        ...     execution_time=45.2
+        ... )
+        >>> 
+        >>> # Load from saved file
+        >>> result = Result(import_filename='saved_result.pkl')
+
+        Notes
+        -----
+        If import_filename is provided, the object is initialized from the
+        saved file and all other parameters are ignored. Otherwise, a new
+        object is created with the provided parameters.
+
+        All error metric lists (zeta_*) are initialized as empty lists
+        and can be populated using the :meth:`update_error` method.
         """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
@@ -240,7 +420,31 @@ class Result:
                 self.objective_function = objective_function
 
     def save(self, file_path=''):
-        """Save object information."""
+        r"""Save the Result object to a pickle file.
+
+        Serializes the complete Result object including all reconstruction data
+        and error metrics to a pickle file for later loading and analysis.
+
+        Parameters
+        ----------
+        file_path : str, optional
+            Directory path where the file will be saved. The file is saved
+            with the object's name as the filename. Default is current directory.
+
+        Notes
+        -----
+        The saved file contains all reconstruction results, error metrics,
+        and configuration information. The file can be loaded later using
+        the :meth:`importdata` method or by initializing a new Result object
+        with the import_filename parameter.
+
+        Examples
+        --------
+        >>> result = Result(name='my_reconstruction')
+        >>> result.rel_permittivity = epsilon_r_map
+        >>> result.save(file_path='/path/to/results/')
+        >>> # Creates file: /path/to/results/my_reconstruction
+        """
         data = {
             NAME: self.name,
             CONFIGURATION: self.configuration,
@@ -272,7 +476,37 @@ class Result:
             pickle.dump(data, datafile)
 
     def importdata(self, file_name, file_path=''):
-        """Import data from a saved object."""
+        r"""Load Result object data from a saved pickle file.
+
+        Restores a previously saved Result object by loading all reconstruction
+        data, error metrics, and configuration information from a pickle file.
+
+        Parameters
+        ----------
+        file_name : str
+            Name of the pickle file containing the saved Result object.
+        file_path : str, optional
+            Directory path containing the file. Default is current directory.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the specified file cannot be found.
+        pickle.UnpicklingError
+            If the file cannot be unpickled or contains invalid data.
+
+        Examples
+        --------
+        >>> result = Result(name='empty')
+        >>> result.importdata('saved_result.pkl', '/path/to/results/')
+        >>> print(result.name)  # Will show the name from saved file
+        >>> print(result.rel_permittivity.shape)  # Access loaded data
+
+        Notes
+        -----
+        This method completely overwrites the current object state with
+        data from the saved file. Any existing data in the object is lost.
+        """
         with open(file_path + file_name, 'rb') as datafile:
             data = pickle.load(datafile)
         self.name = data[NAME]
@@ -303,29 +537,84 @@ class Result:
     def plot_map(self, axis=None, image=CONTRAST, groundtruth=None, title=None,
                  show=False, save=False, file_path='', file_format='eps',
                  fontsize=10, file_name=None, source=None, interpolation=None):
-        """Plot map results.
+        r"""Plot reconstructed maps and field distributions.
 
-        Call signatures::
-
-            plot_map(show=False, filepath='', file_format='eps')
+        Creates visualizations of reconstructed material properties and field
+        distributions with optional ground truth comparison. Supports various
+        image types including permittivity, conductivity, contrast, and total field.
 
         Parameters
         ----------
-            show : boolean
-                If `False`, a figure will be saved with the name
-                attribute of the object will be save at the specified
-                path with the specified format. If `True`, a plot window
-                will be displayed.
+        axis : :class:`matplotlib.axes.Axes` or :class:`numpy.ndarray`, optional
+            Pre-existing axes for plotting. If None, new figure is created.
+            For multiple plots, provide array of axes objects.
+        image : str, optional
+            Type of image to plot. Options: 'contrast', 'epsilon_r', 'sigma',
+            'both', 'total field'. Default is 'contrast'.
+        groundtruth : :class:`inputdata.InputData`, optional
+            Ground truth data for comparison plotting. If provided, both
+            ground truth and reconstructed images are displayed.
+        title : str, list, or bool, optional
+            Plot title(s). If list, separate titles for each subplot.
+            If False, no titles are shown. Default is None (automatic titles).
+        show : bool, optional
+            If True, display the plot window. Default is False.
+        save : bool, optional
+            If True, save the figure to file. Default is False.
+        file_path : str, optional
+            Directory path for saving the figure. Default is current directory.
+        file_format : str, optional
+            File format for saving ('eps', 'png', 'pdf', etc.). Default is 'eps'.
+        fontsize : int, optional
+            Font size for labels and titles. Default is 10.
+        file_name : str, optional
+            Custom filename for saving. If None, uses object name. Default is None.
+        source : int, list, or None, optional
+            Source indices for total field plotting. If None, plots all sources.
+            For int, plots single source. For list, plots multiple sources.
+        interpolation : str, optional
+            Interpolation method for imshow ('nearest', 'bilinear', etc.).
+            Default is None (matplotlib default).
 
-            file_path : string
-                The location in which you want save the figure. Default:
-                ''
+        Returns
+        -------
+        fig : :class:`matplotlib.figure.Figure`
+            Figure object (only if show=False and save=False).
+        ax : :class:`numpy.ndarray`
+            Array of axes objects (only if show=False and save=False).
 
-            file_format : string
-                The format of the figure to be saved. The possible
-                formats are the same of the command `pyplot.savefig()`.
-                Default: 'eps'
+        Raises
+        ------
+        error.MissingAttributesError
+            If required data (e.g., total_field) is missing for the requested plot.
+        error.WrongValueInput
+            If source index is out of range or axis array has wrong size.
+        error.WrongTypeInput
+            If source parameter has invalid type.
 
+        Examples
+        --------
+        >>> # Plot contrast map
+        >>> result.plot_map(image='contrast', show=True)
+        >>> 
+        >>> # Plot both properties with ground truth
+        >>> result.plot_map(image='both', groundtruth=input_data,
+        ...                  title=['Ground Truth', 'Reconstructed'], show=True)
+        >>> 
+        >>> # Plot total field for specific source
+        >>> result.plot_map(image='total field', source=0, show=True)
+        >>> 
+        >>> # Save high-resolution figure
+        >>> result.plot_map(image='epsilon_r', save=True, file_format='png',
+        ...                  file_path='/path/to/figures/', fontsize=14)
+
+        Notes
+        -----
+        - Spatial coordinates are normalized by background wavelength λ_b
+        - Color bars are automatically added with appropriate units
+        - Ground truth comparison creates side-by-side plots
+        - Total field plotting supports multiple sources
+        - Images are displayed with 'lower' origin (bottom-left corner)
         """
         xlabel, ylabel = r'x [$\lambda_b$]', r'y [$\lambda_b$]'
         xmin, xmax = cfg.get_bounds(self.configuration.Lx)
@@ -490,21 +779,105 @@ class Result:
     def update_error(self, inputdata, scattered_field=None, total_field=None,
                      rel_permittivity=None, conductivity=None,
                      contrast=None, objective_function=None):
-        """Compute errors for a given set of variables.
+        r"""Compute and update error metrics for reconstruction quality assessment.
+
+        Calculates various error indicators based on the specified input data
+        indicators and updates the corresponding error metric lists. This method
+        is typically called during iterative reconstruction to track convergence
+        and quality metrics.
 
         Parameters
         ----------
-            inputdata : :class:`inputdata.InputData`
-                An object of InputData representing an instance.
+        inputdata : :class:`inputdata.InputData`
+            Input data object containing ground truth information and indicator
+            specifications. The `indicators` attribute determines which error
+            metrics will be computed.
+        scattered_field : :class:`numpy.ndarray`, optional
+            Computed scattered field for comparison with measured data.
+            Shape: (N_measurements, N_sources). Units: [V/m].
+            Required for residual norm and PAD error calculations.
+        total_field : :class:`numpy.ndarray`, optional
+            Reconstructed total field distribution.
+            Shape: (N_pixels, N_sources). Units: [V/m].
+            Required for total field error calculations.
+        rel_permittivity : :class:`numpy.ndarray`, optional
+            Reconstructed relative permittivity map.
+            Shape: (N_x, N_y). Dimensionless.
+            Required for permittivity error calculations.
+        conductivity : :class:`numpy.ndarray`, optional
+            Reconstructed conductivity map.
+            Shape: (N_x, N_y). Units: [S/m].
+            Required for conductivity error calculations.
+        contrast : :class:`numpy.ndarray`, optional
+            Reconstructed contrast function.
+            Shape: (N_x, N_y). Complex-valued.
+            Alternative to providing separate permittivity and conductivity.
+        objective_function : float, optional
+            Current objective function value for tracking convergence.
 
-            scattered_field, total_field : :class:`numpy.ndarray`
-                Fields estimated by the solver.
+        Raises
+        ------
+        error.MissingInputError
+            If required input for a specified indicator is missing.
+        error.MissingAttributesError
+            If required ground truth data is missing from inputdata.
+        error.Error
+            If array shapes are incompatible between ground truth and reconstruction.
 
-            REL_PERMITTIVITY : :class:`numpy.ndarray`
-                Relative permittivity image recovered by the solver.
+        Notes
+        -----
+        The method computes the following error metrics based on inputdata.indicators:
 
-            CONDUCTIVITY : :class:`numpy.ndarray`
-                Conductivity image recovered by the solver.
+        **Field-Based Errors:**
+        - RESIDUAL_NORM_ERROR: :math:`\\zeta_{RN} = ||\\mathbf{E}^s_{meas} - \\mathbf{E}^s_{comp}||_2`
+        - RESIDUAL_PAD_ERROR: :math:`\\zeta_{RPAD} = \\frac{100}{N_m} \\sum_{i=1}^{N_m} \\frac{|E^s_{meas,i} - E^s_{comp,i}|}{|E^s_{meas,i}|}`
+
+        **Permittivity Errors:**
+        - REL_PERMITTIVITY_PAD_ERROR: Percentage average deviation of permittivity
+        - REL_PERMITTIVITY_BACKGROUND_ERROR: Background region permittivity error
+        - REL_PERMITTIVITY_OBJECT_ERROR: Object region permittivity error
+
+        **Conductivity Errors:**
+        - CONDUCTIVITY_AD_ERROR: Average deviation of conductivity
+        - CONDUCTIVITY_BACKGROUND_ERROR: Background region conductivity error
+        - CONDUCTIVITY_OBJECT_ERROR: Object region conductivity error
+
+        **Shape and Position Errors:**
+        - SHAPE_ERROR: Percentage difference in reconstructed object shape
+        - POSITION_ERROR: Percentage difference in reconstructed object position
+
+        **Regularization Metrics:**
+        - TOTAL_VARIATION: Total variation of the reconstructed contrast
+
+        **Total Field Errors:**
+        - TOTALFIELD_MAGNITUDE_PAD: Magnitude percentage average deviation
+        - TOTALFIELD_PHASE_AD: Phase average deviation
+
+        Examples
+        --------
+        >>> import result as rst
+        >>> 
+        >>> # During iterative reconstruction
+        >>> for iteration in range(max_iterations):
+        ...     # ... perform reconstruction step ...
+        ...     
+        ...     # Update error metrics
+        ...     result.update_error(
+        ...         inputdata=input_data,
+        ...         scattered_field=computed_scattered_field,
+        ...         rel_permittivity=reconstructed_permittivity,
+        ...         conductivity=reconstructed_conductivity,
+        ...         objective_function=current_obj_value
+        ...     )
+        ...     
+        ...     # Check convergence
+        ...     if len(result.zeta_rn) > 1:
+        ...         if result.zeta_rn[-1] < convergence_threshold:
+        ...             break
+
+        >>> # Access error history
+        >>> print(f"Final residual norm: {result.zeta_rn[-1]:.3e}")
+        >>> print(f"Final permittivity PAD: {result.zeta_epad[-1]:.2f}%")
         """
         if RESIDUAL_NORM_ERROR in inputdata.indicators:
             if scattered_field is None:
@@ -753,7 +1126,47 @@ class Result:
             self.objective_function.append(objective_function)
 
     def last_error_message(self, pre_message=None):
-        """Summarize the method."""
+        r"""Generate a formatted summary of the latest error metrics.
+
+        Creates a comprehensive text summary of the most recent error indicator
+        values for display or logging purposes. This method is typically used
+        to provide concise status updates during iterative reconstruction processes.
+
+        Parameters
+        ----------
+        pre_message : str, optional
+            Custom prefix message to prepend to the error summary.
+            If None, uses default prefix "Indicators:".
+
+        Returns
+        -------
+        str
+            Formatted string containing the latest values of all available
+            error indicators. Format: "Indicators: Residual norm: 1.23e-4,
+            Residual PAD: 12.34%, Rel. Per. PAD: 8.56%, ..."
+
+        Notes
+        -----
+        Only error indicators that have been computed (non-empty lists) are
+        included in the summary. The formatting is optimized for readability
+        with appropriate precision for each metric type:
+        
+        - Residual norm errors: scientific notation with 3 decimal places
+        - Percentage errors: fixed point with 2 decimal places + % symbol
+        - Regularization metrics: fixed point with 2 decimal places
+
+        Examples
+        --------
+        >>> result = Result(name='test')
+        >>> result.zeta_rn = [1e-3, 5e-4, 1e-4]
+        >>> result.zeta_epad = [20.5, 15.2, 12.8]
+        >>> print(result.last_error_message())
+        Indicators: Residual norm: 1.000e-04, Rel. Per. PAD: 12.80%,
+        
+        >>> # With custom prefix
+        >>> print(result.last_error_message("Final results:"))
+        Final results: Residual norm: 1.000e-04, Rel. Per. PAD: 12.80%,
+        """
         if pre_message is not None:
             message = pre_message
         else:
@@ -801,6 +1214,54 @@ class Result:
         return message
 
     def valid_indicators(self):
+        r"""Identify which error indicators have been computed and contain data.
+
+        Examines all error metric attributes to determine which indicators have
+        been calculated and contain valid data. This method is used internally
+        for plotting and analysis functions to determine which metrics are
+        available for display.
+
+        Returns
+        -------
+        list of str
+            List of indicator names (constants) that have been computed and
+            contain at least one data point. Possible indicators include:
+            
+            - RESIDUAL_NORM_ERROR: Residual norm error
+            - RESIDUAL_PAD_ERROR: Residual percentage average deviation
+            - REL_PERMITTIVITY_PAD_ERROR: Permittivity PAD error
+            - REL_PERMITTIVITY_OBJECT_ERROR: Object permittivity error
+            - REL_PERMITTIVITY_BACKGROUND_ERROR: Background permittivity error
+            - CONDUCTIVITY_AD_ERROR: Conductivity average deviation
+            - CONDUCTIVITY_OBJECT_ERROR: Object conductivity error
+            - CONDUCTIVITY_BACKGROUND_ERROR: Background conductivity error
+            - SHAPE_ERROR: Shape reconstruction error
+            - POSITION_ERROR: Position reconstruction error
+            - TOTAL_VARIATION: Total variation regularization metric
+            - TOTALFIELD_MAGNITUDE_PAD: Total field magnitude PAD
+            - TOTALFIELD_PHASE_AD: Total field phase average deviation
+            - OBJECTIVE_FUNCTION: Objective function values
+
+        Notes
+        -----
+        This method checks both that the attribute exists (is not None) and
+        that it contains data (length > 0). Empty lists are considered invalid
+        indicators and are excluded from the results.
+
+        Examples
+        --------
+        >>> result = Result(name='test')
+        >>> result.zeta_rn = [1e-3, 5e-4]
+        >>> result.zeta_epad = [20.5, 15.2]
+        >>> result.zeta_sad = []  # Empty list
+        >>> 
+        >>> indicators = result.valid_indicators()
+        >>> print(indicators)
+        ['zeta_rpad', 'zeta_epad']  # Only non-empty indicators
+        >>> 
+        >>> # Use with plotting
+        >>> result.plot_convergence(indicators=result.valid_indicators())
+        """
         indicators = []
         if self.zeta_rn is not None and len(self.zeta_rn) != 0:
             indicators.append(RESIDUAL_PAD_ERROR)
@@ -837,7 +1298,92 @@ class Result:
                          file_name=None, file_path='', file_format='eps',
                          fontsize=10, title=None, style='--*', yscale=None,
                          markersize=None):
-        """Summarize the method."""
+        r"""Plot convergence curves for error indicators over iterations.
+
+        Creates line plots showing the evolution of error metrics during the
+        iterative reconstruction process. Supports multiple indicators in
+        separate subplots with customizable styling and formatting.
+
+        Parameters
+        ----------
+        axis : :class:`matplotlib.axes.Axes` or :class:`numpy.ndarray`, optional
+            Pre-existing axes for plotting. If None, new figure is created.
+            For multiple indicators, provide array of axes objects.
+        indicators : str, list of str, or None, optional
+            Error indicators to plot. If None, plots all valid indicators.
+            If string, plots single indicator. If list, plots multiple indicators.
+            Valid indicators are returned by :meth:`valid_indicators`.
+        show : bool, optional
+            If True, display the plot window. Default is False.
+        file_name : str, optional
+            Filename for saving the figure (without extension). If None,
+            figure is not saved. Default is None.
+        file_path : str, optional
+            Directory path for saving the figure. Default is current directory.
+        file_format : str, optional
+            File format for saving ('eps', 'png', 'pdf', etc.). Default is 'eps'.
+        fontsize : int, optional
+            Font size for labels and titles. Default is 10.
+        title : str, list of str, or None, optional
+            Plot title(s). If None, uses standard titles. If string, uses
+            same title for all plots. If list, uses separate titles for each plot.
+        style : str, optional
+            Line style for plots (matplotlib format). Default is '--*'.
+        yscale : str, list of str, or None, optional
+            Y-axis scale ('linear', 'log', 'symlog', etc.). If None, uses
+            linear scale. If string, uses same scale for all plots. If list,
+            uses separate scales for each plot.
+        markersize : float, optional
+            Size of markers in the plot. Default is None (matplotlib default).
+
+        Returns
+        -------
+        fig : :class:`matplotlib.figure.Figure`
+            Figure object (only if axis is None and show=False and file_name=None).
+        ax : :class:`numpy.ndarray`
+            Array of axes objects (only if axis is None and show=False and file_name=None).
+
+        Raises
+        ------
+        error.WrongValueInput
+            If provided axis array size doesn't match number of indicators.
+
+        Examples
+        --------
+        >>> # Plot all available indicators
+        >>> result.plot_convergence(show=True)
+        >>> 
+        >>> # Plot specific indicators with logarithmic scale
+        >>> result.plot_convergence(
+        ...     indicators=['zeta_rn', 'zeta_epad'],
+        ...     yscale='log',
+        ...     show=True
+        ... )
+        >>> 
+        >>> # Save convergence plot
+        >>> result.plot_convergence(
+        ...     file_name='convergence_plot',
+        ...     file_path='/path/to/figures/',
+        ...     file_format='png'
+        ... )
+        >>> 
+        >>> # Custom styling
+        >>> result.plot_convergence(
+        ...     style='-o',
+        ...     markersize=6,
+        ...     fontsize=12,
+        ...     title='Algorithm Convergence',
+        ...     show=True
+        ... )
+
+        Notes
+        -----
+        - X-axis represents iteration numbers starting from 1
+        - Each indicator is plotted in a separate subplot
+        - Grid is enabled for all plots to improve readability
+        - Automatic titles are generated based on indicator types
+        - Supports both linear and logarithmic y-axis scaling
+        """
         if indicators is None:
             indicators = self.valid_indicators()
         elif type(indicators) is str:
@@ -889,6 +1435,61 @@ class Result:
             return fig, axis
 
     def final_value(self, indicator):
+        r"""Get the final (most recent) value of a specific error indicator.
+
+        Retrieves the last computed value from the specified error indicator's
+        history. This method is useful for accessing the final reconstruction
+        quality metrics after algorithm completion.
+
+        Parameters
+        ----------
+        indicator : str
+            Name of the error indicator to retrieve. Must be a valid indicator
+            constant such as 'zeta_rn', 'zeta_epad', 'zeta_sad', etc.
+            Use :meth:`valid_indicators` to see available indicators.
+
+        Returns
+        -------
+        float
+            The final (most recent) value of the specified indicator.
+            For list-type indicators, returns the last element.
+            For scalar indicators, returns the scalar value.
+
+        Raises
+        ------
+        error.WrongTypeInput
+            If indicator is not a string.
+        error.WrongValueInput
+            If indicator is not a valid indicator name.
+
+        Examples
+        --------
+        >>> result = Result(name='test')
+        >>> result.zeta_rn = [1e-2, 5e-3, 1e-3]
+        >>> result.zeta_epad = [25.0, 15.0, 8.5]
+        >>> 
+        >>> # Get final residual norm error
+        >>> final_rn = result.final_value('zeta_rn')
+        >>> print(f"Final residual norm: {final_rn:.3e}")
+        Final residual norm: 1.000e-03
+        >>> 
+        >>> # Get final permittivity error
+        >>> final_epad = result.final_value('zeta_epad')
+        >>> print(f"Final permittivity PAD: {final_epad:.1f}%")
+        Final permittivity PAD: 8.5%
+        >>> 
+        >>> # Error handling
+        >>> try:
+        ...     result.final_value('invalid_indicator')
+        ... except error.WrongValueInput as e:
+        ...     print(f"Error: {e}")
+
+        Notes
+        -----
+        This method assumes that the indicator has been computed and contains
+        at least one value. If the indicator list is empty, IndexError will
+        be raised when trying to access the last element.
+        """
         if type(indicator) is not str:
             raise error.WrongTypeInput('Result.final_value', 'indicator',
                                        'str', str(type(indicator)))
@@ -903,6 +1504,55 @@ class Result:
             return output
 
     def copy(self, new=None):
+        r"""Create a deep copy of the Result object or copy data from another Result.
+
+        Creates a complete deep copy of the current Result object with all
+        reconstruction data and error metrics, or copies data from another
+        Result object into the current one. This method is useful for creating
+        backups or comparing different reconstruction results.
+
+        Parameters
+        ----------
+        new : :class:`Result`, optional
+            If provided, copies data from this Result object into the current
+            object, overwriting existing data. If None, creates a new Result
+            object as a copy of the current one.
+
+        Returns
+        -------
+        :class:`Result` or None
+            If new is None, returns a new Result object containing a deep copy
+            of all data. If new is provided, returns None and modifies the
+            current object in-place.
+
+        Examples
+        --------
+        >>> # Create a backup copy
+        >>> result = Result(name='original')
+        >>> result.zeta_rn = [1e-2, 5e-3, 1e-3]
+        >>> result.rel_permittivity = np.random.rand(64, 64)
+        >>> 
+        >>> backup = result.copy()
+        >>> print(backup.name)  # 'original'
+        >>> print(len(backup.zeta_rn))  # 3
+        >>> 
+        >>> # Copy data from another result
+        >>> result2 = Result(name='experiment2')
+        >>> result2.zeta_rn = [2e-2, 1e-2, 5e-3]
+        >>> 
+        >>> result.copy(result2)  # Copies result2 data into result
+        >>> print(result.name)  # 'experiment2'
+        >>> print(result.zeta_rn)  # [2e-2, 1e-2, 5e-3]
+
+        Notes
+        -----
+        - Deep copy is performed on all array data and error metric lists
+        - Configuration objects are also copied to avoid reference sharing
+        - When copying from another Result (new parameter), all existing
+          data in the current object is overwritten
+        - The copy includes all reconstruction data, error metrics, and
+          metadata such as execution time and iteration counts
+        """
         if new is None:
             new = Result(
                 name=self.name, method_name=self.method_name,
@@ -957,7 +1607,45 @@ class Result:
             self.zeta_tv = cp.deepcopy(new.zeta_tv)
 
     def __str__(self):
-        """Print object information."""
+        r"""Return a comprehensive string representation of the Result object.
+
+        Generates a detailed text summary of the Result object including all
+        reconstruction data, error metrics, and algorithm performance statistics.
+        This method provides a human-readable overview of the complete result.
+
+        Returns
+        -------
+        str
+            Multi-line string containing:
+            - Result name and configuration
+            - Field data dimensions and resolution
+            - Material property map resolutions
+            - Execution time and performance metrics
+            - Complete error metric histories with formatting
+            - Algorithm iteration and evaluation counts
+
+        Examples
+        --------
+        >>> result = Result(name='csi_experiment')
+        >>> result.rel_permittivity = np.random.rand(64, 64)
+        >>> result.zeta_rn = [1e-2, 5e-3, 1e-3]
+        >>> result.execution_time = 45.2
+        >>> 
+        >>> print(result)
+        Results name: csi_experiment
+        Configuration: test_config
+        Relative Permit. map resolution: 64x64
+        Residual norm error: [1.00e-02, 5.00e-03, 1.00e-03]
+        Execution time: 45.20 [sec]
+
+        Notes
+        -----
+        - Error metrics are formatted with appropriate precision
+        - Long error histories (>30 values) are truncated with ellipsis
+        - Field dimensions show both measurement and source sample counts
+        - Material property maps show spatial resolution
+        - Performance metrics include execution time and iteration counts
+        """
         message = 'Results name: ' + self.name
         message += '\nConfiguration: ' + self.configuration.name
         if self.scattered_field is not None:
@@ -1127,39 +1815,58 @@ class Result:
 def add_image(axes, image, title, colorbar_name, bounds=(-1., 1., -1., 1.),
               origin='lower', xlabel=XLABEL_STANDARD, ylabel=YLABEL_STANDARD,
               aspect='equal', interpolation=None, fontsize=10):
-    """Add a image to the axes.
+    r"""Add standardized image plot to matplotlib axes.
 
-    A predefined function for plotting image. This is useful for
-    standardize plots involving contrast maps and fields.
+    Creates a standardized image plot with proper scaling, colorbar, and labels
+    for electromagnetic inverse scattering visualizations. Handles both real
+    and complex-valued images appropriately.
 
-    Paramaters
+    Parameters
     ----------
-        axes : :class:`matplotlib.pyplot.Figure.axes.Axes`
-            The axes object.
+    axes : :class:`matplotlib.axes.Axes`
+        The axes object where the image will be plotted.
+    image : :class:`numpy.ndarray`
+        2D array containing the image data. If complex-valued, the magnitude
+        will be displayed.
+    title : str
+        Title to be displayed above the image.
+    colorbar_name : str
+        Label for the colorbar indicating the physical quantity and units.
+    bounds : 4-tuple of float, optional
+        Spatial bounds for the image: (xmin, xmax, ymin, ymax).
+        Default is (-1., 1., -1., 1.).
+    origin : {'lower', 'upper'}, optional
+        Origin of the y-axis. 'lower' places origin at bottom-left.
+        Default is 'lower'.
+    xlabel : str, optional
+        Label for the x-axis. Default is standard wavelength-normalized label.
+    ylabel : str, optional
+        Label for the y-axis. Default is standard wavelength-normalized label.
+    aspect : str or float, optional
+        Aspect ratio of the image. Default is 'equal'.
+    interpolation : str, optional
+        Interpolation method for image display ('nearest', 'bilinear', etc.).
+        Default is None (matplotlib default).
+    fontsize : int, optional
+        Font size for all text elements. Default is 10.
 
-        image : :class:`numpy.ndarray`
-            A matrix with image to be displayed. If complex, the
-            magnitude will be displayed.
+    Notes
+    -----
+    - Complex images are automatically converted to magnitude
+    - Colorbar is positioned with standard fraction and padding
+    - All text elements use consistent font sizing
+    - Spatial coordinates are typically normalized by background wavelength
 
-        title : string
-            The title to be displayed in the figure.
-
-        colorbar_name : string
-            The label for color bar.
-
-        bounds : 4-tuple of floats, default: (-1., 1., -1., 1.)
-            The value of the bounds of each axis. Example: (xmin, xmax,
-            ymin, ymax).
-
-        origin : {'lower', 'upper'}, default: 'lower'
-            Origin of the y-axis.
-
-        xlabel : string, default: XLABEL_STANDARD
-            The label of the x-axis.
-
-        ylabel : string, default: YLABEL_STANDARD
-            The label of the y-axis.
-
+    Examples
+    --------
+    >>> import matplotlib.pyplot as plt
+    >>> import numpy as np
+    >>> 
+    >>> fig, ax = plt.subplots()
+    >>> image_data = np.random.rand(64, 64) * 2 + 1
+    >>> add_image(ax, image_data, 'Relative Permittivity', r'$\\epsilon_r$',
+    ...           bounds=(-2, 2, -2, 2), fontsize=12)
+    >>> plt.show()
     """
     if image.dtype == complex:
         im = axes.imshow(np.abs(image),
@@ -1185,38 +1892,60 @@ def add_image(axes, image, title, colorbar_name, bounds=(-1., 1., -1., 1.),
 def add_plot(axes, data, x=None, title=None, xlabel='Iterations', ylabel=None,
              style='--*', xticks=None, legend=None, legend_fontsize=None,
              yscale=None, fontsize=10, color=None, markersize=None):
-    """Add a plot to the axes.
+    r"""Add standardized line plot to matplotlib axes.
 
-    A predefined function for plotting curves. This is useful for
-    standardize plots involving convergence data.
+    Creates a standardized line plot with proper formatting for convergence
+    curves and other time-series data in electromagnetic inverse scattering
+    analysis.
 
-    Paramaters
+    Parameters
     ----------
-        axes : :class:`matplotlib.pyplot.Figure.axes.Axes`
-            The axes object.
+    axes : :class:`matplotlib.axes.Axes`
+        The axes object where the plot will be created.
+    data : :class:`numpy.ndarray`
+        1D array containing the y-data to be plotted.
+    x : :class:`numpy.ndarray`, optional
+        1D array containing the x-data. If None, uses range(len(data)).
+    title : str, optional
+        Title to be displayed above the plot.
+    xlabel : str, optional
+        Label for the x-axis. Default is 'Iterations'.
+    ylabel : str, optional
+        Label for the y-axis. If None, no y-label is set.
+    style : str, optional
+        Line style specification (e.g., '--*', '-o', ':^'). Default is '--*'.
+    xticks : array-like, optional
+        Custom x-axis tick positions. If None, uses matplotlib defaults.
+    legend : str, optional
+        Legend label for the plot line. If None, no legend is added.
+    legend_fontsize : int, optional
+        Font size for legend text. If None, uses default.
+    yscale : {'linear', 'log', 'symlog', 'logit'}, optional
+        Scale for the y-axis. Default is None (linear).
+    fontsize : int, optional
+        Font size for labels and title. Default is 10.
+    color : str, optional
+        Color specification for the plot line. Default is None (automatic).
+    markersize : int, optional
+        Size of markers in the plot. Default is None (matplotlib default).
 
-        data : :class:`numpy.ndarray`
-            The y-data.
+    Notes
+    -----
+    - Automatically generates x-data if not provided
+    - Supports various matplotlib scales including logarithmic
+    - Consistent font sizing across all text elements
+    - Flexible styling options for different visualization needs
 
-        x : :class:`numpy.ndarray`, default: None
-            The x-data.
-
-        title : string, default: None
-            The title to be displayed in the plot.
-
-        xlabel : string, default: 'Iterations'
-            The label of the x-axis.
-
-        ylabel : string, default: None
-            The label of the y-axis.
-
-        style : string, default: '--*'
-            The style of the curve (line, marker, color).
-
-        yscale : None or {'linear', 'log', 'symlog', 'logit', ...}
-            Scale of y-axis. Check some options `here <https://
-            matplotlib.org/3.1.1/api/_as_gen/
-            matplotlib.pyplot.yscale.html>`
+    Examples
+    --------
+    >>> import matplotlib.pyplot as plt
+    >>> import numpy as np
+    >>> 
+    >>> fig, ax = plt.subplots()
+    >>> error_data = np.logspace(-1, -4, 50)  # Decreasing error
+    >>> add_plot(ax, error_data, title='Convergence', ylabel='Error',
+    ...          yscale='log', fontsize=12)
+    >>> plt.show()
     """
     if x is None:
         if type(data) is list:
@@ -1369,56 +2098,87 @@ def add_box(data, axis=None, meanline=False, labels=None, xlabel=None,
 def add_violin(data, axis=None, meanline=False, labels=None, xlabel=None,
                ylabel=None, color='b', legend=None, title=None,
                legend_fontsize=None, fontsize=10, positions=None, yscale=None):
-    """Improved boxplot routine.
+    r"""Create violin plots for data distribution visualization.
 
-    This routine does not show any plot. It only draws the graphic.
+    Creates violin plots to visualize the distribution of data samples,
+    with optional mean line overlays and customizable formatting. Violin
+    plots show the probability density of data at different values.
 
     Parameters
     ----------
-        data : list of :class:`numpy.ndarray`
-            A list of 1-d arrays meaning the samples.
-
-        axis : :class:`matplotlib.Axes.axes`, default: None
-            A specified axis for plotting the graphics. If none is
-            provided, then one will be created and returned.
-
-        meanline : bool, default: False
-            Draws a line through linear regression of the means among
-            the samples.
-
-        labels : list of str, default: None
-            Names of the samples.
-
-        xlabel : str, default: None
-
-        ylabel : list of str, default: None
-
-        color : str, default: 'b'
-            Color of boxes. Check some `here <https://matplotlib.org/
-            3.1.1/gallery/color/named_colors.html>`_
-
-        legend : str, default: None
-            Label for meanline.
-
-        title : str, default: None
-            A possible title to the plot.
+    data : list of :class:`numpy.ndarray`
+        List of 1D arrays containing the data samples for each violin.
+        Each array represents one distribution to be plotted.
+    axis : :class:`matplotlib.axes.Axes`, optional
+        Pre-existing axes for plotting. If None, creates new figure and axes.
+    meanline : bool or str, optional
+        Controls mean line overlay. Options:
+        - False: No mean line
+        - True or 'regression': Linear regression through means
+        - 'pointwise': Point-to-point line through means
+        Default is False.
+    labels : list of str, optional
+        Labels for each violin (x-axis tick labels). If None, uses default numbering.
+    xlabel : str, optional
+        Label for the x-axis. Default is None.
+    ylabel : str, optional
+        Label for the y-axis. Default is None.
+    color : str, optional
+        Color for the violin faces. Default is 'b' (blue).
+        See matplotlib color specification for options.
+    legend : str, optional
+        Legend label for the mean line. Only used if meanline is True.
+        Default is None.
+    title : str, optional
+        Title for the plot. Default is None.
+    legend_fontsize : float, optional
+        Font size for legend text. Default is None (uses matplotlib default).
+    fontsize : int, optional
+        Font size for labels and title. Default is 10.
+    positions : array-like, optional
+        Positions for the violins along the x-axis. If None, uses
+        sequential positions starting from 1.
+    yscale : str, optional
+        Y-axis scale ('linear', 'log', 'symlog', etc.). Default is None.
 
     Returns
     -------
-        fig : :class:`matplotlib.figure.Figure`
+    :class:`matplotlib.axes.Axes`
+        The axes object containing the violin plot.
 
-    Example
-    -------
+    Raises
+    ------
+    error.WrongValueInput
+        If meanline parameter has an invalid value.
+
+    Examples
+    --------
     >>> import numpy as np
     >>> from matplotlib import pyplot as plt
+    >>> 
+    >>> # Create sample data
     >>> y1 = np.random.normal(loc=2., size=30)
     >>> y2 = np.random.normal(loc=4., size=60)
     >>> y3 = np.random.normal(loc=6., size=10)
-    >>> boxplot([y1, y2, y3], title='Samples',
-                labels=['Sample 1', 'Sample 2', 'Sample 3'],
-                xlabel='Samples', ylabel='Unit', color='tab:blue',
-                meanline=True, legend='Progression')
+    >>> 
+    >>> # Create violin plot
+    >>> ax = add_violin([y1, y2, y3], title='Error Distributions',
+    ...                 labels=['Method 1', 'Method 2', 'Method 3'],
+    ...                 xlabel='Methods', ylabel='Error Value',
+    ...                 color='tab:blue', meanline=True, legend='Mean Trend')
     >>> plt.show()
+    >>> 
+    >>> # Violin plot with custom positions
+    >>> ax = add_violin([y1, y2, y3], positions=[1, 3, 5],
+    ...                 meanline='pointwise', yscale='log')
+    >>> plt.show()
+
+    Notes
+    -----
+    - Violin plots show the full distribution shape, not just summary statistics
+    - Mean line helps visualize trends across different data groups
+    - Useful for comparing reconstruction error distributions across methods
+    - Color can be specified using matplotlib color names or hex codes
     """
     if (meanline is not None and type(meanline) is not bool
             and meanline != 'regression' and meanline != 'pointwise'):
@@ -1486,23 +2246,57 @@ def add_violin(data, axis=None, meanline=False, labels=None, xlabel=None,
 
 
 def get_figure(nsubplots=1, number_lines=1):
-    """Get a Figure and Axes object with customized sizes.
+    r"""Create a matplotlib figure with optimized layout and sizing.
+
+    Creates a figure with the specified number of subplots arranged in an
+    optimal grid layout. Automatically calculates appropriate font sizes
+    and spacing based on the number of subplots and lines per subplot.
 
     Parameters
     ----------
-        nsubplots : int, default: 1
-            Number of subplots in the figure.
-
-        number_lines : int, default: 1
-            Number of lines in each subplot.
+    nsubplots : int, optional
+        Number of subplots to create in the figure. Default is 1.
+        Subplots are arranged in a nearly square grid layout.
+    number_lines : int, optional
+        Expected number of lines per subplot. Used to calculate optimal
+        legend font size. Default is 1.
 
     Returns
     -------
-        fig : :class:`matplotlib.figure.Figure`
+    fig : :class:`matplotlib.figure.Figure`
+        The created figure object.
+    axes : :class:`matplotlib.axes.Axes` or :class:`numpy.ndarray`
+        Single axes object (if nsubplots=1) or array of axes objects
+        (if nsubplots>1) for plotting.
+    legend_fontsize : float
+        Recommended font size for legends based on figure layout.
 
-        axes : :class:`matplotlib.axes.Axes`
+    Examples
+    --------
+    >>> # Single subplot
+    >>> fig, ax, legend_fs = get_figure(nsubplots=1)
+    >>> ax.plot([1, 2, 3], [1, 4, 2])
+    >>> plt.show()
+    >>> 
+    >>> # Multiple subplots
+    >>> fig, axes, legend_fs = get_figure(nsubplots=4, number_lines=2)
+    >>> for i, ax in enumerate(axes):
+    ...     ax.plot([1, 2, 3], [i, i+1, i+2])
+    ...     ax.set_title(f'Subplot {i+1}')
+    >>> plt.show()
+    >>> 
+    >>> # Use with error plotting
+    >>> fig, axes, _ = get_figure(nsubplots=len(error_indicators))
+    >>> for i, indicator in enumerate(error_indicators):
+    ...     axes[i].plot(iterations, error_values[indicator])
+    ...     axes[i].set_title(indicator)
 
-        legend_fontsize : float
+    Notes
+    -----
+    - Grid layout is optimized to be as close to square as possible
+    - Font sizes are automatically adjusted based on subplot density
+    - Designed specifically for electromagnetic inverse scattering result visualization
+    - Figure size is automatically scaled based on number of subplots
     """
     # Compute number of rows and columns
     nrows = round(np.sqrt(nsubplots))
@@ -1528,6 +2322,51 @@ def get_figure(nsubplots=1, number_lines=1):
 
 
 def get_legend_fontsize(number_lines, nrows):
+    r"""Calculate optimal legend font size based on plot layout.
+
+    Determines the appropriate font size for legends based on the number
+    of legend entries and the number of subplot rows. This helps maintain
+    readability as plot complexity increases.
+
+    Parameters
+    ----------
+    number_lines : int
+        Number of lines/entries expected in the legend.
+    nrows : int
+        Number of rows in the subplot grid.
+
+    Returns
+    -------
+    float or None
+        Recommended font size for legends. Returns None if the standard
+        matplotlib font size is appropriate (no adjustment needed).
+
+    Notes
+    -----
+    The function uses empirically determined scaling factors to reduce
+    font size when there are many legend entries or many subplot rows.
+    Different scaling factors are used for different numbers of rows:
+    
+    - For nrows ≤ 2: More gentle scaling (factor 0.55)
+    - For nrows > 2: More aggressive scaling (factor 0.65)
+
+    The maximum recommended number of lines decreases with more rows:
+    - 1 row: up to 15 lines
+    - 2 rows: up to 13 lines  
+    - 3 rows: up to 8 lines
+    - 4 rows: up to 5 lines
+    - etc.
+
+    Examples
+    --------
+    >>> # For single row with many lines
+    >>> fontsize = get_legend_fontsize(number_lines=20, nrows=1)
+    >>> print(f"Recommended font size: {fontsize}")
+    >>> 
+    >>> # For multiple rows with few lines
+    >>> fontsize = get_legend_fontsize(number_lines=3, nrows=4)
+    >>> print(f"Recommended font size: {fontsize}")  # None (use default)
+    """
     max_lines = np.array([0, 15, 13, 8, 5, 3, 2, 1, 1, 1, 1, 1])
     if number_lines > max_lines[nrows] and nrows > 2:
         legend_fontsize = 10-(number_lines-max_lines[nrows])*.65
@@ -1539,25 +2378,43 @@ def get_legend_fontsize(number_lines, nrows):
 
 
 def compute_zeta_rn(es_o, es_a):
-    r"""Compute the residual norm error.
+    r"""Compute the residual norm error between measured and computed scattered fields.
 
-    The zeta_rn error is the residual norm error of the scattered
-    field approximation.
+    Calculates the L2 norm of the difference between the original (measured)
+    and approximated (computed) scattered field data. This metric quantifies
+    the data fidelity of the reconstruction.
 
     Parameters
     ----------
-        es_o : :class:`numpy.ndarray`
-            Original scattered field matrix.
+    es_o : :class:`numpy.ndarray`
+        Original (measured) scattered field matrix.
+        Shape: (N_measurements, N_sources). Units: [V/m].
+    es_a : :class:`numpy.ndarray`
+        Approximated (computed) scattered field matrix.
+        Shape: (N_measurements, N_sources). Units: [V/m].
 
-        es_a : :class:`numpy.ndarray`
-            Approximated scattered field matrix.
+    Returns
+    -------
+    float
+        Residual norm error. Units: [V/m].
 
     Notes
     -----
-        The error is computed through the following relation:
+    The error is computed using the L2 norm with trapezoidal integration:
 
-        .. math:: ||E^s-E^{s,\delta}|| = \sqrt{\iint_S(y-y^\delta)
-        \overline{(y-y^\delta)}d\theta
+    .. math:: 
+        \\zeta_{RN} = \\sqrt{\\iint_S |E^s - E^{s,\\delta}|^2 d\\theta d\\phi}
+
+    where :math:`E^s` is the measured scattered field, :math:`E^{s,\\delta}` is
+    the computed scattered field, and the integration is over the measurement
+    surface with angles θ and φ.
+
+    Examples
+    --------
+    >>> measured_field = np.random.complex128((64, 8))
+    >>> computed_field = measured_field + 0.1 * np.random.complex128((64, 8))
+    >>> error = compute_zeta_rn(measured_field, computed_field)
+    >>> print(f"Residual norm error: {error:.3e} V/m")
     """
     NM, NS = es_o.shape
     theta = cfg.get_angles(NM)
@@ -1567,18 +2424,35 @@ def compute_zeta_rn(es_o, es_a):
 
 
 def compute_rre(es_o, es_a):
-    """Compute the Relative Residual Error (RRE).
+    r"""Compute the Relative Residual Error (RRE) between scattered fields.
 
-    The RRE is a definition found in [1] and it is useful for
-    determining the parameter of Tikhonov regularization.
+    Calculates the relative residual error as defined in the literature [1]
+    for electromagnetic inverse scattering problems. This metric is particularly
+    useful for determining optimal Tikhonov regularization parameters.
 
     Parameters
     ----------
-        es_o : :class:`numpy.ndarray`
-            Original scattered field matrix.
+    es_o : :class:`numpy.ndarray`
+        Original (measured) scattered field matrix.
+        Shape: (N_measurements, N_sources). Units: [V/m].
+    es_a : :class:`numpy.ndarray`
+        Approximated (computed) scattered field matrix.
+        Shape: (N_measurements, N_sources). Units: [V/m].
 
-        es_a : :class:`numpy.ndarray`
-            Approximated scattered field matrix.
+    Returns
+    -------
+    float
+        Relative residual error as a percentage. Formula:
+        
+        .. math::
+            RRE = 100 \\times \\frac{||\\mathbf{E}^s_{meas} - \\mathbf{E}^s_{comp}||_2}{||\\mathbf{E}^s_{meas}||_2}
+
+    Notes
+    -----
+    The RRE provides a normalized measure of the reconstruction quality
+    that accounts for the magnitude of the measured data. This makes it
+    more interpretable than absolute error metrics and is particularly
+    useful for regularization parameter selection.
 
     References
     ----------
@@ -1587,6 +2461,17 @@ def compute_rre(es_o, es_a):
            distorted Born iterative method." IEEE transactions on
            ultrasonics, ferroelectrics, and frequency control 55.1
            (2008): 112-124.
+
+    Examples
+    --------
+    >>> measured_field = np.random.complex128((64, 8))
+    >>> computed_field = measured_field + 0.05 * measured_field
+    >>> rre = compute_rre(measured_field, computed_field)
+    >>> print(f"Relative residual error: {rre:.2f}%")
+    >>> 
+    >>> # Perfect reconstruction
+    >>> rre_perfect = compute_rre(measured_field, measured_field)
+    >>> print(f"Perfect reconstruction RRE: {rre_perfect:.2f}%")  # Should be 0%
     """
     return (100*compute_zeta_rn(es_o, es_a)
             / compute_zeta_rn(es_o, np.zeros(es_o.shape, dtype=complex)))
@@ -1595,16 +2480,41 @@ def compute_rre(es_o, es_a):
 def compute_zeta_rpad(es_o, es_r):
     r"""Compute the residual percentage average deviation.
 
-    The zeta_padr error is the residual percentage average deviation
-    of the scattered field approximation.
+    Calculates the percentage average deviation between original (measured)
+    and reconstructed (computed) scattered field data. This metric provides
+    a relative measure of reconstruction accuracy normalized by the data magnitude.
 
     Parameters
     ----------
-        es_o : :class:`numpy.ndarray`
-            Original scattered field matrix.
+    es_o : :class:`numpy.ndarray`
+        Original (measured) scattered field matrix.
+        Shape: (N_measurements, N_sources). Units: [V/m].
+    es_r : :class:`numpy.ndarray`
+        Reconstructed (computed) scattered field matrix.
+        Shape: (N_measurements, N_sources). Units: [V/m].
 
-        es_a : :class:`numpy.ndarray`
-            Approximated scattered field matrix.
+    Returns
+    -------
+    float
+        Residual percentage average deviation. Units: [%/sample].
+
+    Notes
+    -----
+    The error is computed as:
+
+    .. math:: 
+        \\zeta_{RPAD} = \\frac{100}{N} \\sum_{i=1}^{N} \\frac{|y_i - y_i^\\delta|}{|y_i|}
+
+    where :math:`y_i` represents the real and imaginary parts of the measured
+    scattered field, :math:`y_i^\\delta` represents the computed values, and
+    :math:`N` is the total number of real-valued samples.
+
+    Examples
+    --------
+    >>> measured_field = np.random.complex128((64, 8)) + 1j
+    >>> computed_field = measured_field * 0.95  # 5% error
+    >>> error = compute_zeta_rpad(measured_field, computed_field)
+    >>> print(f"Residual PAD error: {error:.2f}%/sample")
     """
     y = np.hstack((np.real(es_o.flatten()), np.imag(es_o.flatten())))
     yd = np.hstack((np.real(es_r.flatten()), np.imag(es_r.flatten())))
@@ -1612,16 +2522,44 @@ def compute_zeta_rpad(es_o, es_r):
 
 
 def compute_zeta_epad(epsilon_ro, epsilon_rr):
-    """Compute the percent. aver. deviation of relative permit. map.
+    r"""Compute the percentage average deviation of relative permittivity.
 
-    The zeta_epad error is the evaluation of the relative
-    permittivity estimation error per pixel.
+    Calculates the percentage average deviation between the original (true)
+    and reconstructed relative permittivity maps. This metric quantifies
+    the pixel-wise accuracy of permittivity reconstruction.
 
     Parameters
     ----------
-        epsilon_ro, epsilon_rr : :class:`numpy.ndarray`
-            Original and recovered relative permittivity maps,
-            respectively.
+    epsilon_ro : :class:`numpy.ndarray`
+        Original (true) relative permittivity map.
+        Shape: (N_x, N_y). Dimensionless.
+    epsilon_rr : :class:`numpy.ndarray`
+        Reconstructed relative permittivity map.
+        Shape: (N_x, N_y). Dimensionless.
+
+    Returns
+    -------
+    float
+        Percentage average deviation of relative permittivity. Units: [%/pixel].
+
+    Notes
+    -----
+    The error is computed as:
+
+    .. math:: 
+        \\zeta_{\\epsilon PAD} = \\frac{100}{N_p} \\sum_{i=1}^{N_p} \\frac{|\\epsilon_{r,o,i} - \\epsilon_{r,r,i}|}{|\\epsilon_{r,o,i}|}
+
+    where :math:`\\epsilon_{r,o,i}` is the original permittivity at pixel :math:`i`,
+    :math:`\\epsilon_{r,r,i}` is the reconstructed permittivity, and :math:`N_p`
+    is the total number of pixels.
+
+    Examples
+    --------
+    >>> true_eps = np.ones((64, 64)) * 2.0  # Background permittivity
+    >>> true_eps[20:40, 20:40] = 4.0  # Object with higher permittivity
+    >>> reconstructed_eps = true_eps + 0.1 * np.random.randn(64, 64)
+    >>> error = compute_zeta_epad(true_eps, reconstructed_eps)
+    >>> print(f"Permittivity PAD error: {error:.2f}%/pixel")
     """
     y = epsilon_ro.flatten()
     yd = epsilon_rr.flatten()
@@ -1629,15 +2567,53 @@ def compute_zeta_epad(epsilon_ro, epsilon_rr):
 
 
 def compute_zeta_sad(sigma_o, sigma_r):
-    """Compute the average deviation of conductivity map.
+    r"""Compute the average deviation of conductivity maps.
 
-    The zeta_epad error is the evaluation of the conductivity
-    estimation error per pixel.
+    Calculates the pixel-wise average deviation between the original
+    and reconstructed conductivity maps. This metric provides a global
+    measure of conductivity reconstruction accuracy.
 
     Parameters
     ----------
-        sigma_o, sigma_r : :class:`numpy.ndarray`
-            Original and recovered conductivity maps, respectively.
+    sigma_o : :class:`numpy.ndarray`
+        Original (ground truth) conductivity map.
+        Shape: (N_x, N_y). Units: [S/m].
+    sigma_r : :class:`numpy.ndarray`
+        Reconstructed conductivity map.
+        Shape: (N_x, N_y). Units: [S/m].
+
+    Returns
+    -------
+    float
+        Average deviation of conductivity values.
+        Units: [S/m].
+
+    Notes
+    -----
+    The error is computed as:
+
+    .. math::
+        \\zeta_{\\sigma AD} = \\frac{1}{N_p} \\sum_{i=1}^{N_p} |\\sigma_{o,i} - \\sigma_{r,i}|
+
+    where :math:`\\sigma_{o,i}` and :math:`\\sigma_{r,i}` are the original
+    and reconstructed conductivity values at pixel :math:`i`, and
+    :math:`N_p` is the total number of pixels.
+
+    This metric provides an absolute measure of conductivity reconstruction
+    error that is useful for comparing different reconstruction methods.
+
+    Examples
+    --------
+    >>> # Create sample conductivity maps
+    >>> sigma_true = np.zeros((64, 64))  # Background: σ = 0 S/m
+    >>> sigma_true[20:40, 20:40] = 0.1  # Object: σ = 0.1 S/m
+    >>> 
+    >>> # Simulated reconstruction with errors
+    >>> sigma_recon = sigma_true + 0.01 * np.random.randn(64, 64)
+    >>> 
+    >>> # Compute average deviation
+    >>> avg_dev = compute_zeta_sad(sigma_true, sigma_recon)
+    >>> print(f"Conductivity average deviation: {avg_dev:.4f} S/m")
     """
     y = sigma_o.flatten()
     yd = sigma_r.flatten()
@@ -1645,23 +2621,64 @@ def compute_zeta_sad(sigma_o, sigma_r):
 
 
 def compute_zeta_tv(chi, x, y):
-    """Compute the total variation.
+    r"""Compute the total variation of a contrast map.
 
-    The zeta_tv is the of variational functional commonly used as
-    regularizer [1].
+    Calculates the total variation (TV) regularization functional commonly
+    used in electromagnetic inverse scattering to promote smooth solutions
+    and suppress artifacts. The TV functional measures the variation of
+    the contrast function across the spatial domain.
 
     Parameters
     ----------
-        chi : :class:`numpy.ndarray`
-            Constrast map.
+    chi : :class:`numpy.ndarray`
+        Complex-valued contrast map representing the scattering properties.
+        Shape: (N_x, N_y). Units: [dimensionless].
+    x : :class:`numpy.ndarray`
+        Meshgrid array of x-coordinates corresponding to the contrast map.
+        Shape: (N_x, N_y). Units: [m].
+    y : :class:`numpy.ndarray`
+        Meshgrid array of y-coordinates corresponding to the contrast map.
+        Shape: (N_x, N_y). Units: [m].
 
-        x, y : :class:`numpy.ndarray`
-            Meshgrid arrays of x and y coordinates.
+    Returns
+    -------
+    float
+        Total variation value. Units: [dimensionless].
+
+    Notes
+    -----
+    The total variation is computed using a modified formulation:
+
+    .. math::
+        TV = \\int \\int \\frac{|\\nabla \\chi|^2}{|\\nabla \\chi|^2 + 1} \\, dx \\, dy
+
+    where :math:`\\nabla \\chi` is the spatial gradient of the contrast function.
+    This formulation provides better numerical stability compared to the
+    standard TV functional.
 
     References
     ----------
     .. [1] Lobel, P., et al. "A new regularization scheme for
        inverse scattering." Inverse Problems 13.2 (1997): 403.
+
+    Examples
+    --------
+    >>> # Create a simple contrast map
+    >>> nx, ny = 64, 64
+    >>> x = np.linspace(-0.1, 0.1, nx)
+    >>> y = np.linspace(-0.1, 0.1, ny)
+    >>> X, Y = np.meshgrid(x, y)
+    >>> 
+    >>> # Piecewise constant contrast (low TV)
+    >>> chi_smooth = np.ones_like(X, dtype=complex)
+    >>> chi_smooth[20:40, 20:40] = 2.0 + 0.1j
+    >>> tv_smooth = compute_zeta_tv(chi_smooth, X, Y)
+    >>> 
+    >>> # Noisy contrast (high TV)
+    >>> chi_noisy = chi_smooth + 0.1 * np.random.randn(*X.shape)
+    >>> tv_noisy = compute_zeta_tv(chi_noisy, X, Y)
+    >>> 
+    >>> print(f"Smooth TV: {tv_smooth:.2f}, Noisy TV: {tv_noisy:.2f}")
     """
     grad_chi = np.gradient(chi, y[:, 0], x[0, :])
     X = np.sqrt(np.abs(grad_chi[1])**2 + np.abs(grad_chi[0])**2)
@@ -1669,19 +2686,58 @@ def compute_zeta_tv(chi, x, y):
 
 
 def compute_zeta_ebe(epsilon_ro, epsilon_rr, epsilon_rb):
-    """Compute the background relative permit. estimation error.
+    r"""Compute the background relative permittivity estimation error.
 
-    The zeta_ebe is an estimation of the error of predicting the
-    background region considering specifically the relative
-    permittivity information. It is an analogy to the false-positive
-    rate.
+    Calculates the estimation error for background regions in the relative
+    permittivity reconstruction. This metric quantifies false-positive-like
+    errors where the background is incorrectly reconstructed as having
+    different permittivity values.
 
     Parameters
     ----------
-        epsilon_ro, epsilon_rr : :class:`numpy.ndarray`
-            Original and recovered relative permittivity maps.
-        epsilon_rb : float
-            Background relative permittivity.
+    epsilon_ro : :class:`numpy.ndarray`
+        Original (ground truth) relative permittivity map.
+        Shape: (N_x, N_y). Dimensionless.
+    epsilon_rr : :class:`numpy.ndarray`
+        Recovered (reconstructed) relative permittivity map.
+        Shape: (N_x, N_y). Dimensionless.
+    epsilon_rb : float
+        Background relative permittivity value used to identify
+        background regions. Dimensionless.
+
+    Returns
+    -------
+    float
+        Background relative permittivity estimation error as a percentage.
+        Units: [%].
+
+    Notes
+    -----
+    The error is computed only for pixels where the original permittivity
+    equals the background value:
+
+    .. math::
+        \\zeta_{\\epsilon BE} = \\frac{100}{N_{bg}} \\sum_{i \\in \\text{background}} \\frac{|\\epsilon_{r,o,i} - \\epsilon_{r,r,i}|}{|\\epsilon_{r,o,i}|}
+
+    where :math:`N_{bg}` is the number of background pixels and the sum is
+    over pixels where :math:`\\epsilon_{r,o,i} = \\epsilon_{rb}`.
+
+    This metric is analogous to the false-positive rate in classification,
+    measuring how well the background regions are preserved in the reconstruction.
+
+    Examples
+    --------
+    >>> # Create ground truth with background and object
+    >>> epsilon_true = np.ones((64, 64)) * 1.0  # Background: εᵣ = 1.0
+    >>> epsilon_true[20:40, 20:40] = 3.0  # Object: εᵣ = 3.0
+    >>> 
+    >>> # Simulated reconstruction with background errors
+    >>> epsilon_recon = epsilon_true.copy()
+    >>> epsilon_recon[0:20, 0:20] = 1.1  # Background error
+    >>> 
+    >>> # Compute background error
+    >>> bg_error = compute_zeta_ebe(epsilon_true, epsilon_recon, 1.0)
+    >>> print(f"Background estimation error: {bg_error:.2f}%")
     """
     background = np.zeros(epsilon_ro.shape, dtype=bool)
     background[epsilon_ro == epsilon_rb] = True
@@ -1691,19 +2747,59 @@ def compute_zeta_ebe(epsilon_ro, epsilon_rr, epsilon_rb):
 
 
 def compute_zeta_sbe(sigma_o, sigma_r, sigma_b):
-    """Compute the background conductivity estimation error.
+    r"""Compute the background conductivity estimation error.
 
-    The zeta_sbe is an estimation of the error of predicting the
-    background region considering specifically the conductivity
-    information. It is an analogy to the false-positive
-    rate.
+    Calculates the estimation error for background regions in the conductivity
+    reconstruction. This metric quantifies false-positive-like errors where
+    the background is incorrectly reconstructed as having different
+    conductivity values.
 
     Parameters
     ----------
-        sigma_o, sigma_r : :class:`numpy.ndarray`
-            Original and recovered conductivity maps.
-        sigma_b : float
-            Background conductivity.
+    sigma_o : :class:`numpy.ndarray`
+        Original (ground truth) conductivity map.
+        Shape: (N_x, N_y). Units: [S/m].
+    sigma_r : :class:`numpy.ndarray`
+        Recovered (reconstructed) conductivity map.
+        Shape: (N_x, N_y). Units: [S/m].
+    sigma_b : float
+        Background conductivity value used to identify background regions.
+        Units: [S/m].
+
+    Returns
+    -------
+    float
+        Background conductivity estimation error.
+        Units: [S/m].
+
+    Notes
+    -----
+    The error is computed only for pixels where the original conductivity
+    equals the background value:
+
+    .. math::
+        \\zeta_{\\sigma BE} = \\frac{1}{N_{bg}} \\sum_{i \\in \\text{background}} |\\sigma_{o,i} - \\sigma_{r,i}|
+
+    where :math:`N_{bg}` is the number of background pixels and the sum is
+    over pixels where :math:`\\sigma_{o,i} = \\sigma_b`.
+
+    This metric is analogous to the false-positive rate in classification,
+    measuring how well the background conductivity is preserved in the
+    reconstruction.
+
+    Examples
+    --------
+    >>> # Create ground truth with background and object
+    >>> sigma_true = np.zeros((64, 64))  # Background: σ = 0 S/m
+    >>> sigma_true[20:40, 20:40] = 0.1  # Object: σ = 0.1 S/m
+    >>> 
+    >>> # Simulated reconstruction with background errors
+    >>> sigma_recon = sigma_true.copy()
+    >>> sigma_recon[0:20, 0:20] = 0.01  # Background error
+    >>> 
+    >>> # Compute background error
+    >>> bg_error = compute_zeta_sbe(sigma_true, sigma_recon, 0.0)
+    >>> print(f"Background conductivity error: {bg_error:.3f} S/m")
     """
     background = np.zeros(sigma_o.shape, dtype=bool)
     background[sigma_o == sigma_b] = True
@@ -1713,19 +2809,59 @@ def compute_zeta_sbe(sigma_o, sigma_r, sigma_b):
 
 
 def compute_zeta_eoe(epsilon_ro, epsilon_rr, epsilon_rb):
-    """Compute the object relative permit. estimation error.
+    r"""Compute the object relative permittivity estimation error.
 
-    The zeta_eoe is an estimation of the error of predicting the
-    object region considering specifically the relative
-    permittivity information. It is an analogy to the false-negative
-    rate.
+    Calculates the estimation error for object regions in the relative
+    permittivity reconstruction. This metric quantifies false-negative-like
+    errors where object regions are incorrectly reconstructed with wrong
+    permittivity values.
 
     Parameters
     ----------
-        epsilon_ro, epsilon_rr : :class:`numpy.ndarray`
-            Original and recovered relative permittivity maps.
-        epsilon_rb : float
-            Background relative permittivity.
+    epsilon_ro : :class:`numpy.ndarray`
+        Original (ground truth) relative permittivity map.
+        Shape: (N_x, N_y). Dimensionless.
+    epsilon_rr : :class:`numpy.ndarray`
+        Recovered (reconstructed) relative permittivity map.
+        Shape: (N_x, N_y). Dimensionless.
+    epsilon_rb : float
+        Background relative permittivity value used to identify
+        object regions (pixels with values different from background).
+        Dimensionless.
+
+    Returns
+    -------
+    float
+        Object relative permittivity estimation error as a percentage.
+        Units: [%].
+
+    Notes
+    -----
+    The error is computed only for pixels where the original permittivity
+    differs from the background value:
+
+    .. math::
+        \\zeta_{\\epsilon OE} = \\frac{100}{N_{obj}} \\sum_{i \\in \\text{object}} \\frac{|\\epsilon_{r,o,i} - \\epsilon_{r,r,i}|}{|\\epsilon_{r,o,i}|}
+
+    where :math:`N_{obj}` is the number of object pixels and the sum is
+    over pixels where :math:`\\epsilon_{r,o,i} \\neq \\epsilon_{rb}`.
+
+    This metric is analogous to the false-negative rate in classification,
+    measuring how accurately the object regions are reconstructed.
+
+    Examples
+    --------
+    >>> # Create ground truth with background and object
+    >>> epsilon_true = np.ones((64, 64)) * 1.0  # Background: εᵣ = 1.0
+    >>> epsilon_true[20:40, 20:40] = 3.0  # Object: εᵣ = 3.0
+    >>> 
+    >>> # Simulated reconstruction with object errors
+    >>> epsilon_recon = epsilon_true.copy()
+    >>> epsilon_recon[20:40, 20:40] = 2.5  # Object reconstruction error
+    >>> 
+    >>> # Compute object error
+    >>> obj_error = compute_zeta_eoe(epsilon_true, epsilon_recon, 1.0)
+    >>> print(f"Object estimation error: {obj_error:.2f}%")
     """
     not_background = np.zeros(epsilon_ro.shape, dtype=bool)
     not_background[epsilon_ro != epsilon_rb] = True
@@ -1735,19 +2871,58 @@ def compute_zeta_eoe(epsilon_ro, epsilon_rr, epsilon_rb):
 
 
 def compute_zeta_soe(sigma_o, sigma_r, sigma_b):
-    """Compute the object conductivity estimation error.
+    r"""Compute the object conductivity estimation error.
 
-    The zeta_soe is an estimation of the error of predicting the
-    object region considering specifically the conductivity
-    information. It is an analogy to the false-negative
-    rate.
+    Calculates the estimation error for object regions in the conductivity
+    reconstruction. This metric quantifies false-negative-like errors where
+    object regions are incorrectly reconstructed with wrong conductivity
+    values.
 
     Parameters
     ----------
-        sigma_o, sigma_r : :class:`numpy.ndarray`
-            Original and recovered conductivity maps.
-        sigma_b : float
-            Background conductivity.
+    sigma_o : :class:`numpy.ndarray`
+        Original (ground truth) conductivity map.
+        Shape: (N_x, N_y). Units: [S/m].
+    sigma_r : :class:`numpy.ndarray`
+        Recovered (reconstructed) conductivity map.
+        Shape: (N_x, N_y). Units: [S/m].
+    sigma_b : float
+        Background conductivity value used to identify object regions
+        (pixels with values different from background). Units: [S/m].
+
+    Returns
+    -------
+    float
+        Object conductivity estimation error.
+        Units: [S/m].
+
+    Notes
+    -----
+    The error is computed only for pixels where the original conductivity
+    differs from the background value:
+
+    .. math::
+        \\zeta_{\\sigma OE} = \\frac{1}{N_{obj}} \\sum_{i \\in \\text{object}} |\\sigma_{o,i} - \\sigma_{r,i}|
+
+    where :math:`N_{obj}` is the number of object pixels and the sum is
+    over pixels where :math:`\\sigma_{o,i} \\neq \\sigma_b`.
+
+    This metric is analogous to the false-negative rate in classification,
+    measuring how accurately the object conductivity is reconstructed.
+
+    Examples
+    --------
+    >>> # Create ground truth with background and object
+    >>> sigma_true = np.zeros((64, 64))  # Background: σ = 0 S/m
+    >>> sigma_true[20:40, 20:40] = 0.1  # Object: σ = 0.1 S/m
+    >>> 
+    >>> # Simulated reconstruction with object errors
+    >>> sigma_recon = sigma_true.copy()
+    >>> sigma_recon[20:40, 20:40] = 0.08  # Object reconstruction error
+    >>> 
+    >>> # Compute object error
+    >>> obj_error = compute_zeta_soe(sigma_true, sigma_recon, 0.0)
+    >>> print(f"Object conductivity error: {obj_error:.3f} S/m")
     """
     not_background = np.zeros(sigma_o.shape, dtype=bool)
     not_background[sigma_o != sigma_b] = True
@@ -1757,15 +2932,55 @@ def compute_zeta_soe(sigma_o, sigma_r, sigma_b):
 
 
 def compute_zeta_tfmpad(et_o, et_r):
-    """Compute the percen. aver. devi. of the total field magnitude.
+    r"""Compute the total field magnitude percentage average deviation.
 
-    The measure estimates the error in the estimation of the
-    magnitude of total field.
+    Calculates the percentage average deviation between the magnitudes of
+    the original and reconstructed total electric field distributions.
+    This metric quantifies how accurately the field magnitude is recovered
+    throughout the investigation domain.
 
     Parameters
     ----------
-        et_o, et_r : :class:`numpy.ndarray`
-            Original and recovered total field, respectively.
+    et_o : :class:`numpy.ndarray`
+        Original (ground truth) total electric field.
+        Shape: (N_pixels, N_sources). Units: [V/m].
+    et_r : :class:`numpy.ndarray`
+        Reconstructed total electric field.
+        Shape: (N_pixels, N_sources). Units: [V/m].
+
+    Returns
+    -------
+    float
+        Total field magnitude percentage average deviation.
+        Units: [%].
+
+    Notes
+    -----
+    The error is computed as:
+
+    .. math::
+        \\zeta_{TF MAG PAD} = \\frac{100}{N} \\sum_{i=1}^{N} \\frac{||E_{t,o,i}| - |E_{t,r,i}||}{|E_{t,o,i}|}
+
+    where :math:`|E_{t,o,i}|` and :math:`|E_{t,r,i}|` are the magnitudes of
+    the original and reconstructed total field at pixel :math:`i`, and
+    :math:`N` is the total number of field samples.
+
+    This metric is particularly useful for evaluating the accuracy of
+    field-based reconstruction methods where the total field distribution
+    is of primary interest.
+
+    Examples
+    --------
+    >>> # Create sample total field data
+    >>> et_true = np.random.complex128((1024, 8))  # 1024 pixels, 8 sources
+    >>> et_true *= np.exp(1j * np.random.uniform(0, 2*np.pi, et_true.shape))
+    >>> 
+    >>> # Simulated reconstruction with magnitude errors
+    >>> et_recon = et_true * (1 + 0.05 * np.random.randn(*et_true.shape))
+    >>> 
+    >>> # Compute magnitude error
+    >>> mag_error = compute_zeta_tfmpad(et_true, et_recon)
+    >>> print(f"Total field magnitude PAD: {mag_error:.2f}%")
     """
     y = np.abs(et_o.flatten())
     yd = np.abs(et_r.flatten())
@@ -1773,15 +2988,55 @@ def compute_zeta_tfmpad(et_o, et_r):
 
 
 def compute_zeta_tfpad(et_o, et_r):
-    """Compute the percen. aver. devi. of the total field phase.
+    r"""Compute the total field phase average deviation.
 
-    The measure estimates the error in the estimation of the
-    phase of total field.
+    Calculates the average deviation between the phases of the original
+    and reconstructed total electric field distributions. This metric
+    quantifies how accurately the field phase is recovered throughout
+    the investigation domain.
 
     Parameters
     ----------
-        et_o, et_r : :class:`numpy.ndarray`
-            Original and recovered total field, respectively.
+    et_o : :class:`numpy.ndarray`
+        Original (ground truth) total electric field.
+        Shape: (N_pixels, N_sources). Units: [V/m].
+    et_r : :class:`numpy.ndarray`
+        Reconstructed total electric field.
+        Shape: (N_pixels, N_sources). Units: [V/m].
+
+    Returns
+    -------
+    float
+        Total field phase average deviation.
+        Units: [rad].
+
+    Notes
+    -----
+    The error is computed as:
+
+    .. math::
+        \\zeta_{TF PHASE AD} = \\frac{1}{N} \\sum_{i=1}^{N} |\\arg(E_{t,o,i}) - \\arg(E_{t,r,i})|
+
+    where :math:`\\arg(E_{t,o,i})` and :math:`\\arg(E_{t,r,i})` are the phases
+    of the original and reconstructed total field at pixel :math:`i`, and
+    :math:`N` is the total number of field samples.
+
+    Phase information is crucial for many inverse scattering applications,
+    particularly those involving interferometric or holographic techniques.
+
+    Examples
+    --------
+    >>> # Create sample total field data
+    >>> et_true = np.random.complex128((1024, 8))  # 1024 pixels, 8 sources
+    >>> et_true *= np.exp(1j * np.random.uniform(0, 2*np.pi, et_true.shape))
+    >>> 
+    >>> # Simulated reconstruction with phase errors
+    >>> phase_error = 0.1 * np.random.randn(*et_true.shape)
+    >>> et_recon = np.abs(et_true) * np.exp(1j * (np.angle(et_true) + phase_error))
+    >>> 
+    >>> # Compute phase error
+    >>> phase_dev = compute_zeta_tfpad(et_true, et_recon)
+    >>> print(f"Total field phase AD: {phase_dev:.3f} rad")
     """
     y = np.angle(et_o.flatten())
     yd = np.angle(et_r.flatten())
@@ -1789,6 +3044,59 @@ def compute_zeta_tfpad(et_o, et_r):
 
 
 def compute_zeta_p(chi_o, chi_r):
+    r"""Compute the position error between original and reconstructed objects.
+
+    Calculates the percentage position error by comparing the centroids of
+    the original and reconstructed scattering objects. This metric quantifies
+    how accurately the object location is recovered in the reconstruction.
+
+    Parameters
+    ----------
+    chi_o : :class:`numpy.ndarray`
+        Original (ground truth) contrast map.
+        Shape: (N_x, N_y). Complex-valued, dimensionless.
+    chi_r : :class:`numpy.ndarray`
+        Reconstructed contrast map.
+        Shape: (N_x, N_y). Complex-valued, dimensionless.
+
+    Returns
+    -------
+    float
+        Position error as a percentage of the domain size.
+        Units: [%].
+
+    Notes
+    -----
+    The position error is computed as:
+
+    .. math::
+        \\zeta_p = 100 \\times \\sqrt{(x_{co} - x_{cr})^2 + (y_{co} - y_{cr})^2}
+
+    where :math:`(x_{co}, y_{co})` and :math:`(x_{cr}, y_{cr})` are the
+    centroids of the original and reconstructed objects, respectively.
+
+    The algorithm:
+    1. Identifies object regions using thresholding
+    2. Computes weighted centroids of the objects
+    3. Calculates Euclidean distance between centroids
+    4. Normalizes by domain size and converts to percentage
+
+    If no object is detected in the reconstruction, returns 100% error.
+
+    Examples
+    --------
+    >>> # Create original contrast with centered object
+    >>> chi_true = np.zeros((64, 64), dtype=complex)
+    >>> chi_true[28:36, 28:36] = 2.0 + 0.5j  # Centered object
+    >>> 
+    >>> # Create reconstructed contrast with shifted object
+    >>> chi_recon = np.zeros((64, 64), dtype=complex)
+    >>> chi_recon[30:38, 30:38] = 1.8 + 0.4j  # Slightly shifted
+    >>> 
+    >>> # Compute position error
+    >>> pos_error = compute_zeta_p(chi_true, chi_recon)
+    >>> print(f"Position error: {pos_error:.2f}%")
+    """
     Xo, Xr = np.abs(chi_o), np.abs(chi_r)
     threshold = (np.amin(np.abs(Xr))
                  + .5*(np.amax(np.abs(Xr))-np.amin(np.abs(Xr))))
@@ -1817,6 +3125,61 @@ def compute_zeta_p(chi_o, chi_r):
 
 
 def compute_zeta_s(chi_o, chi_r):
+    r"""Compute the shape error between original and reconstructed objects.
+
+    Calculates the percentage shape error by comparing the areas of the
+    original and reconstructed scattering objects. This metric quantifies
+    how accurately the object shape and size are recovered in the reconstruction.
+
+    Parameters
+    ----------
+    chi_o : :class:`numpy.ndarray`
+        Original (ground truth) contrast map.
+        Shape: (N_x, N_y). Complex-valued, dimensionless.
+    chi_r : :class:`numpy.ndarray`
+        Reconstructed contrast map.
+        Shape: (N_x, N_y). Complex-valued, dimensionless.
+
+    Returns
+    -------
+    float
+        Shape error as a percentage of the original object area.
+        Units: [%].
+
+    Notes
+    -----
+    The shape error is computed as:
+
+    .. math::
+        \\zeta_s = \\frac{100 \\times |A_{diff}|}{A_{original}}
+
+    where :math:`A_{diff}` is the area of the symmetric difference between
+    the original and reconstructed object regions, and :math:`A_{original}`
+    is the area of the original object.
+
+    The algorithm:
+    1. Identifies object regions using thresholding
+    2. Finds contours of both objects
+    3. Normalizes spatial scales and centers objects
+    4. Computes symmetric difference using XOR operation
+    5. Calculates area ratio as percentage
+
+    If no object is detected in the reconstruction, returns 100% error.
+
+    Examples
+    --------
+    >>> # Create original contrast with square object
+    >>> chi_true = np.zeros((64, 64), dtype=complex)
+    >>> chi_true[20:40, 20:40] = 2.0 + 0.5j  # Square object
+    >>> 
+    >>> # Create reconstructed contrast with similar but different shape
+    >>> chi_recon = np.zeros((64, 64), dtype=complex)
+    >>> chi_recon[22:38, 22:38] = 1.8 + 0.4j  # Smaller square
+    >>> 
+    >>> # Compute shape error
+    >>> shape_error = compute_zeta_s(chi_true, chi_recon)
+    >>> print(f"Shape error: {shape_error:.2f}%")
+    """
     Xo, Xr = np.abs(chi_o), np.abs(chi_r)
     threshold = (np.amin(np.abs(Xr))
                  + .5*(np.amax(np.abs(Xr))-np.amin(np.abs(Xr))))
@@ -1881,6 +3244,52 @@ def compute_zeta_s(chi_o, chi_r):
 
 
 def check_indicator(indicator):
+    r"""Validate whether the given indicator name(s) are valid.
+
+    Checks if the provided indicator name or list of indicator names
+    correspond to valid error indicators supported by the Result class.
+    This function is used internally for input validation.
+
+    Parameters
+    ----------
+    indicator : str or list of str
+        Error indicator name(s) to validate. Can be a single string
+        or a list of strings representing indicator names.
+
+    Returns
+    -------
+    bool
+        True if all provided indicator names are valid, False otherwise.
+
+    Notes
+    -----
+    Valid indicator names are defined in the INDICATOR_SET constant and
+    include metrics such as:
+    - 'zeta_rn': Residual norm error
+    - 'zeta_rpad': Residual percentage average deviation
+    - 'zeta_epad': Permittivity percentage average deviation
+    - 'zeta_sad': Conductivity average deviation
+    - 'zeta_tv': Total variation
+    - And many others...
+
+    Examples
+    --------
+    >>> # Check single indicator
+    >>> is_valid = check_indicator('zeta_rn')
+    >>> print(is_valid)  # True
+    >>> 
+    >>> # Check invalid indicator
+    >>> is_valid = check_indicator('invalid_indicator')
+    >>> print(is_valid)  # False
+    >>> 
+    >>> # Check multiple indicators
+    >>> is_valid = check_indicator(['zeta_rn', 'zeta_epad'])
+    >>> print(is_valid)  # True
+    >>> 
+    >>> # Check with one invalid indicator
+    >>> is_valid = check_indicator(['zeta_rn', 'invalid_indicator'])
+    >>> print(is_valid)  # False
+    """
     if type(indicator) is str:
         return any(indicator == n for n in INDICATOR_SET)
     else:
@@ -1888,6 +3297,52 @@ def check_indicator(indicator):
 
 
 def indicator_label(indicator):
+    r"""Get the display label for an error indicator.
+
+    Retrieves the human-readable label associated with a specific error
+    indicator. These labels are used for plot axes, legends, and other
+    display purposes.
+
+    Parameters
+    ----------
+    indicator : str
+        Name of the error indicator. Must be a valid indicator name
+        as defined in INDICATOR_SET.
+
+    Returns
+    -------
+    str
+        Human-readable label for the indicator, typically including
+        units and mathematical notation where appropriate.
+
+    Raises
+    ------
+    error.WrongValueInput
+        If the indicator name is not valid.
+
+    Examples
+    --------
+    >>> # Get label for residual norm error
+    >>> label = indicator_label('zeta_rn')
+    >>> print(label)  # "Residual Norm Error [V/m]"
+    >>> 
+    >>> # Get label for permittivity error
+    >>> label = indicator_label('zeta_epad')
+    >>> print(label)  # "Permittivity PAD Error [%]"
+    >>> 
+    >>> # Error for invalid indicator
+    >>> try:
+    ...     label = indicator_label('invalid_indicator')
+    ... except error.WrongValueInput as e:
+    ...     print(f"Error: {e}")
+
+    Notes
+    -----
+    The labels are stored in the LABELS dictionary and are designed
+    to be suitable for use in plots, tables, and other display contexts.
+    They typically include units and use mathematical notation where
+    appropriate.
+    """
     if not check_indicator(indicator):
         raise error.WrongValueInput('indicator_label', 'indicator',
                                     INDICATOR_SET, indicator)
