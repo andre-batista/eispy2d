@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
+from scipy.special import inv_boxcox
 import configuration as cfg
 import result as rst
 import inverse as inv
@@ -329,12 +330,21 @@ class Experiment(ABC):
         message = ''
         message += '* ' + sample_name + ', '
         message += 'Normality: ' + str(normality)
-        if transformation is not None:
-            message += ' (Transformation: ' + transformation + '), '
+        if transformation == 'log':
+            a = np.exp(cfi[0])
+            b = np.exp(cfi[1])
+        elif transformation == 'sqrt':
+            a = cfi[0]**2
+            b = cfi[1]**2
+        elif transformation is not None and transformation.startswith('boxcox'):
+            lambda_value = float(transformation.split('=')[1].split(')')[0])
+            a = inv_boxcox(cfi[0], lambda_value)
+            b = inv_boxcox(cfi[1], lambda_value)
         else:
-            message += ', '
+            a = cfi[0]
+            b = cfi[1]
         message += ('%.1f Confi. In.: ' % (confidence_level*100)
-                    + '(%.2e, ' % cfi[0] + '%.2e)\n' % cfi[1])
+                    + '(%.2e, ' % a + '%.2e)\n' % b)
         return message
 
     def _print_non_normal_data(self, sample_name):
