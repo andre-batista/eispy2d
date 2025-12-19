@@ -85,6 +85,7 @@ import copy as cp
 import numpy as np
 from scipy.stats import linregress
 from skimage import measure
+from skimage.metrics import structural_similarity
 from statsmodels.graphics.boxplots import violinplot
 import matplotlib.pyplot as plt
 import error
@@ -119,10 +120,12 @@ LABEL_ZETA_P = r'$\zeta_{P}$ [\%]'
 LABEL_ZETA_S = r'$\zeta_{S}$ [\%]'
 LABEL_ZETA_TFMPAD = r'$\zeta_{TFMPAD}$ [\%/pixel]'
 LABEL_ZETA_TFPPAD = r'$\zeta_{TFPPAD}$ [\%/rad]'
+LABEL_SSIM = r'SSIM'
 LABEL_EXECUTION_TIME = r'$t_{exe}$ [sec]'
 LABEL_OBJECTIVE_FUNCTION = r'$f(\chi, E_z^s)$'
 LABEL_NUMBER_EVALUATIONS = 'Evaluations'
 LABEL_NUMBER_ITERATIONS = 'Iterations'
+LABEL_PATH = 'Path of Optimum Solution'
 
 IMAGE_SIZE_SINGLE = (6., 5.)
 IMAGE_SIZE_1x2 = (9., 4.) # 9 x 5
@@ -149,6 +152,7 @@ CONDUCTIVITY_AD_ERROR = 'zeta_sad'
 TOTAL_VARIATION = 'zeta_tv'
 POSITION_ERROR = 'zeta_p'
 SHAPE_ERROR = 'zeta_s'
+SSIM_ERROR = 'ssim'
 REL_PERMITTIVITY_BACKGROUND_ERROR = 'zeta_ebe'
 REL_PERMITTIVITY_OBJECT_ERROR = 'zeta_eoe'
 CONDUCTIVITY_BACKGROUND_ERROR = 'zeta_sbe'
@@ -160,6 +164,7 @@ CONDUCTIVITY = 'sigma'
 BOTH_PROPERTIES = 'both'
 CONTRAST = 'contrast'
 TOTAL_FIELD = 'total field'
+PATH = 'path'
 
 INDICATOR_SET = [RESIDUAL_NORM_ERROR, RESIDUAL_PAD_ERROR,
                  REL_PERMITTIVITY_PAD_ERROR, REL_PERMITTIVITY_BACKGROUND_ERROR,
@@ -167,7 +172,8 @@ INDICATOR_SET = [RESIDUAL_NORM_ERROR, RESIDUAL_PAD_ERROR,
                  CONDUCTIVITY_OBJECT_ERROR, CONDUCTIVITY_BACKGROUND_ERROR,
                  TOTALFIELD_MAGNITUDE_PAD, TOTALFIELD_PHASE_AD,
                  TOTAL_VARIATION, SHAPE_ERROR, POSITION_ERROR, EXECUTION_TIME,
-                 OBJECTIVE_FUNCTION, NUMBER_EVALUATIONS, NUMBER_ITERATIONS]
+                 OBJECTIVE_FUNCTION, NUMBER_EVALUATIONS, NUMBER_ITERATIONS,
+                 SSIM_ERROR, PATH]
 
 LABELS = {RESIDUAL_NORM_ERROR: r'$\zeta_{RN}$ (V/m)',
           RESIDUAL_PAD_ERROR: r'$\zeta_{RPAD}$ [%/sample]',
@@ -185,7 +191,9 @@ LABELS = {RESIDUAL_NORM_ERROR: r'$\zeta_{RN}$ (V/m)',
           EXECUTION_TIME: 'Execution Time [sec]',
           OBJECTIVE_FUNCTION: 'Objective Function',
           NUMBER_EVALUATIONS: 'Evaluations',
-          NUMBER_ITERATIONS: 'Iterations'}
+          NUMBER_ITERATIONS: 'Iterations',
+          SSIM_ERROR: 'SSIM',
+          PATH: 'Path of Optimum Solution'}
 
 TITLES = {RESIDUAL_NORM_ERROR: 'Residual Norm',
           RESIDUAL_PAD_ERROR: 'Residual PAD',
@@ -203,7 +211,9 @@ TITLES = {RESIDUAL_NORM_ERROR: 'Residual Norm',
           EXECUTION_TIME: 'Execution Time',
           OBJECTIVE_FUNCTION: 'Ob. Func. Evaluation',
           NUMBER_EVALUATIONS: 'Evaluations',
-          NUMBER_ITERATIONS: 'Iterations'}
+          NUMBER_ITERATIONS: 'Iterations',
+          SSIM_ERROR: 'Structural Similarity',
+          PATH: 'Path of Optimum Solution'}
 
 
 class Result:
@@ -316,7 +326,7 @@ class Result:
                  conductivity=None, execution_time=None,
                  number_evaluations=None, objective_function=None,
                  number_iterations=None, import_filename=None,
-                 import_filepath=''):
+                 import_filepath='', path=None):
         r"""Initialize a Result object for storing reconstruction results.
 
         Creates a new Result object to store electromagnetic inverse scattering
@@ -414,10 +424,15 @@ class Result:
             self.zeta_ebe, self.zeta_sbe = list(), list()
             self.zeta_eoe, self.zeta_soe = list(), list()
             self.zeta_tfmpad, self.zeta_tfpad = list(), list()
+            self.ssim = list()
             if objective_function is None:
                 self.objective_function = list()
             else:
                 self.objective_function = objective_function
+            if path is None:
+                self.path = list()
+            else:
+                self.path = path
 
     def save(self, file_path=''):
         r"""Save the Result object to a pickle file.
@@ -469,7 +484,9 @@ class Result:
             SHAPE_ERROR: self.zeta_s,
             POSITION_ERROR: self.zeta_p,
             TOTALFIELD_MAGNITUDE_PAD: self.zeta_tfmpad,
-            TOTALFIELD_PHASE_AD: self.zeta_tfpad
+            TOTALFIELD_PHASE_AD: self.zeta_tfpad,
+            PATH: self.path,
+            SSIM_ERROR: self.ssim
         }
 
         with open(file_path + self.name, 'wb') as datafile:
@@ -533,6 +550,8 @@ class Result:
         self.zeta_tfpad = data[TOTALFIELD_PHASE_AD]
         self.zeta_p = data[POSITION_ERROR]
         self.zeta_s = data[SHAPE_ERROR]
+        self.ssim = data[SSIM_ERROR]
+        self.path = data[PATH]
 
     def plot_map(self, axis=None, image=CONTRAST, groundtruth=None, title=None,
                  show=False, save=False, file_path='', file_format='eps',
@@ -778,7 +797,7 @@ class Result:
 
     def update_error(self, inputdata, scattered_field=None, total_field=None,
                      rel_permittivity=None, conductivity=None,
-                     contrast=None, objective_function=None):
+                     contrast=None, objective_function=None, optimum=None):
         r"""Compute and update error metrics for reconstruction quality assessment.
 
         Calculates various error indicators based on the specified input data
@@ -836,6 +855,7 @@ class Result:
         - REL_PERMITTIVITY_PAD_ERROR: Percentage average deviation of permittivity
         - REL_PERMITTIVITY_BACKGROUND_ERROR: Background region permittivity error
         - REL_PERMITTIVITY_OBJECT_ERROR: Object region permittivity error
+        - SSIM_ERROR: Structural Similarity Index Measure between true and reconstructed permittivity
 
         **Conductivity Errors:**
         - CONDUCTIVITY_AD_ERROR: Average deviation of conductivity
@@ -1123,7 +1143,26 @@ class Result:
             if objective_function is None:
                 raise error.MissingInputError('Result.update_error',
                                               'objective_function')
-            self.objective_function.append(objective_function)
+            if (type(objective_function) is list
+                or isinstance(objective_function, np.ndarray)):
+                self.objective_function = objective_function.copy()
+            else:
+                self.objective_function.append(objective_function)
+        
+        if SSIM_ERROR in inputdata.indicators:
+            Xo = cfg.get_contrast_map(epsilon_r=inputdata.rel_permittivity,
+                                      sigma=inputdata.conductivity,
+                                      configuration=self.configuration)
+            if contrast is None:
+                Xr = cfg.get_contrast_map(epsilon_r=rel_permittivity,
+                                          sigma=conductivity,
+                                          configuration=self.configuration)
+            else:
+                Xr = contrast
+            self.ssim.append(compute_ssim(Xo, Xr))
+
+        if PATH in inputdata.indicators and optimum is not None:
+            self.path.append(optimum)
 
     def last_error_message(self, pre_message=None):
         r"""Generate a formatted summary of the latest error metrics.
@@ -1210,6 +1249,15 @@ class Result:
 
         if self.zeta_tfpad is not None and len(self.zeta_tfpad) != 0:
             message += ' To. Field Phase AD: %.2f%%,' % self.zeta_tfpad[-1]
+        
+        if self.objective_function is not None and len(self.objective_function) != 0:
+            message += ' Ob. Func.: %.3e,' % self.objective_function[-1]
+
+        if self.path is not None and len(self.path) != 0:
+            message += ' Optimum solution: ' + str(self.path[-1]) + ','
+
+        if self.ssim is not None and len(self.ssim) != 0:
+            message += ' SSIM: %.3f,' % self.ssim[-1]
 
         return message
 
@@ -1292,6 +1340,10 @@ class Result:
         if (self.objective_function is not None
                 and len(self.objective_function) != 0):
             indicators.append(OBJECTIVE_FUNCTION)
+        if (self.path is not None and len(self.path) != 0):
+            indicators.append(PATH)
+        if self.ssim is not None and len(self.ssim) != 0:
+            indicators.append(SSIM_ERROR)
         return indicators
 
     def plot_convergence(self, axis=None, indicators=None, show=False,
@@ -1579,6 +1631,8 @@ class Result:
             new.zeta_tfmpad = cp.deepcopy(self.zeta_tfmpad)
             new.zeta_tfpad = cp.deepcopy(self.zeta_tfpad)
             new.objective_function = cp.deepcopy(self.objective_function)
+            new.path = cp.deepcopy(self.path)
+            new.ssim = cp.deepcopy(self.ssim)
             return new
         else:
             self.name = new.name
@@ -1605,6 +1659,8 @@ class Result:
             self.zeta_tfmpad = cp.deepcopy(new.zeta_tfmpad)
             self.zeta_tfpad = cp.deepcopy(new.zeta_tfpad)
             self.zeta_tv = cp.deepcopy(new.zeta_tv)
+            self.path = cp.deepcopy(new.path)
+            self.ssim = cp.deepcopy(new.ssim)
 
     def __str__(self):
         r"""Return a comprehensive string representation of the Result object.
@@ -1809,6 +1865,18 @@ class Result:
             message += '\nNumber of iterations: %d' % self.number_iterations
         if self.number_evaluations is not None:
             message += '\nNumber of evaluations: %d' % self.number_evaluations
+        if self.path is not None and len(self.path) > 0:
+            message += '\nOptimum solution: ' + str(self.path[-1])
+        if self.ssim is not None and len(self.ssim) > 0:
+            if len(self.ssim) == 1:
+                info = '%.3f' % self.ssim[0]
+            elif len(self.ssim) > 30:
+                info = '%.3f' % self.ssim[-1]
+            else:
+                info = '[' + str(', '.join('{:.3f}'.format(i)
+                                           for i in self.ssim) + ']')
+            message += '\nSSIM: ' + info
+
         return message
 
 
@@ -3241,6 +3309,64 @@ def compute_zeta_s(chi_o, chi_r):
     area_diff = np.sum(diff)/np.sum(masko)*100
 
     return area_diff
+
+
+def compute_ssim(chi_o, chi_r):
+    r"""Compute the Structural Similarity Index (SSIM) between two contrast maps.
+
+    Calculates the Structural Similarity Index (SSIM) to assess the
+    similarity between the original and reconstructed contrast maps.
+    SSIM is a perceptual metric that considers changes in structural
+    information, luminance, and contrast.
+
+    Parameters
+    ----------
+
+    chi_o : :class:`numpy.ndarray`
+        Original (ground truth) contrast map.
+        Shape: (N_x, N_y). Complex-valued, dimensionless.
+    chi_r : :class:`numpy.ndarray`
+        Reconstructed contrast map.
+        Shape: (N_x, N_y). Complex-valued, dimensionless.
+    
+    Returns
+    -------
+
+    float
+        Structural Similarity Index (SSIM) value between the two contrast maps.
+        Ranges from -1 to 1, where 1 indicates perfect similarity.
+
+    Notes
+    -----
+
+    SSIM is computed using the `structural_similarity` function from
+    `skimage.metrics`, which evaluates local patterns of pixel
+    intensities that have been normalized for luminance and contrast.
+    The SSIM value provides a more comprehensive assessment of image
+    quality compared to traditional metrics like Mean Squared Error (MSE).
+
+    Examples
+    --------
+
+    >>> # Create sample contrast maps
+    >>> chi_true = np.zeros((64, 64), dtype=complex)
+    >>> chi_true[20:40, 20:40] = 2.0 + 0.5j  # Original object
+    >>> chi_recon = np.zeros((64, 64), dtype=complex)
+    >>> chi_recon[22:38, 22:38] = 1.8 + 0.4j  # Reconstructed object
+    >>> # Compute SSIM
+    >>> ssim_value = compute_ssim(chi_true, chi_recon)
+    >>> print(f"SSIM: {ssim_value:.4f}")
+    """
+    chi_o = np.abs(chi_o)
+    chi_r = np.abs(chi_r)
+    range_o = chi_o.max() - chi_o.min()
+    range_r = chi_r.max() - chi_r.min()
+    if range_o > range_r:
+        data_range = range_o
+    else:
+        data_range = range_r
+    ssim = structural_similarity(chi_o, chi_r, data_range=data_range)
+    return ssim
 
 
 def check_indicator(indicator):
