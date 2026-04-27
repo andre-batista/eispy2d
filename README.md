@@ -35,16 +35,16 @@ You may find usages examples [here](https://github.com/andre-batista/eispy2d/tre
 We've already written an article describing the library. While it is still under review, its *preprint* version is available at the arXiv repository via this [link](https://arxiv.org/abs/2111.02185#). If you use this library, you may acknowledge by citing it:
 
 ```
-@ARTICLE{batista2025eispy2d,
-    author   = {Batista, André Costa and Adriano, Ricardo and Batista, Lucas S.},
-    journal  = {IEEE Access}, 
-    title    = {EISPY2D: An Open-Source Python Library for the Development and Comparison of Algorithms in Two-Dimensional Electromagnetic Inverse Scattering Problems}, 
-    year     = {2025},
-    volume   = {},
-    number   = {},
-    pages    = {1-1},
-    keywords = {Libraries;Electromagnetic scattering;Imaging;Image reconstruction;Electromagnetics;Microwave theory and techniques;Microwave integrated circuits;Microwave imaging;Microwave FET integrated circuits;Inverse problems;Comparison of Algorithms;Electromagnetic Inverse Scattering Problem;Microwave Imaging;Open-Source Library;Optimization},
-    doi      = {10.1109/ACCESS.2025.3573679}
+@ARTICLE{11015426,
+  author={Costa Batista, André and Adriano, Ricardo and Batista, Lucas S.},
+  journal={IEEE Access}, 
+  title={EISPY2D: An Open-Source Python Library for the Development and Comparison of Algorithms in Two-Dimensional Electromagnetic Inverse Scattering Problems}, 
+  year={2025},
+  volume={13},
+  number={},
+  pages={92134-92154},
+  keywords={Libraries;Electromagnetic scattering;Imaging;Image reconstruction;Electromagnetics;Microwave theory and techniques;Microwave integrated circuits;Microwave imaging;Microwave FET integrated circuits;Inverse problems;Comparison of algorithms;electromagnetic inverse scattering problem;microwave imaging;open-source library;optimization},
+  doi={10.1109/ACCESS.2025.3573679}
 }
 ```
 
