@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
-build-backend = "setuptools.backend"
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "eispy2d"
-version = "1.0.1"
+version = "1.0.2"
 description = "An Open-Source Python Library for the Development and Comparison of Algorithms in Two-Dimensional Electromagnetic Inverse Scattering Problems"
 readme = "README.md"
 license = {text = "GPL-3.0-only"}
@@ -38,6 +38,4 @@ Homepage = "https://github.com/andre-batista/eispy2d.git"
 
 [tool.setuptools]
 package-dir = {"eispy2d" = "lib"}
-
-[tool.setuptools.packages.find]
-where = ["lib"]
+packages = ["eispy2d", "eispy2d.evoalglib"]
