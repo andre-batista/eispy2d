@@ -16,11 +16,31 @@ Besides considering the two-dimensional formulation, we are assuming as well TMz
 
 ## Install
 
-Initially, the library was thought to be a collection of ".py" files that anyone can download and add to his/her project. It would be amazing if, one day, this library became a well-organized Python package which one can install through Pip or Conda. But, as this is an implementation developed by only one person, then these steps will be considered someday in the future. For while, you just need to [download the codes](https://github.com/andre-batista/eispy2d/tree/main/lib) and call the modules as you do with any library that you create.
+### Method 1: Install via pip (Recommended)
 
-## Dependencies
+The library is now available as a Python package on PyPI. You can install it directly with:
+```bash
+pip install eispy2d
+```
 
-Before using eispy2d, please ensure you have all the required dependencies installed. The project includes a `requirements.txt` file listing all necessary packages. You can install these dependencies by running `pip install -r requirements.txt` in your command line or terminal. These packages are essential for the proper functioning of the library, including numerical computations, visualization tools, and optimization algorithms that power the electromagnetic inverse scattering solvers.
+This will automatically install all required dependencies. After installation, you can import the library in your Python code:
+```python
+from eispy2d import configuration
+from eispy2d import bim
+# ... and other modules
+```
+### Method 2: Install from Source (GitHub)
+
+If you prefer to work with the source code directly or want to contribute to development:
+
+```bash
+# Clone the repository
+git clone https://github.com/andre-batista/eispy2d.git
+cd eispy2d
+
+# Install dependencies
+pip install -r requirements.txt
+```
 
 ## How to use
 
