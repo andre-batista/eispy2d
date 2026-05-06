@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eispy2d"
+version = "1.0.3"
+description = "An Open-Source Python Library for the Development and Comparison of Algorithms in Two-Dimensional Electromagnetic Inverse Scattering Problems"
+readme = "README.md"
+license = {text = "GPL-3.0-only"}
+authors = [
+    {name = "Andre Costa Batista", email = "andre-costa@ufmg.br"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "numba",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "joblib",
+    "scikit-image",
+    "pingouin",
+    "ipykernel"
+]
+
+[project.optional-dependencies]
+dev = ["build", "twine"]
+
+[project.urls]
+Homepage = "https://github.com/andre-batista/eispy2d.git"
+
+[tool.setuptools]
+package-dir = {"eispy2d" = "lib"}
+packages = ["eispy2d", "eispy2d.evoalglib"]
