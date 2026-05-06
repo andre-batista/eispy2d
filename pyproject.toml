@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eispy2d"
-version = "1.0.2"
+version = "1.0.3"
 description = "An Open-Source Python Library for the Development and Comparison of Algorithms in Two-Dimensional Electromagnetic Inverse Scattering Problems"
 readme = "README.md"
 license = {text = "GPL-3.0-only"}
