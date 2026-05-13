@@ -10,5 +10,11 @@ Welcome to EISPY2D documentation
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+   :hidden:
 
-   modules
+   home
+   api
+   installation
+   user-guide
+   examples
+   

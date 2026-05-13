@@ -25,8 +25,9 @@ from scipy import sparse as spr
 import scipy.special as spc
 from joblib import Parallel, delayed
 import multiprocessing
-import forward as fwr
-import configuration as cfg
+
+import eispy2d.forward as fwr
+import eispy2d.configuration as cfg
 
 # Predefined constants
 MEMORY_LIMIT = 16e9  # [GB]

@@ -65,13 +65,13 @@ import multiprocessing
 from matplotlib import pyplot as plt
 from matplotlib import colors
 
-import inputdata as ipt
-import result as rst
-import experiment as exp
-import deterministic as dtm
-import stochastic as stc
-import statisticsutils as sts
-import error
+import eispy2d.inputdata as ipt
+import eispy2d.result as rst
+import eispy2d.experiment as exp
+import eispy2d.deterministic as dtm
+import eispy2d.stochastic as stc
+import eispy2d.statisticstutils as sts
+import eispy2d.error as error
 
 TEST = 'test'
 STOCHASTIC_RUNS = 's_nexec'

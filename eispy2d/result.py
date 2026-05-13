@@ -88,8 +88,9 @@ from skimage import measure
 from skimage.metrics import structural_similarity
 from statsmodels.graphics.boxplots import violinplot
 import matplotlib.pyplot as plt
-import error
-import configuration as cfg
+
+import eispy2d.error as error
+import eispy2d.configuration as cfg
 
 
 # Strings for easier implementation of plots

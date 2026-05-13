@@ -1,4 +1,4 @@
-import error
+import eispy2d.error as error
 import numpy as np
 
 class StopCriteria:

@@ -17,8 +17,8 @@ from statsmodels.sandbox.stats.multicomp import MultiComparison
 from statsmodels.api import graphics
 import pingouin as pg
 
-import error
-import result as rst
+import eispy2d.error as error
+import eispy2d.result as rst
 
 
 def rcbd(data, alpha=0.05):

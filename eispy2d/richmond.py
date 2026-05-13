@@ -8,11 +8,11 @@ from scipy.sparse import spdiags, eye
 from scipy.interpolate import NearestNDInterpolator
 
 
-import configuration as cfg
-import regularization as reg
-import discretization as dct
-import collocation as clc
-import error
+import eispy2d.configuration as cfg
+import eispy2d.regularization as reg
+import eispy2d.discretization as dct
+import eispy2d.collocation as clc
+import eispy2d.error as error
 
 
 GREENF_DATA = 'GS'

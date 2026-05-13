@@ -42,10 +42,10 @@ import sys
 import pickle
 
 # Developed libraries
-import configuration as cfg
-import inputdata as ipt
-import result as rst
-import deterministic as dtm
+import eispy2d.configuration as cfg
+import eispy2d.inputdata as ipt
+import eispy2d.result as rst
+import eispy2d.deterministic as dtm
 
 
 FORWARD = 'forward'

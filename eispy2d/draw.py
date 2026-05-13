@@ -105,7 +105,8 @@ import numpy as np
 from numpy import pi
 from numpy import logical_and
 from numpy import random as rnd
-import error
+
+import eispy2d.error as error
 
 
 def square(side_length, axis_length_x=2., axis_length_y=2., resolution=None,

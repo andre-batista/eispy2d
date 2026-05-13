@@ -6,13 +6,14 @@ from numpy import random as rnd
 from matplotlib import pyplot as plt
 from joblib import Parallel, delayed
 import multiprocessing
-import configuration as cfg
-import inputdata as ipt
-import result as rst
-import experiment as exp
-import mom_cg_fft as mom
-import draw
-import error
+
+import eispy2d.configuration as cfg
+import eispy2d.inputdata as ipt
+import eispy2d.result as rst
+import eispy2d.experiment as exp
+import eispy2d.mom_cg_fft as mom
+import eispy2d.draw as draw
+import eispy2d.error as error
 
 NAME = 'name'
 CONFIGURATION = 'configuration'

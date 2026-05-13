@@ -7,9 +7,10 @@ from numpy import pi
 from scipy.special import hankel2
 from scipy.linalg import svd, norm
 from numba import jit
-import configuration as cfg
-import result as rst
-import deterministic as dtm
+
+import eispy2d.configuration as cfg
+import eispy2d.result as rst
+import eispy2d.deterministic as dtm
 
 
 SV_CUTOFF = 'sv_cutoff'

@@ -59,11 +59,11 @@ import pickle
 from numba import jit
 
 # Developed libraries
-import configuration as cfg
-import inputdata as ipt
+import eispy2d.configuration as cfg
+import eispy2d.inputdata as ipt
 import result as rst
-import deterministic as dtm
-import collocation as clc
+import eispy2d.deterministic as dtm
+import eispy2d.collocation as clc
 
 
 FORWARD = 'forward'

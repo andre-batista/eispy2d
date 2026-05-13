@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from scipy.special import inv_boxcox
-import configuration as cfg
-import result as rst
-import inverse as inv
-import discretization as dct
-import error
+
+import eispy2d.configuration as cfg
+import eispy2d.result as rst
+import eispy2d.inverse as inv
+import eispy2d.discretization as dct
+import eispy2d.error as error
 
 NAME = 'name'
 METHOD = 'method'

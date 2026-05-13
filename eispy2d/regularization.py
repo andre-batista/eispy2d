@@ -3,7 +3,7 @@ from numba import jit, prange
 from numpy import linalg as lag
 from abc import ABC, abstractmethod
 
-import error
+import eispy2d.error as error
 
 TIK_FIXED = 'fixed'
 TIK_MOZOROV = 'mozorov'

@@ -57,8 +57,9 @@ import numpy as np
 from scipy import constants as ct
 import matplotlib.pyplot as plt
 from numba import jit
-import error
-import result as rst
+
+import eispy2d.error
+import eispy2d.result as rst
 
 # Constants for easy access of saved pickle file
 NAME = 'name'

@@ -56,14 +56,14 @@ import pickle
 from numba import jit
 
 # Developed libraries
-import configuration as cfg
-import result as rst
-import deterministic as dtm
-import mom_cg_fft as mom
-import regularization as reg
-import csi
-import backprop as bp
-import fftproduct
+import eispy2d.configuration as cfg
+import eispy2d.result as rst
+import eispy2d.deterministic as dtm
+import eispy2d.mom_cg_fft as mom
+import eispy2d.regularization as reg
+import eispy2d.csi as csi
+import eispy2d.backprop as bp
+import eispy2d.fftproduct as fftproduct
 
 FORWARD = 'forward'
 STOP_CRITERIA = 'stop criteria'

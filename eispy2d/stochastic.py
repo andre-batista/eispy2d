@@ -3,9 +3,9 @@ import numpy as np
 import copy as cp
 from abc import abstractmethod
 
-import error
-import inverse as inv
-import result as rst
+import eispy2d.error as error
+import eispy2d.inverse as inv
+import eispy2d.result as rst
 
 
 NEXECUTIONS = 'nexec'

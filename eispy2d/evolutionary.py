@@ -5,11 +5,11 @@ import multiprocessing
 from numpy import pi
 from joblib import Parallel, delayed
 
-import result as rst
-import inputdata as ipt
-import stochastic as stc
-import configuration as cfg
-import evoalglib.representation as rpt
+import eispy2d.result as rst
+import eispy2d.inputdata as ipt
+import eispy2d.stochastic as stc
+import eispy2d.configuration as cfg
+import eispy2d.evoalglib.representation as rpt
 
 
 class EvolutionaryAlgorithm(stc.Stochastic):

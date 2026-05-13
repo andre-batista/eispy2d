@@ -16,8 +16,9 @@ import copy as cp
 import numpy as np
 from numpy import random as rnd
 import pickle
-import error
-import configuration as cfg
+
+import eispy2d.error as error
+import eispy2d.configuration as cfg
 
 
 class ForwardSolver(ABC):

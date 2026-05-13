@@ -10,8 +10,8 @@ from abc import ABC, abstractmethod
 import sys
 
 # Developed libraries
-import configuration as cfg
-import result as rst
+import eispy2d.configuration as cfg
+import eispy2d.result as rst
 
 NAME = 'name'
 ALIAS = 'alias'

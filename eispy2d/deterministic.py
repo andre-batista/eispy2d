@@ -48,7 +48,8 @@ for specific implementations:
 """
 
 import sys
-import inverse as inv
+
+import eispy2d.inverse as inv
 
 class Deterministic(inv.InverseSolver):
     """Base class for deterministic inverse scattering solvers.

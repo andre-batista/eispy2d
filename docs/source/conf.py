@@ -9,6 +9,7 @@
 
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath('../../')) 
 
 project = 'eispy2d'
@@ -36,6 +37,9 @@ exclude_patterns = []
 html_theme = 'pydata_sphinx_theme'
 html_theme_options = {
     "github_url": "https://github.com/andre-batista/eispy2d.git",
+    "navbar_start": ["navbar-logo"],
+    "navbar_center": ["navbar-nav"],
+    "navbar_end": ["theme-switcher", "navbar-icon-links"],
 }
 
 html_static_path = ['_static']

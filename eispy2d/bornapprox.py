@@ -43,10 +43,10 @@ import time as tm
 from numpy import pi
 
 # Developed libraries
-import deterministic as dtm
-import mom_cg_fft as mom
-import configuration as cfg
-import result as rst
+import eispy2d.deterministic as dtm
+import eispy2d.mom_cg_fft as mom
+import eispy2d.configuration as cfg
+import eispy2d.result as rst
 
 REGULARIZATION = 'regularization'
 FORWARD = 'forward'

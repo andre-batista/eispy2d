@@ -1,16 +1,8 @@
 eispy2d package
 ===============
 
-Subpackages
------------
-
 .. toctree::
    :maxdepth: 4
-
-   eispy2d.evoalglib
-
-Submodules
-----------
 
 eispy2d.analytical module
 -------------------------

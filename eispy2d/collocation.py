@@ -52,10 +52,12 @@ Examples
 >>> K_GSX = kernel_GSX(GS_matrix, contrast)
 """
 
-import error
+import eispy2d.error as error
+import eispy2d.discretization as dct
+
 import pickle
 import numpy as np
-import discretization as dct
+
 from numba import jit
 
 TRIAL_FUNCTION = 'trial'

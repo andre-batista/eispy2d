@@ -23,10 +23,10 @@ import numpy as np
 import copy as cp
 import matplotlib.pyplot as plt
 
-import error
-import richmond as ric
-import configuration as cfg
-import result as rst
+import eispy2d.error as error
+import eispy2d.richmond as ric
+import eispy2d.configuration as cfg
+import eispy2d.result as rst
 
 # Constants for easier access to fields of the saved pickle file
 NAME = 'name'

@@ -26,10 +26,10 @@ import numpy as np
 from numpy import pi
 from scipy.constants import epsilon_0, mu_0
 from scipy.special import jv, jvp, hankel2, h2vp
-import forward as fwr
-import inputdata as ipt
-import configuration as cfg
-import error
+import eispy2d.forward as fwr
+import eispy2d.inputdata as ipt
+import eispy2d.configuration as cfg
+import eispy2d.error as error
 from matplotlib import pyplot as plt
 
 PERFECT_DIELECTRIC_PROBLEM = 'perfect_dieletric'

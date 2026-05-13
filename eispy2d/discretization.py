@@ -62,8 +62,9 @@ specific implementations:
 ...     # Implement other abstract methods...
 """
 
-import error
-import configuration as cfg
+import eispy2d.error as error
+import eispy2d.configuration as cfg
+
 from abc import ABC, abstractmethod
 
 NAME = 'name'
