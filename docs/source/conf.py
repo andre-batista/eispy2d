@@ -41,3 +41,5 @@ html_theme_options = {
 html_static_path = ['_static']
 html_title = 'Eispy2d Documentation'
 
+html_show_sourcelink = False
+
