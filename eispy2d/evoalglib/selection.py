@@ -1,9 +1,9 @@
-import error
 import numpy as np
 from numba import jit
 from abc import ABC, abstractmethod
 from numpy.random import permutation, randint, rand
 
+import eispy2d.error as error
 
 class Selection(ABC):
     def __init__(self):

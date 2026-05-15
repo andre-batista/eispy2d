@@ -45,10 +45,10 @@ The CSI method minimizes the following cost functional:
 
 .. math::
     F = F_S + F_D = \frac{\|\mathbf{E}^s - \mathbf{G}^s \mathbf{J}\|^2}{\|\mathbf{E}^s\|^2} + 
-    \frac{\|\chi \mathbf{E} - \mathbf{J}\|^2}{\|\chi \mathbf{E}^i\|^2}
+    \frac{\|\\chi \mathbf{E} - \mathbf{J}\|^2}{\|\\chi \mathbf{E}^i\|^2}
 
 where :math:`F_S` is the data error term, :math:`F_D` is the object error term,
-:math:`\mathbf{J}` is the contrast source, :math:`\chi` is the contrast function,
+:math:`\mathbf{J}` is the contrast source, :math:`\\chi` is the contrast function,
 and :math:`\mathbf{E}` is the total electric field.
 
 The method uses conjugate gradient optimization with Polak-Ribière updates
@@ -109,13 +109,13 @@ class ContrastSourceInversion(dtm.Deterministic):
     
     .. math::
         F = F_S + F_D = \frac{\|\mathbf{E}^s - \mathbf{G}^s \mathbf{J}\|^2}{\|\mathbf{E}^s\|^2} + 
-        \frac{\|\chi \mathbf{E} - \mathbf{J}\|^2}{\|\chi \mathbf{E}^i\|^2}
+        \frac{\|\\chi \mathbf{E} - \mathbf{J}\|^2}{\|\\chi \mathbf{E}^i\|^2}
     
     where:
     - :math:`F_S` is the data error term (scattered field misfit)
     - :math:`F_D` is the object error term (current-contrast consistency)
     - :math:`\mathbf{J}` is the contrast source (induced current)
-    - :math:`\chi` is the contrast function
+    - :math:`\\chi` is the contrast function
     - :math:`\mathbf{E}` is the total electric field
     - :math:`\mathbf{E}^s` is the scattered field
     - :math:`\mathbf{E}^i` is the incident field

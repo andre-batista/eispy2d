@@ -1,5 +1,5 @@
 import numpy as np
-from evoalglib.mechanism import Mechanism
+from eispy2d.evoalglib.mechanism import Mechanism
 from numpy.random import rand
 
 

@@ -1,6 +1,6 @@
-import error
+import eispy2d.error as error
 import numpy as np
-import evoalglib.representation as rpt
+import eispy2d.evoalglib.representation as rpt
 from abc import ABC, abstractmethod
 from numpy import pi
 

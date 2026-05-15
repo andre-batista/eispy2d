@@ -1,7 +1,7 @@
-import error
+import eispy2d.error as error
 import numpy as np
 from numpy import nan as NaN
-from evoalglib.mechanism import Mechanism, get_indexes
+from eispy2d.evoalglib.mechanism import Mechanism, get_indexes
 
 
 RAND = 'rand'

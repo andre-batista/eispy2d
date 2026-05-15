@@ -61,7 +61,7 @@ from numba import jit
 # Developed libraries
 import eispy2d.configuration as cfg
 import eispy2d.inputdata as ipt
-import result as rst
+import eispy2d.result as rst
 import eispy2d.deterministic as dtm
 import eispy2d.collocation as clc
 

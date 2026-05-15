@@ -1,6 +1,6 @@
-import error
+import eispy2d.error as error
 import numpy as np
-from evoalglib.mechanism import Mechanism, get_indexes
+from eispy2d.evoalglib.mechanism import Mechanism, get_indexes
 
 
 class GeneticAlgorithm(Mechanism):

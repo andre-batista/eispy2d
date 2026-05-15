@@ -47,7 +47,7 @@ import eispy2d.inputdata as ipt
 import eispy2d.experiment as exp
 import eispy2d.testset as tst
 import eispy2d.stochastic as stc
-import eispy2d.statisticsutils as sts
+import eispy2d.statisticstutils as sts
 import eispy2d.error as error
 
 TESTSET = 'testset'

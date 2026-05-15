@@ -97,9 +97,9 @@ class ConjugatedGradientMethod(dtm.Deterministic):
     The algorithm minimizes the following objective function:
     
     .. math::
-        J(\chi) = \|\mathbf{E}^s - \mathbf{G}^s \chi \mathbf{L}^{-1} \mathbf{E}^i\|^2
+        J(\\chi) = \|\mathbf{E}^s - \mathbf{G}^s \\chi \mathbf{L}^{-1} \mathbf{E}^i\|^2
     
-    where :math:`\chi` is the contrast function, :math:`\mathbf{E}^s` is the
+    where :math:`\\chi` is the contrast function, :math:`\mathbf{E}^s` is the
     scattered field, :math:`\mathbf{G}^s` is the Green's function matrix,
     and :math:`\mathbf{L}^{-1}` is the inverse of the Lippmann-Schwinger
     operator.
@@ -243,7 +243,7 @@ class ConjugatedGradientMethod(dtm.Deterministic):
 
     def solve(self, inputdata, discretization, print_info=True,
               print_file=sys.stdout):
-        """
+        r"""
         Solve the nonlinear inverse scattering problem using CGM.
         
         Applies the conjugated gradient method to iteratively reconstruct
@@ -295,9 +295,9 @@ class ConjugatedGradientMethod(dtm.Deterministic):
         The objective function being minimized is:
         
         .. math::
-            J(\chi) = \|\mathbf{E}^s - \mathbf{G}^s \chi (\mathbf{I} - \mathbf{G}^d \chi)^{-1} \mathbf{E}^i\|^2
+            J(\\chi) = \|\mathbf{E}^s - \mathbf{G}^s \\chi (\mathbf{I} - \mathbf{G}^d \\chi)^{-1} \mathbf{E}^i\|^2
         
-        where :math:`\chi` is the contrast function matrix.
+        where :math:`\\chi` is the contrast function matrix.
         
         Initial guess strategies:
         - **background**: Zero contrast (background medium)

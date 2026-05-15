@@ -1,8 +1,8 @@
-import error
 import numpy as np
-import collocation as clc
 from abc import ABC, abstractmethod
 
+import eispy2d.error as error
+import eispy2d.collocation as clc
 
 class Representation(ABC):
     def __init__(self):
