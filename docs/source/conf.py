@@ -54,3 +54,18 @@ napoleon_include_init_with_doc = True
 napoleon_include_private_with_doc = False
 napoleon_include_special_with_doc = True
 
+latex_engine = 'xelatex'  
+latex_use_xindy = False
+
+
+latex_elements = {
+    'inputenc': r'\usepackage[utf8]{inputenc}',
+    'fontenc': r'\usepackage{fontspec}',  
+    'preamble': r'''
+        \usepackage{amsmath}
+        \usepackage{amssymb}
+        \usepackage{unicode-math}
+        \setmainfont{TeX Gyre Termes}
+        \setsansfont{TeX Gyre Heros}
+    ''',
+}

@@ -11,10 +11,10 @@ weak scatterers, it serves as an excellent starting point for more complex
 iterative methods and provides good results for low-contrast objects.
 
 The method solves the linearized scattering equation:
-    E_s = G_S * χ * E_i
+    E_s = G_S * \\chi * E_i
 
 where E_s is the scattered field, G_S is the scattering Green's function,
-χ is the contrast function, and E_i is the incident field.
+\\chi is the contrast function, and E_i is the incident field.
 
 Classes
 -------
@@ -67,12 +67,12 @@ class FirstOrderBornApproximation(dtm.Deterministic):
 
     Mathematical Formulation:
     The method solves the linearized equation:
-        E_s = G_S * χ * E_i
+        E_s = G_S * \\chi * E_i
     
     where:
     - E_s: scattered field (measured data)
     - G_S: scattering Green's function matrix
-    - χ: contrast function (unknown to be reconstructed)
+    - \\chi: contrast function (unknown to be reconstructed)
     - E_i: incident field (known)
 
     Parameters
@@ -112,7 +112,7 @@ class FirstOrderBornApproximation(dtm.Deterministic):
     Notes
     -----
     **Validity Range**: The Born approximation is valid when:
-    - The contrast is small (|χ| << 1)
+    - The contrast is small (|\chi| << 1)
     - The scatterer is electrically small
     - The refractive index variation is gradual
 

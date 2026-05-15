@@ -225,7 +225,7 @@ class ExtendedContrastSourceInversion(dtm.Deterministic):
         Performs iterative reconstruction of the contrast function and current
         density distribution using the Extended Contrast Source Inversion algorithm.
         The method alternates between updating the current density (J) and the
-        contrast function (χ) using conjugate gradient optimization.
+        contrast function (\\chi) using conjugate gradient optimization.
 
         Parameters
         ----------
@@ -263,7 +263,7 @@ class ExtendedContrastSourceInversion(dtm.Deterministic):
 
         1. **Initialization**: Generate initial guess using backpropagation if not provided
         2. **Current Update**: Minimize data and object error functionals with respect to J
-        3. **Contrast Update**: Minimize object error functional with respect to χ
+        3. **Contrast Update**: Minimize object error functional with respect to \\chi
         4. **Convergence Check**: Evaluate stopping criteria and continue if necessary
 
         The cost function minimized is:
@@ -574,7 +574,7 @@ class ExtendedContrastSourceInversion(dtm.Deterministic):
         r"""Compute gradient of cost function with respect to contrast.
 
         Calculates the gradient of the ECSI cost function with respect to the
-        contrast function χ, which is used in the conjugate gradient optimization
+        contrast function \chi, which is used in the conjugate gradient optimization
         for contrast updates.
 
         Parameters

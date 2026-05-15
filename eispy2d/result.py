@@ -123,7 +123,7 @@ LABEL_ZETA_TFMPAD = r'$\zeta_{TFMPAD}$ [\%/pixel]'
 LABEL_ZETA_TFPPAD = r'$\zeta_{TFPPAD}$ [\%/rad]'
 LABEL_SSIM = r'SSIM'
 LABEL_EXECUTION_TIME = r'$t_{exe}$ [sec]'
-LABEL_OBJECTIVE_FUNCTION = r'$f(\chi, E_z^s)$'
+LABEL_OBJECTIVE_FUNCTION = r'$f(\\chi, E_z^s)$'
 LABEL_NUMBER_EVALUATIONS = 'Evaluations'
 LABEL_NUMBER_ITERATIONS = 'Iterations'
 LABEL_PATH = 'Path of Optimum Solution'
@@ -645,7 +645,7 @@ class Result:
                   ymax/self.configuration.lambda_b]
         clb_epsilon_r = r'$\epsilon_r$'
         clb_sigma = r'$\sigma$ [S/m]'
-        clb_contrast = r'$|\chi|$'
+        clb_contrast = r'$|\\chi|$'
         clb_total = r'$|E_z|$ [V/m]'
 
         if image == TOTAL_FIELD:

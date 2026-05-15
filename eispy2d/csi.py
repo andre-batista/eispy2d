@@ -1065,7 +1065,7 @@ def compute_contrast(J, E):
     Compute contrast function from contrast source and total field.
     
     This function computes the contrast function by solving the
-    least squares problem for the relationship J = χE.
+    least squares problem for the relationship J = \chi E.
     
     Parameters
     ----------

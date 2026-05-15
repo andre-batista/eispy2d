@@ -499,7 +499,7 @@ class Discretization(ABC):
         - The `current` parameter alone
 
         If contrast and total_field are provided, the current source is
-        computed as J = χE^t, then used to calculate the scattered field.
+        computed as J = \\chi E^t, then used to calculate the scattered field.
 
         Examples
         --------
