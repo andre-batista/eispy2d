@@ -11,26 +11,26 @@ import sys
 sys.path.insert(1, '../library/')
 
 # Import modules
-import bim
-import benchmark as bmk
-import bornapprox as ba
-import regularization as reg
-import richmond as ric
-import configuration as cfg
-import testset as tst
-import result as rst
-import experiment as exp
-import mom_cg_fft as mom
-import stopcriteria as stp
-import evolutionary as evo
-import stochastic as stc
-from evoalglib import initialization as ini
-from evoalglib import representation as rpt
-from evoalglib import objectivefunction as obj
-from evoalglib import de
-from evoalglib import boundary as bc
-from evoalglib import selection as slc
-from evoalglib import crossover as cross
+from eispy2d import bim
+from eispy2d import benchmark as bmk
+from eispy2d import bornapprox as ba
+from eispy2d import regularization as reg
+from eispy2d import richmond as ric
+from eispy2d import configuration as cfg
+from eispy2d import testset as tst
+from eispy2d import result as rst
+from eispy2d import experiment as exp
+from eispy2d import mom_cg_fft as mom
+from eispy2d import stopcriteria as stp
+from eispy2d import evolutionary as evo
+from eispy2d import stochastic as stc
+from eispy2d.evoalglib import initialization as ini
+from eispy2d.evoalglib import representation as rpt
+from eispy2d.evoalglib import objectivefunction as obj
+from eispy2d.evoalglib import de
+from eispy2d.evoalglib import boundary as bc
+from eispy2d.evoalglib import selection as slc
+from eispy2d.evoalglib import crossover as cross
 
 # Problem configuration
 f0 = 3e8 # linear frequency [Hz]
