@@ -1,0 +1,33 @@
+# .readthedocs.yaml
+# Read the Docs configuration for eispy2d
+# Documentation:
+# https://docs.readthedocs.io/en/stable/config-file/v2.html
+
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
+
+# Install Python dependencies and the documentation package itself.
+python:
+  install:
+    # Project dependencies
+    - requirements: requirements.txt
+
+    # Documentation dependencies
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
+
+# Tell Read the Docs where the Sphinx configuration file is located.
+sphinx:
+  configuration: docs/source/conf.py
+  fail_on_warning: false
+
+# Optional formats generated for download.
+formats:
+  - pdf
+  - epub

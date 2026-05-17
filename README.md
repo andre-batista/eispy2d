@@ -46,6 +46,10 @@ pip install -r requirements.txt
 
 You may find usages examples [here](https://github.com/andre-batista/eispy2d/tree/main/demo). There are scripts and Jupyter Notebooks in which you can see how the classes are called, how to build a problem, how to run an experiment, etc.
 
+## Documentation
+
+Documentation is currently being built and a previous version can be found in https://eispy2d-docs.readthedocs.io/en/latest/api.html
+
 ## Contribute
 
 **You are totally welcome to contribute to this library** by finding bugs, suggesting changes, implementing the algorithms in the literature, and providing your algorithms so others can use them to compare in their experiments. You may add issues, send pull requests or contact me through e-mail.

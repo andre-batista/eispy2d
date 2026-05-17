@@ -7,3 +7,6 @@ statsmodels
 scikit-image
 pingouin
 ipykernel
+sphinx
+pydata-sphinx-theme
+sphinx-autodoc-typehints
