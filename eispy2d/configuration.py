@@ -58,7 +58,7 @@ from scipy import constants as ct
 import matplotlib.pyplot as plt
 from numba import jit
 
-import eispy2d.error
+import eispy2d.error as error
 import eispy2d.result as rst
 
 # Constants for easy access of saved pickle file
@@ -809,8 +809,7 @@ def solve_frequency(lambda_b, mu_r, epsilon_r, sigma):
         unidimensional problems. The solution is the one which minimizes
         the following objective-function:
 
-        .. math:: \phi(f) = \(\lambda_b - \frac{1}{fR\{\sqrt{\mu(\epsilon
-                  - j\frac{\sigma}{2\pi f})}\}}
+        .. math:: \phi(f) = \lambda_b - \frac{1}{fR\{\sqrt{\mu(\epsilon - j\frac{\sigma}{2\pi f})}\}}
     """
     # Constants
     mu = mu_r*ct.mu_0

@@ -67,5 +67,7 @@ latex_elements = {
         \usepackage{unicode-math}
         \setmainfont{TeX Gyre Termes}
         \setsansfont{TeX Gyre Heros}
+        \usepackage{mathtools}
+        \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
     ''',
 }
