@@ -11,26 +11,34 @@ import sys
 sys.path.insert(1, '../../eispy2d')
 
 # Import modules
-from eispy2d import bim
-from eispy2d import benchmark as bmk
-from eispy2d import bornapprox as ba
-from eispy2d import regularization as reg
-from eispy2d import richmond as ric
+from eispy2d.solvers.inverse import (
+    bim,
+    bornapprox as ba,
+    evolutionary as evo,
+)
+from eispy2d.experiments import (
+    benchmark as bmk,
+    experiment as exp,
+)
+from eispy2d.regularization import regularization as reg
+from eispy2d.discretization import richmond as ric
 from eispy2d.core import configuration as cfg
-from eispy2d import testset as tst
-from eispy2d import result as rst
-from eispy2d import experiment as exp
-from eispy2d import mom_cg_fft as mom
-from eispy2d import stopcriteria as stp
-from eispy2d import evolutionary as evo
-from eispy2d import stochastic as stc
-from eispy2d.evoalglib import initialization as ini
-from eispy2d.evoalglib import representation as rpt
-from eispy2d.evoalglib import objectivefunction as obj
-from eispy2d.evoalglib import de
-from eispy2d.evoalglib import boundary as bc
-from eispy2d.evoalglib import selection as slc
-from eispy2d.evoalglib import crossover as cross
+from eispy2d.data import (
+    testset as tst,
+    result as rst,
+)
+from eispy2d.solvers.forward import mom_cg_fft as mom
+from eispy2d.utils import stopcriteria as stp
+from eispy2d.solvers.base import stochastic as stc
+from eispy2d.evoalglib import (
+    initialization as ini,
+    representation as rpt,
+    objectivefunction as obj,
+    de,
+    boundary as bc,
+    selection as slc,
+    crossover as cross,
+)
 
 # Problem configuration
 f0 = 3e8 # linear frequency [Hz]
