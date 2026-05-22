@@ -3,7 +3,7 @@ from numba import jit
 from abc import ABC, abstractmethod
 from numpy.random import permutation, randint, rand
 
-import eispy2d.error as error
+from eispy2d.core import error
 
 class Selection(ABC):
     def __init__(self):

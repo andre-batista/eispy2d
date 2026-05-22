@@ -8,7 +8,7 @@ analysis.
 """
 
 import sys
-sys.path.insert(1, '../library/')
+sys.path.insert(1, '../../eispy2d')
 
 # Import modules
 from eispy2d import bim
@@ -16,7 +16,7 @@ from eispy2d import benchmark as bmk
 from eispy2d import bornapprox as ba
 from eispy2d import regularization as reg
 from eispy2d import richmond as ric
-from eispy2d import configuration as cfg
+from eispy2d.core import configuration as cfg
 from eispy2d import testset as tst
 from eispy2d import result as rst
 from eispy2d import experiment as exp

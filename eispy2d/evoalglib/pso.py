@@ -1,6 +1,7 @@
 import numpy as np
-from eispy2d.evoalglib.mechanism import Mechanism
 from numpy.random import rand
+
+from eispy2d.evoalglib.mechanism import Mechanism
 
 
 class ParticleSwarmOptimization(Mechanism):

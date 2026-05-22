@@ -1,9 +1,9 @@
-import eispy2d.error as error
-import eispy2d.evoalglib.representation as rpt
 import numpy as np
 from abc import ABC, abstractmethod
 from numpy.random import rand
 
+from eispy2d.core import error
+from eispy2d.evoalglib import representation as rpt
 
 class Initialization(ABC):
     def __init__(self):

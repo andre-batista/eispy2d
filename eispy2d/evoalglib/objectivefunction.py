@@ -1,8 +1,9 @@
-import eispy2d.error as error
 import numpy as np
-import eispy2d.evoalglib.representation as rpt
 from abc import ABC, abstractmethod
 from numpy import pi
+
+from eispy2d.core import error
+from eispy2d.evoalglib import representation as rpt
 
 
 class ObjectiveFunction(ABC):

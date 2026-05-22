@@ -1,6 +1,7 @@
-import eispy2d.error as error
 import numpy as np
 from numpy import nan as NaN
+
+from eispy2d.core import error
 from eispy2d.evoalglib.mechanism import Mechanism, get_indexes
 
 

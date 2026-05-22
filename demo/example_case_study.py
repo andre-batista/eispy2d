@@ -27,16 +27,16 @@ import stochastic as stc
 import evolutionary as evo
 import stopcriteria as stp
 import draw
-from evoalglib import initialization as ini
-from evoalglib import objectivefunction as obj
-from evoalglib import representation as rpt
-from evoalglib import boundary as bc
-from evoalglib import selection as slc
-from evoalglib import crossover as cross
-from evoalglib import mutation as mut
-from evoalglib import de
-from evoalglib import pso
-from evoalglib import ga
+from eispy2d.evoalglib import initialization as ini
+from eispy2d.evoalglib import objectivefunction as obj
+from eispy2d.evoalglib import representation as rpt
+from eispy2d.evoalglib import boundary as bc
+from eispy2d.evoalglib import selection as slc
+from eispy2d.evoalglib import crossover as cross
+from eispy2d.evoalglib import mutation as mut
+from eispy2d.evoalglib import de
+from eispy2d.evoalglib import pso
+from eispy2d.evoalglib import ga
 
 # Problem parameters
 f0 = 3e8 # linear frequency [m]
