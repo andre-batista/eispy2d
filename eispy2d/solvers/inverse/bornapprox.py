@@ -112,7 +112,7 @@ class FirstOrderBornApproximation(dtm.Deterministic):
     Notes
     -----
     **Validity Range**: The Born approximation is valid when:
-    - The contrast is small (|\chi| << 1)
+    - The contrast is small (|\\chi| << 1)
     - The scatterer is electrically small
     - The refractive index variation is gradual
 
