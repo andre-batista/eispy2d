@@ -80,6 +80,47 @@ class TestSet:
                  density_mode=exp.SINGLE_OBJECT, min_size_proportion=40.,
                  allow_rotation=True, random_position=True,
                  import_filename=None, import_filepath=''):
+        r"""Initialize a TestSet object.
+
+        Parameters
+        ----------
+        name : str
+            Name of the test set.
+        configuration : :class:`Configuration`, optional
+            Configuration object. If None, auto-generated.
+        contrast : float
+            Reference contrast value.
+        object_size : float
+            Reference object size (in wavelengths).
+        resolution : tuple of int or int, optional
+            Resolution of the images (Ny, Nx). If int, square resolution.
+        density : int or float, optional
+            Number of objects (if mode uses number) or minimum contrast density.
+        map_pattern : str, optional
+            'random_polygons', 'regular_polygons', or 'surfaces'.
+        sample_size : int, default: 30
+            Number of test cases.
+        noise : float, default: 1.
+            Noise level in percentage.
+        indicators : list of str or str, optional
+            Indicators to compute.
+        contrast_mode : str, default: 'fixed'
+            'fixed' or 'maximum'.
+        object_size_mode : str, default: 'fixed'
+            'fixed' or 'maximum'.
+        density_mode : str, default: 'single'
+            'single', 'fixed', 'max_number', or 'min_density'.
+        min_size_proportion : float, default: 40.
+            Minimum size proportion (0-100%) of the smallest object.
+        allow_rotation : bool, default: True
+            Allow random rotation of objects.
+        random_position : bool, default: True
+            Allow random positioning of objects.
+        import_filename : str, optional
+            File to import a saved TestSet.
+        import_filepath : str, optional
+            Path to the import file.
+        """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
             return
@@ -228,6 +269,13 @@ class TestSet:
                                        str(type(resolution)))
 
     def randomize_tests(self, parallelization=True):
+        """Generate random test images according to the test set parameters.
+
+        Parameters
+        ----------
+        parallelization : bool, default: True
+            If True, uses parallel processing to generate tests.
+        """
         self.test = []
         N = self.sample_size
 
@@ -280,6 +328,15 @@ class TestSet:
         self._testset_condition = _MISSING_FIELD_DATA
 
     def generate_field_data(self, solver=None, parallelization=False):
+        """Generate scattered field data for all tests using a forward solver.
+
+        Parameters
+        ----------
+        solver : :class:`ForwardSolver`, optional
+            Forward solver to use. Default uses MoM-CG-FFT.
+        parallelization : bool, default: False
+            If True, uses parallel processing for multiple tests.
+        """
         if solver is None:
             solver = mom.MoM_CG_FFT()
         if (rst.TOTALFIELD_MAGNITUDE_PAD in self.indicators
@@ -308,6 +365,23 @@ class TestSet:
 
     def plot(self, tests='all', axis=None, show=False, save=False,
              file_path='', file_format='eps'):
+        """Plot a selection of test images.
+
+        Parameters
+        ----------
+        tests : {'all', int, list of int}, default: 'all'
+            Which tests to plot.
+        axis : :class:`matplotlib.axes.Axes` or :class:`numpy.ndarray`, optional
+            Axes to plot on.
+        show : bool, default: False
+            Display the plot.
+        save : bool, default: False
+            Save the figure.
+        file_path : str, default: ''
+            Path to save.
+        file_format : str, default: 'eps'
+            File format.
+        """
         if (tests != 'all' and type(tests) is not int
                 and type(tests) is not list):
             raise error.WrongTypeInput('TestSet.plot()', 'tests',
@@ -405,6 +479,19 @@ class TestSet:
         self._testset_condition = data[TESTSET_CONDITION]
 
     def copy(self, new=None):
+        """Create a deep copy or copy data from another TestSet.
+
+        Parameters
+        ----------
+        new : :class:`TestSet`, optional
+            If provided, copies data from this TestSet into the current one.
+
+        Returns
+        -------
+        :class:`TestSet` or None
+            If new is None, returns a new TestSet copy.
+            If new is provided, returns None (in-place copy).
+        """
         if new is None:
             obj = TestSet(self.name,
                           self.configuration,
@@ -500,72 +587,41 @@ def create_input_image(name, configuration, resolution, map_pattern,
 
     Parameters
     ----------
-        name : str
-            The name of the case.
-
-        configuration : :class:`configuration.Configuration`
-
-        resolution : 2-tuple of int
-            Y-X resolution (number of pixels) of the scenario image.
-
-        map_pattern : {'random_polygons', 'regular_polygons', 'surfaces'}
-            Pattern of dielectric information on the image.
-
-        contrast : complex
-            Reference value for contrast.
-
-        density : int or float, default: None
-            When `density_mode` is 'single', `density` might be `None`.
-            When `density_mode` is 'fixed', `density` is an integer
-            meaning the number of objects in the image. When
-            `density_mode` is 'max_number', `density` is an integer
-            meaning the maximum number of objects allowed in the image.
-            When `density_mode` is 'min_density', `density` is a float
-            which is equivalent to the minimum acceptable value for the
-            ratio between the average contrast per pixel and the
-            reference contrast value. In other words, it is the lower
-            percentage limit for the average contrast per pixel compared
-            to the reference value. When dealing with surfaces, this
-            information is considered for gaussian random functions.
-
-        noise : float, default: None
-            Noise level that will be added into the scattered field.
-
-        object_size : float, default: .45*min([Lx, Ly])/2
-            Reference value for objects size. *In wavelengths!*
-
-        compute_residual_error : bool, default: None
-            A flag to save residual error when running the input.
-
-        compute_map_error : bool, default: None
-            A flag to save map error when running the input.
-
-        compute_totalfield_error : bool, default: None
-            A flag to save total field error when running the input.
-
-        contrast_mode : str, default: 'maximum'
-            How to use the reference value: fixed or maximum allowed.
-
-        object_size_mode : str, default: 'maximum'
-            How to use the reference value: fixed or maximum allowed.
-
-        min_size_prop : float, default: 40.
-            Proportion (0-100%) of the smallest object allowed in respect to the
-            largest.
-
-        density_mode : str, default: 'single'
-            Controls the amount of objects which will be added into the
-            image. If 'single', then only one object will be added. If
-            'fixed', then a fixed amount of objects will be addressed.
-            If 'max_number', then a random number of objects will be
-            addressed which is not greater than the specified maximum.
-            If 'min_density', then objects will be added until the
-            average contrast per pixel reaches a minimum percentage
-            value in relation to the reference value.
+    name : str
+        The name of the case.
+    configuration : :class:`Configuration`
+        Configuration object.
+    resolution : 2-tuple of int
+        Y-X resolution (number of pixels) of the scenario image.
+    map_pattern : {'random_polygons', 'regular_polygons', 'surfaces'}
+        Pattern of dielectric information on the image.
+    contrast : float
+        Reference value for contrast.
+    density : int or float, optional
+        Number of objects or minimum contrast density.
+    noise : float, optional
+        Noise level added into the scattered field.
+    object_size : float, optional
+        Reference object size in wavelengths.
+    indicators : list of str or str, optional
+        Indicators to compute.
+    contrast_mode : str, default: 'maximum'
+        'fixed' or 'maximum'.
+    object_size_mode : str, default: 'maximum'
+        'fixed' or 'maximum'.
+    min_size_prop : float, default: 40.
+        Minimum size proportion (0-100%).
+    density_mode : str, default: 'single'
+        'single', 'fixed', 'max_number', or 'min_density'.
+    rotate : bool, default: True
+        Allow random rotation.
+    random_position : bool, default: True
+        Allow random position.
 
     Returns
     -------
-        :class:`inputdata.InputData`
+    :class:`InputData`
+        The generated input data object.
     """
     if (contrast_mode != exp.FIXED_CONTRAST
             and contrast_mode != exp.MAXIMUM_CONTRAST):
@@ -1002,8 +1058,13 @@ def contrast_density(contrast_map):
 
     Parameters
     ----------
-        contrast_map : :class:`numpy.ndarray`
-            2-d array.
+    contrast_map : :class:`numpy.ndarray`
+        2D array representing the contrast map.
+
+    Returns
+    -------
+    float
+        Mean absolute contrast value per pixel.
     """
     return np.mean(np.abs(contrast_map))
 

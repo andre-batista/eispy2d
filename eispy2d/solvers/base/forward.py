@@ -22,35 +22,43 @@ from eispy2d.core import configuration as cfg
 
 
 class ForwardSolver(ABC):
-    """The abstract class for Forward Solvers.
+    """Abstract base class for forward solvers.
 
     This class provides the expected attributes and methods of any
-    implementation of a forward solver.
+    implementation of a forward solver for electromagnetic scattering.
 
     Attributes
     ----------
-        name : str
-            The name of the method. It should be defined within the
-            implementation of the method.
-        et, ei : :class:`numpy.ndarray`
-            Matrices containing the total and incident field
-            information. The rows are points in D-domain following 'C'
-            order. The columns are the sources.
+    name : str
+        The name of the method. Should be defined within the implementation.
+    parallelization : bool
+        Whether parallel processing is enabled.
+    et : numpy.ndarray
+        Total field information. Rows are points in D-domain (C order),
+        columns are sources.
+    ei : numpy.ndarray
+        Incident field information. Rows are points in D-domain (C order),
+        columns are sources.
+    es : numpy.ndarray
+        Scattered field information. Rows correspond to measurement points,
+        columns correspond to sources.
+    epsilon_r : numpy.ndarray
+        Relative permittivity map (rows: y-coordinates, columns: x-coordinates).
+    sigma : numpy.ndarray
+        Conductivity map in S/m (rows: y-coordinates, columns: x-coordinates).
+    configuration : Configuration
+        Problem configuration object.
 
-        es : :class:`numpy.ndarray`
-            Matrix containing the scattered field information. The rows
-            correspond to the measurement points and the columns
-            correspond to the sources.
-
-        epsilon_r, sigma : :class:`numpy.ndarray`
-            Matrices representing the dielectric properties in each
-            pixel of the image. *epsilon_r* stands for the relative
-            permitivitty and *sigma* stands for the conductivity (S/m).
-            `Obs.:` the rows correspond to the y-coordinates, and the
-            columns, to the x-ones.
-
-        configuration : :class:`configuration:Configuration`
-            Configuration object.
+    Methods
+    -------
+    solve(inputdata, noise=None, PRINT_INFO=False, SAVE_INTERN_FIELD=True)
+        Execute the forward solver given a problem input.
+    incident_field(resolution, configuration)
+        Return the incident field for a given resolution.
+    save(file_name, file_path='')
+        Save simulation data.
+    importdata(file_name, file_path='')
+        Import solver data from file.
     """
 
     def __init__(self, parallelization=False):
@@ -66,22 +74,25 @@ class ForwardSolver(ABC):
     @abstractmethod
     def solve(self, inputdata, noise=None, PRINT_INFO=False,
               SAVE_INTERN_FIELD=True):
-        """Execute the method given a problem input.
-
-        This is the basic model of the simulation routine.
+        """Execute the forward solver given a problem input.
 
         Parameters
         ----------
-            input : :class:`inputdata:InputData`
-                An object of InputData type which must contains the
-                `resolution` attribute and either `epsilon_r` or
-                `sigma` or both.
+        inputdata : InputData
+            Input data object containing the problem configuration and
+            either relative permittivity or conductivity maps.
+        noise : float, optional
+            Noise level to add to the computed scattered field (percentage).
+        PRINT_INFO : bool, default=False
+            Whether to print progress information.
+        SAVE_INTERN_FIELD : bool, default=True
+            Whether to save the internal total field.
 
         Returns
         -------
-            es, et, ei : :class:`numpy.ndarray`
-                Matrices with the computed scattered, total and incident
-                fields, respectively.
+        tuple
+            (epsilon_r, sigma) arrays with the computed dielectric properties.
+            Derived classes may return additional fields.
         """
         if inputdata.rel_permittivity is None and inputdata.conductivity is None:
             raise error.MissingAttributesError('InputData',
@@ -105,7 +116,21 @@ class ForwardSolver(ABC):
 
     @abstractmethod
     def incident_field(self, resolution, configuration):
-        """Return the incident field for a given resolution."""
+        """Return the incident field for a given resolution.
+
+        Parameters
+        ----------
+        resolution : tuple of int
+            Image resolution (NY, NX).
+        configuration : Configuration
+            Problem configuration object.
+
+        Returns
+        -------
+        numpy.ndarray
+            Incident field matrix with shape (NY*NX, NS) where NS is the number
+            of sources.
+        """
         return np.zeros((int, int), dtype=complex)
 
     @abstractmethod
@@ -130,20 +155,20 @@ class ForwardSolver(ABC):
 def add_noise(x, percentage):
     r"""Add noise to data.
 
-    The noise is implemmented as a complex number with fixed magnitude
-    and random phase. Therefore, the user can control the percentage
-    of noise amplitude.
+    The noise is implemented as a complex number with fixed magnitude
+    and random phase. The user can control the percentage of noise amplitude.
 
     Parameters
     ----------
-        x : array_like
-            Data to receive noise.
-        percentage : float
-            Noise level in percentage.
+    x : array_like
+        Data to receive noise.
+    percentage : float
+        Noise level in percentage.
 
     Returns
     -------
-        xd : corrupted data
+    xd : array_like
+        Corrupted data with added noise.
     """
     phase = np.reshape(2*np.pi*rnd.rand(x.size), x.shape)
     mod = percentage/100*np.abs(x)

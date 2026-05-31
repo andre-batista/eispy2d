@@ -22,7 +22,26 @@ from eispy2d.data import result as rst
 
 
 def rcbd(data, alpha=0.05):
-    r"""Randomized Complete Block Design"""
+    r"""Randomized Complete Block Design (RCBD) analysis.
+
+    Performs ANOVA for randomized complete block design.
+
+    Parameters
+    ----------
+    data : numpy.ndarray or list
+        2D array where rows represent blocks and columns represent treatments.
+    alpha : float, default=0.05
+        Significance level.
+
+    Returns
+    -------
+    F0 : float
+        F-statistic.
+    pvalue : float
+        P-value.
+    H0 : bool
+        True if null hypothesis is not rejected.
+    """
     if type(data) is list:
         y = np.array(data)
     else:
@@ -56,6 +75,20 @@ def rcbd(data, alpha=0.05):
 
 
 def residuals(data, blocked=False):
+    """Compute residuals for ANOVA analysis.
+
+    Parameters
+    ----------
+    data : list of numpy.ndarray
+        List of sample arrays.
+    blocked : bool, default=False
+        Whether to use blocked design for residual calculation.
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of residuals.
+    """
     if type(data) is np.ndarray:
         y = data.tolist()
     else:
@@ -102,6 +135,28 @@ def residuals(data, blocked=False):
 
 
 def ttest_paired(y1, y2, alternative='two-sided', alpha=0.05):
+    r"""Perform paired t-test.
+
+    Parameters
+    ----------
+    y1, y2 : numpy.ndarray
+        Paired samples.
+    alternative : {'two-sided', 'less', 'greater'}, default='two-sided'
+        Alternative hypothesis.
+    alpha : float, default=0.05
+        Significance level.
+
+    Returns
+    -------
+    t0 : float
+        T-statistic.
+    H0 : bool
+        True if null hypothesis is not rejected.
+    pvalue : float
+        P-value.
+    confint : tuple
+        Confidence interval.
+    """
     if y1.size != y2.size:
         raise error.WrongTypeInput('ttest_paired', 'y1 and y2',
                                    'y1.size == y2.size', 'y1.size == %d'
@@ -631,10 +686,19 @@ def dunnetttest(y0, y):
 
 
 def fittedcurve(x, a, b, c):
-    """Evalute standard curve for linear regression in Dunnett's test.
+    r"""Evaluate standard curve :math:`ax^b + c` for Dunnett's test fitting.
 
-    This routine computes the function :math:`ax^b+c` which is used for
-    curve fitting in Dunnett's test.
+    Parameters
+    ----------
+    x : float
+        Input value.
+    a, b, c : float
+        Curve parameters.
+
+    Returns
+    -------
+    float
+        Evaluated curve value.
     """
     return a*x**b+c
 

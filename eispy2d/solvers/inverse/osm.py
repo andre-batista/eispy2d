@@ -19,6 +19,25 @@ THRESHOLD = 'threshold'
 
 
 class OrthogonalitySamplingMethod(dtm.Deterministic):
+    """Orthogonality Sampling Method for qualitative inverse scattering.
+
+    This class implements the Orthogonality Sampling Method (OSM), a qualitative
+    technique for shape reconstruction based on orthogonality properties of
+    the scattered field.
+
+    Parameters
+    ----------
+    alias : str, default='osm'
+        Alias name for the algorithm.
+    threshold : float, optional
+        Threshold for indicator function.
+    far_field : bool, optional
+        Whether to use far-field approximation.
+    import_filename : str, optional
+        Filename to import algorithm state from.
+    import_filepath : str, default=''
+        Path to import file.
+    """
     def __init__(self, alias='osm', threshold=None, far_field=None,
                  import_filename=None, import_filepath=''):
         if import_filename is not None:

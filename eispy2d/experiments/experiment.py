@@ -62,6 +62,24 @@ class Experiment(ABC):
             self._single_discretization = False
 
     def __init__(self, name, method=None, discretization=None):
+        """Initialize an Experiment instance.
+
+        Parameters
+        ----------
+        name : str
+            Name identifier for the experiment.
+        method : InverseSolver or list of InverseSolver, optional
+            Single method or list of methods to be evaluated.
+        discretization : Discretization or list of Discretization, optional
+            Single discretization or list of discretizations to be used.
+
+        Raises
+        ------
+        WrongTypeInput
+            If parameters have invalid types.
+        Error
+            If discretization list length doesn't match method list length.
+        """
         if type(name) is not str:
             raise error.WrongTypeInput('Experiment.__init__',
                                        'name',
@@ -93,6 +111,18 @@ class Experiment(ABC):
 
     @abstractmethod
     def save(self, file_path=''):
+        """Save the experiment state to a file.
+
+        Parameters
+        ----------
+        file_path : str, default: ''
+            Path where to save the file.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the experiment data.
+        """
         return {NAME: self.name,
                 METHOD: self.method,
                 DISCRETIZATION: self.discretization,
@@ -100,6 +130,20 @@ class Experiment(ABC):
 
     @abstractmethod
     def importdata(self, file_name, file_path=''):
+        """Import experiment state from a file.
+
+        Parameters
+        ----------
+        file_name : str
+            Name of the file to import from.
+        file_path : str, default: ''
+            Path to the file location.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the imported data.
+        """
         data = cfg.import_dict(file_name, file_path)
         self.name = data[NAME]
         self.method = data[METHOD]
@@ -108,6 +152,19 @@ class Experiment(ABC):
         return data
 
     def _search_method(self, alias):
+        """Search for method(s) by alias.
+
+        Parameters
+        ----------
+        alias : str or list of str
+            Alias or list of aliases to search for.
+
+        Returns
+        -------
+        int or list of int or bool
+            Index of matching method (if single), list of indices (if multiple),
+            or False if not found.
+        """
         if type(alias) is not str and type(alias) is not list:
             raise error.WrongTypeInput('Experiment._check_method', 'alias',
                                        'str or str-list', str(type(alias)))
@@ -138,6 +195,22 @@ class Experiment(ABC):
                     return False
 
     def _print_compare1sample(self, sample_name, reference, output):
+        """Format output for one-sample comparison test.
+
+        Parameters
+        ----------
+        sample_name : str
+            Name of the sample.
+        reference : float
+            Reference value for comparison.
+        output : tuple
+            Output from statistical test.
+
+        Returns
+        -------
+        str
+            Formatted string with test results.
+        """
         statistic, pvalue, alternative, nonnormal, transf, delta = output
         if not nonnormal:
             message = 'T-Test 1 Sample'
@@ -381,6 +454,27 @@ class Experiment(ABC):
         return message       
     
 def final_value(indicator, result):
+    """Extract final value of an indicator from a Result object or array.
+
+    Parameters
+    ----------
+    indicator : str or list of str
+        Indicator name(s) to extract.
+    result : Result or numpy.ndarray or list
+        Result object(s) containing the indicator data.
+
+    Returns
+    -------
+    numpy.ndarray
+        Final value(s) of the indicator(s).
+
+    Raises
+    ------
+    WrongTypeInput
+        If indicator or result have invalid types.
+    WrongValueInput
+        If indicator is not valid.
+    """
     if type(indicator) is not str and not(type(indicator) is list
                                           and all(isinstance(n, str)
                                                   for n in indicator)):

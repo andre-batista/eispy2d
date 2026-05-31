@@ -13,9 +13,39 @@ OUTPUTMODE = 'outputmode'
 
 
 class Stochastic(inv.InverseSolver):
+    """Base class for stochastic inverse scattering solvers.
 
+    This class provides the foundation for stochastic inverse scattering
+    methods in the eispy2d library. Stochastic solvers use random processes
+    during execution and may produce different results on different runs
+    even with identical inputs.
+
+    Attributes
+    ----------
+    nexec : int
+        Number of executions to perform.
+    outputmode : OutputMode
+        Strategy for processing multiple execution results.
+    _single_execution : bool
+        Whether only one execution is required.
+    """
     @property
     def nexec(self):
+        """Set the number of executions.
+
+        Parameters
+        ----------
+        new : int or None
+            Number of executions. If None, defaults to 1.
+            Must be >= 1.
+
+        Raises
+        ------
+        WrongValueInput
+            If new < 1.
+        WrongTypeInput
+            If new is not None or int.
+        """
         return self._nexec
     @nexec.setter
     def nexec(self, new):
@@ -88,7 +118,32 @@ AVERAGE_CASE = 'average'
 
 
 class OutputMode:
+    """Processing strategy for stochastic method results.
 
+    Defines how multiple execution results are combined into a single
+    output result.
+
+    Parameters
+    ----------
+    rule : {'each', 'best', 'worst', 'average'}
+        Processing rule:
+        - 'each': Return all individual results
+        - 'best': Return the result with best reference indicator
+        - 'worst': Return the result with worst reference indicator
+        - 'average': Return averaged results using reference indicator
+    reference : str, optional
+        Indicator name used for best/worst/average selection (required
+        unless rule='each').
+    sample_rate : float, default=5
+        Sampling rate for averaging (0-100%).
+
+    Methods
+    -------
+    make(name, method_name, results)
+        Process results according to the specified rule.
+    copy(new=None)
+        Create a copy of the OutputMode object.
+    """
     def __init__(self, rule, reference=None, sample_rate=5):
         if (rule != EACH_EXECUTION and rule != BEST_CASE
                 and rule != WORST_CASE and rule != AVERAGE_CASE):
@@ -108,6 +163,22 @@ class OutputMode:
         self.sample_rate = sample_rate
 
     def make(self, name, method_name, results):
+        """Process results according to the specified rule.
+
+        Parameters
+        ----------
+        name : str
+            Name for the result object.
+        method_name : str
+            Name of the method that generated the results.
+        results : list of Result or Result
+            Results to process.
+
+        Returns
+        -------
+        Result or list of Result
+            Processed result(s) according to the rule.
+        """
         if type(results) is rst.Result:
             results.name = name
             results.method_name = method_name

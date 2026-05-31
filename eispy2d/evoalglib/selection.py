@@ -6,10 +6,41 @@ from numpy.random import permutation, randint, rand
 from eispy2d.core import error
 
 class Selection(ABC):
+    """Abstract base class for selection operators.
+
+    Selection operators choose individuals for reproduction based on fitness.
+
+    Methods
+    -------
+    run(P1, fx1, P2, fx2, NPOP)
+        Perform selection.
+    copy(new=None)
+        Create a copy of the selection operator.
+    """
     def __init__(self):
         pass
     @abstractmethod
     def run(self, P1, fx1, P2=None, fx2=None, NPOP=None):
+        """Perform selection.
+
+        Parameters
+        ----------
+        P1 : numpy.ndarray
+            First population.
+        fx1 : numpy.ndarray
+            Fitness values of first population.
+        P2 : numpy.ndarray, optional
+            Second population (for elitism).
+        fx2 : numpy.ndarray, optional
+            Fitness values of second population.
+        NPOP : int, optional
+            Number of individuals to select.
+
+        Returns
+        -------
+        tuple
+            (selected_population, selected_fitness)
+        """
         if P2 is None and NPOP is None:
             raise error.MissingInputError('Selection.run', 'P2 or NPOP')
         new_population = None
@@ -25,6 +56,17 @@ class Selection(ABC):
 
 
 class BinaryTournament(Selection):
+    """Binary tournament selection operator.
+
+    Selects individuals by running tournaments between randomly chosen pairs.
+
+    Parameters
+    ----------
+    elitism : bool, default=True
+        Whether to preserve the best individual.
+    pair_selection : {'random', 'permutation'}, default='random'
+        How to select pairs for tournaments.
+    """
     def __init__(self, elitism=True, pair_selection='random'):
         super().__init__()
         self.pair_selection = pair_selection
@@ -85,6 +127,16 @@ class BinaryTournament(Selection):
 
 
 class Roullete(Selection):
+    """Roulette wheel selection operator.
+
+    Selects individuals proportionally to their fitness (probability
+    proportional to fitness). Also known as fitness proportional selection.
+
+    Parameters
+    ----------
+    elitism : bool, default=True
+        Whether to preserve the best individual.
+    """
     def __init__(self, elitism=True):
         super().__init__()
         self.elitism = elitism
@@ -133,6 +185,20 @@ class Roullete(Selection):
 
 @jit(nopython=True)
 def find_edge(u, cumsum):
+    """Find index where cumulative sum exceeds u.
+
+    Parameters
+    ----------
+    u : float
+        Value to find in cumulative distribution.
+    cumsum : numpy.ndarray
+        Cumulative sum array.
+
+    Returns
+    -------
+    int
+        Index where cumsum[i] >= u.
+    """
     N = cumsum.size
     i = 0
     while u > cumsum[i] and i < N:

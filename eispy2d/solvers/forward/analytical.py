@@ -49,11 +49,29 @@ class Analytical(fwr.ForwardSolver):
     Attributes
     ----------
     name : str
-        Name identifier for the solver.
+        Name identifier for the solver ("Analytical Solution to Cylinder Scattering").
     contrast : float or None
-        Relative permittivity contrast of the cylinder.
+        Relative permittivity contrast of the cylinder. Used for dielectric
+        cylinder problems.
     radius : float or None
-        Radius of the cylinder in wavelengths.
+        Radius of the cylinder in wavelengths. Used for both dielectric
+        and conductor problems.
+
+    Methods
+    -------
+    incident_field(resolution, configuration)
+        Compute the incident field matrix.
+    solve(inputdata, noise=None, PRINT_INFO=False, COMPUTE_SCATTERED_FIELD=True,
+          SAVE_INTERN_FIELD=True)
+        Solve the analytical scattering problem.
+    dielectric_cylinder(inputdata, SAVE_INTERN_FIELD=True, SAVE_MAP=False)
+        Solve scattering by a dielectric cylinder analytically.
+    conductor_cylinder(inputdata, SAVE_INTERN_FIELD=True, SAVE_MAP=False)
+        Solve scattering by a perfectly conducting cylinder analytically.
+    save(file_name, file_path='')
+        Save the analytical solver object to file.
+    importdata(file_name, file_path='')
+        Import analytical solver data from file.
     """
 
     def __init__(self, contrast=None, radius=None):
@@ -170,10 +188,10 @@ class Analytical(fwr.ForwardSolver):
         ----------
         inputdata : InputData
             Input data object containing configuration and problem setup.
-        SAVE_INTERN_FIELD : bool, default: True
+        SAVE_INTERN_FIELD : bool, default=True
             Save the total field in the D-domain.
-        SAVE_MAP : bool, default: False
-            Save the relative permittivity map.
+        SAVE_MAP : bool, default=False
+            Save the relative permittivity map to the inputdata object.
 
         Raises
         ------
@@ -242,10 +260,10 @@ class Analytical(fwr.ForwardSolver):
         ----------
         inputdata : InputData
             Input data object containing configuration and problem setup.
-        SAVE_INTERN_FIELD : bool, default: True
+        SAVE_INTERN_FIELD : bool, default=True
             Save the total field in the D-domain.
-        SAVE_MAP : bool, default: False
-            Save the conductivity map.
+        SAVE_MAP : bool, default=False
+            Save the conductivity map to the inputdata object.
 
         Raises
         ------
@@ -343,7 +361,22 @@ class Analytical(fwr.ForwardSolver):
 
 
 def cart2pol(x, y):
-    """Summarize the method."""
+    """Convert Cartesian coordinates to polar coordinates.
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        x-coordinates.
+    y : numpy.ndarray
+        y-coordinates.
+
+    Returns
+    -------
+    rho : numpy.ndarray
+        Radial coordinates.
+    phi : numpy.ndarray
+        Angular coordinates in radians (0 to 2π).
+    """
     rho = np.sqrt(x**2+y**2)
     phi = np.arctan2(y, x)
     phi[phi < 0] = 2*pi + phi[phi < 0]
@@ -352,7 +385,30 @@ def cart2pol(x, y):
 
 def get_coefficients(wavenumber_b, wavenumber_d, radius, epsilon_d,
                      epsilon_b):
-    """Summarize the method."""
+    """Compute scattering coefficients for a dielectric cylinder.
+
+    Parameters
+    ----------
+    wavenumber_b : float
+        Wavenumber of the background medium [1/m].
+    wavenumber_d : float
+        Wavenumber of the dielectric cylinder [1/m].
+    radius : float
+        Radius of the cylinder [m].
+    epsilon_d : float
+        Permittivity of the cylinder [F/m].
+    epsilon_b : float
+        Permittivity of the background [F/m].
+
+    Returns
+    -------
+    an : numpy.ndarray
+        Scattering coefficients.
+    cn : numpy.ndarray
+        Internal field coefficients.
+    n : numpy.ndarray
+        Mode indices.
+    """
     n = np.arange(-1000, 1001)
     kb, kd = wavenumber_b, wavenumber_d
     a = radius
@@ -373,7 +429,22 @@ def get_coefficients(wavenumber_b, wavenumber_d, radius, epsilon_d,
 
 
 def rotate_axis(theta, x, y):
-    """Summarize the method."""
+    """Rotate coordinates by angle theta.
+
+    Parameters
+    ----------
+    theta : float
+        Rotation angle in radians.
+    x : numpy.ndarray
+        x-coordinates to rotate.
+    y : numpy.ndarray
+        y-coordinates to rotate.
+
+    Returns
+    -------
+    xp, yp : numpy.ndarray
+        Rotated coordinates.
+    """
     T = np.array([[np.cos(theta), np.sin(theta)],
                   [-np.sin(theta), np.cos(theta)]])
     r = np.vstack((x.reshape(-1), y.reshape(-1)))
@@ -386,7 +457,36 @@ def rotate_axis(theta, x, y):
 
 def compute_total_field(x, y, radius, an, cn, N, wavenumber_b, wavenumber_d,
                         magnitude, theta=None):
-    """Summarize the method."""
+    """Compute total field for scattering problem.
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        x-coordinates of observation points.
+    y : numpy.ndarray
+        y-coordinates of observation points.
+    radius : float
+        Radius of the cylinder [m].
+    an : numpy.ndarray
+        Scattering coefficients.
+    cn : numpy.ndarray
+        Internal field coefficients.
+    N : numpy.ndarray
+        Mode indices.
+    wavenumber_b : float
+        Background wavenumber [1/m].
+    wavenumber_d : float
+        Cylinder wavenumber [1/m].
+    magnitude : float
+        Incident field magnitude [V/m].
+    theta : numpy.ndarray, optional
+        Incidence angles in radians.
+
+    Returns
+    -------
+    et : numpy.ndarray
+        Total field distribution.
+    """
     E0 = magnitude
     kb, kd = wavenumber_b, wavenumber_d
     a = radius
@@ -435,7 +535,28 @@ def compute_total_field(x, y, radius, an, cn, N, wavenumber_b, wavenumber_d,
 
 
 def get_map(x, y, radius, epsilon_rb, epsilon_rd):
-    """Summarize the method."""
+    """Create dielectric property map for a cylinder.
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        x-coordinates of the mesh.
+    y : numpy.ndarray
+        y-coordinates of the mesh.
+    radius : float
+        Radius of the cylinder [m].
+    epsilon_rb : float
+        Background relative permittivity.
+    epsilon_rd : float
+        Cylinder relative permittivity.
+
+    Returns
+    -------
+    epsilon_r : numpy.ndarray
+        Relative permittivity map.
+    sigma : numpy.ndarray
+        Conductivity map (zeros for dielectric).
+    """
     epsilon_r = epsilon_rb*np.ones(x.shape)
     sigma = np.zeros(x.shape)
     epsilon_r[x**2+y**2 <= radius**2] = epsilon_rd
@@ -443,7 +564,30 @@ def get_map(x, y, radius, epsilon_rb, epsilon_rd):
 
 
 def compute_scattered_field(xm, ym, an, n, kb, theta, magnitude):
-    """Summarize the method."""
+    """Compute scattered field for scattering problem.
+
+    Parameters
+    ----------
+    xm : numpy.ndarray
+        x-coordinates of measurement points.
+    ym : numpy.ndarray
+        y-coordinates of measurement points.
+    an : numpy.ndarray
+        Scattering coefficients.
+    n : numpy.ndarray
+        Mode indices.
+    kb : float
+        Background wavenumber [1/m].
+    theta : numpy.ndarray
+        Incidence angles in radians.
+    magnitude : float
+        Incident field magnitude [V/m].
+
+    Returns
+    -------
+    es : numpy.ndarray
+        Scattered field at measurement points.
+    """
     M, S, N = xm.size, theta.size, round((an.size-1)/2)
     E0 = magnitude
     es = np.zeros((M, S), dtype=complex)

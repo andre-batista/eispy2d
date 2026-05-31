@@ -22,7 +22,28 @@ class Regularization(ABC):
 
 
 class Tikhonov(Regularization):
+    
     def __init__(self, choice, parameter=None):
+        r"""Initialize Tikhonov regularization.
+
+        Parameters
+        ----------
+        choice : int, float, or {'fixed', 'mozorov', 'lcurve'}
+            Regularization parameter selection strategy:
+            - If int or float: fixed regularization parameter value.
+            - 'fixed': use a fixed parameter value (must provide `parameter`).
+            - 'mozorov': use Morozov's discrepancy principle.
+            - 'lcurve': use L-curve criterion.
+        parameter : float, optional
+            Fixed regularization parameter value (required if choice='fixed').
+
+        Raises
+        ------
+        MissingInputError
+            If choice='fixed' but parameter is None.
+        WrongTypeInput
+            If parameter has wrong type when choice='fixed'.
+        """
         super().__init__()
         if type(choice) is int or type(choice) is float:
             self.alpha = choice
@@ -43,6 +64,27 @@ class Tikhonov(Regularization):
             self.choice = choice
             self.alpha = None
     def solve(self, K, y):
+        r"""Solve the linear system using Tikhonov regularization.
+
+        Parameters
+        ----------
+        K : :class:`numpy.ndarray`
+            Coefficient matrix (kernel) with shape (M, N).
+        y : :class:`numpy.ndarray`
+            Right-hand side vector or matrix with shape (M,) or (M, P).
+
+        Returns
+        -------
+        :class:`numpy.ndarray`
+            Solution vector or matrix with shape (N,) or (N, P).
+
+        Notes
+        -----
+        The solution is computed as:
+        - For fixed parameter: :math:`x = (K^*K + \alpha I)^{-1}K^*y`
+        - For Morozov: automatically selects :math:`\alpha` using discrepancy principle
+        - For L-curve: automatically selects :math:`\alpha` using L-curve criterion
+        """
         if self.choice == TIK_FIXED:
             if y.ndim == 1:
                 return tikhonov(K, y, self.alpha)
@@ -82,9 +124,39 @@ class Tikhonov(Regularization):
 
 class Landweber(Regularization):
     def __init__(self, iterations):
+        r"""Initialize Landweber regularization.
+
+        Parameters
+        ----------
+        iterations : int
+            Number of iterations for the Landweber method.
+        """
         super().__init__()
         self.M = iterations
     def solve(self, K, y):
+        r"""Solve the linear system using Landweber iteration.
+
+        Parameters
+        ----------
+        K : :class:`numpy.ndarray`
+            Coefficient matrix (kernel) with shape (M, N).
+        y : :class:`numpy.ndarray`
+            Right-hand side vector or matrix with shape (M,) or (M, P).
+
+        Returns
+        -------
+        :class:`numpy.ndarray`
+            Solution vector or matrix with shape (N,) or (N, P).
+
+        Notes
+        -----
+        The Landweber iteration is given by:
+
+        .. math::
+            x_{n+1} = x_n + a K^*(y - Kx_n)
+
+        where :math:`a = 1/\|K\|^2`.
+        """
         if y.ndim == 1:
             x = np.zeros(K.shape[1], dtype=K.dtype)
             return landweber(K, y, x, self.M)
@@ -103,9 +175,35 @@ class Landweber(Regularization):
 
 class ConjugatedGradient(Regularization):
     def __init__(self, iterations):
+        r"""Initialize Conjugated Gradient regularization.
+
+        Parameters
+        ----------
+        iterations : int
+            Number of iterations for the CG method.
+        """
         super().__init__()
         self.M = iterations
     def solve(self, K, y):
+        r"""Solve the linear system using Conjugated Gradient method.
+
+        Parameters
+        ----------
+        K : :class:`numpy.ndarray`
+            Coefficient matrix (kernel) with shape (M, N).
+        y : :class:`numpy.ndarray`
+            Right-hand side vector or matrix with shape (M,) or (M, P).
+
+        Returns
+        -------
+        :class:`numpy.ndarray`
+            Solution vector or matrix with shape (N,) or (N, P).
+
+        Notes
+        -----
+        The CG method solves the normal equations:
+        :math:`K^*K x = K^*y` using an iterative approach.
+        """
         if y.ndim == 1:
             return conjugated_gradient(K, y, self.M)
         elif y.ndim == 2:
@@ -122,9 +220,36 @@ class ConjugatedGradient(Regularization):
 
 class LeastSquares(Regularization):
     def __init__(self, cutoff=None):
+        r"""Initialize Least Squares regularization with spectral cutoff.
+
+        Parameters
+        ----------
+        cutoff : float, optional
+            Cutoff threshold for singular values (rcond parameter).
+            If None, uses default from numpy.linalg.lstsq.
+        """
         super().__init__()
         self.cutoff = cutoff
     def solve(self, K, y):
+        r"""Solve the linear system using least squares with spectral cutoff.
+
+        Parameters
+        ----------
+        K : :class:`numpy.ndarray`
+            Coefficient matrix (kernel) with shape (M, N).
+        y : :class:`numpy.ndarray`
+            Right-hand side vector or matrix with shape (M,) or (M, P).
+
+        Returns
+        -------
+        :class:`numpy.ndarray`
+            Solution vector or matrix with shape (N,) or (N, P).
+
+        Notes
+        -----
+        Uses numpy.linalg.lstsq with specified rcond cutoff for
+        regularization by truncating small singular values.
+        """
         if y.ndim == 1:
             return least_squares(K, y, self.cutoff)
         elif y.ndim == 2:
@@ -141,10 +266,49 @@ class LeastSquares(Regularization):
 
 class SingularValueDecomposition(Regularization):
     def __init__(self, tikhonov=.0, cutoff=.0):
+        r"""Initialize SVD-based regularization.
+
+        Parameters
+        ----------
+        tikhonov : float, default: 0.0
+            Tikhonov regularization parameter.
+        cutoff : float, default: 0.0
+            Cutoff threshold for singular values.
+        """
         super().__init__()
         self.tikhonov = tikhonov
         self.cutoff = cutoff
     def solve(self, K=None, y=None, U=None, s=None, V=None):
+        r"""Solve the linear system using SVD-based regularization.
+
+        Parameters
+        ----------
+        K : :class:`numpy.ndarray`, optional
+            Coefficient matrix (kernel) with shape (M, N). Required if U, s, V not provided.
+        y : :class:`numpy.ndarray`, optional
+            Right-hand side vector or matrix with shape (M,) or (M, P).
+        U : :class:`numpy.ndarray`, optional
+            Left singular vectors matrix from SVD.
+        s : :class:`numpy.ndarray`, optional
+            Singular values vector from SVD.
+        V : :class:`numpy.ndarray`, optional
+            Right singular vectors matrix from SVD.
+
+        Returns
+        -------
+        :class:`numpy.ndarray`
+            Solution vector or matrix with shape (N,) or (N, P).
+
+        Notes
+        -----
+        The solution is computed using singular value decomposition:
+
+        .. math::
+            x = \sum_{n} \frac{s_n}{s_n^2 + \alpha} (U_n^* y) V_n
+
+        where :math:`\alpha` is the Tikhonov parameter and singular values
+        below `cutoff` are truncated.
+        """
         if K is not None and y is not None:
             if y.ndim == 1:
                 return svd(K=K, y=y, alpha=self.tikhonov, min_sv=self.cutoff)
@@ -184,14 +348,17 @@ def tikhonov(K, y, alpha):
 
     Parameters
     ----------
-        A : :class:`numpy.ndarray`
-            The coefficient matrix.
+    K : :class:`numpy.ndarray`
+        The coefficient matrix (kernel).
+    y : :class:`numpy.ndarray`
+        The right-hand-side array.
+    alpha : float
+        Regularization parameter.
 
-        beta : :class:`numpy.ndarray`
-            The right-hand-side array.
-
-        alpha : float
-            Regularization parameter.
+    Returns
+    -------
+    :class:`numpy.ndarray`
+        The regularized solution vector.
 
     References
     ----------
@@ -213,25 +380,28 @@ def mozorov_choice(K, y, delta=1e-3):
 
     Parameters
     ----------
-        K : :class:`numpy.ndarray`
-            Coefficient matrix.
+    K : :class:`numpy.ndarray`
+        Coefficient matrix (kernel).
+    y : :class:`numpy.ndarray`
+        Right-hand-side array.
+    delta : float, default: 1e-3
+        Noise level of the problem.
 
-        y : :class:`numpy.ndarray`
-            Right-hand-side array.
-
-        delta : float
-            Noise level of problem.
+    Returns
+    -------
+    float
+        Optimal regularization parameter :math:`\alpha`.
 
     Notes
     -----
-        The Discrepancy Principle of Morozov is defined according to
-        the zero of the following monotone function:
+    The Discrepancy Principle of Morozov is defined according to
+    the zero of the following monotone function:
 
-        .. math:: \phi(\alpha) = ||Kx^{\alpha,\delta}-y^{\delta}||^2-\delta^2
+    .. math:: \phi(\alpha) = \|Kx^{\alpha,\delta}-y^{\delta}\|^2 - \delta^2
 
-        The initial guess of Newton's method to determine the zero is:
+    The initial guess of Newton's method to determine the zero is:
 
-        .. math:: \alpha = \frac{\delta||K||^2}{||y^\delta-\delta}
+    .. math:: \alpha = \frac{\delta\|K\|^2}{\|y^\delta\| - \delta}
 
     References
     ----------
@@ -292,7 +462,7 @@ def mozorov_choice(K, y, delta=1e-3):
 
 @jit(nopython=True, parallel=True)
 def lcurve_choice(K, y, bounds=(-20, 0), number_terms=21):
-    """Determine the regularization parameter through L-curve.
+    r"""Determine the regularization parameter through L-curve.
 
     The regularization parameter is determined according to the L-curve.
     The L-curve is the graph between error and solution norms. The
@@ -301,18 +471,20 @@ def lcurve_choice(K, y, bounds=(-20, 0), number_terms=21):
 
     Parameters
     ----------
-        A : 2-d :class:`numpy.ndarray`
-            Coefficient matrix.
+    K : :class:`numpy.ndarray`
+        Coefficient matrix (kernel).
+    y : :class:`numpy.ndarray`
+        Right-hand-side array.
+    bounds : 2-tuple, default: (-20, 0)
+        Minimum and maximum value of the exponential form of the
+        regularization parameter (log10 scale).
+    number_terms : int, default: 21
+        Number of samples on the L-curve.
 
-        b : 1-d :class:`numpy.ndarray`
-            Right-hand-side.
-
-        bounds : 2-tuple
-            Minimum and maximum value of the exponential form of the
-            regularization parameter.
-
-        number_terms : int
-            Number of samples at the L-curve.
+    Returns
+    -------
+    float
+        Optimal regularization parameter :math:`\alpha`.
     """
     # Auxiliar variables
     KsK = np.conj(K.T)@K
@@ -344,18 +516,23 @@ def landweber(K, y, x, iterations):
     Solve the linear ill-posed system through Landweber regularization
     [1]_. The algorithm formula is:
 
-    .. math:: x_{n+1} = x_n + aK^{*}(y-Kx_n)
+    .. math:: x_{n+1} = x_n + a K^*(y - K x_n)
 
     Parameters
     ----------
-        K : :class:`numpy.ndarray`
-            The coefficient matrix.
+    K : :class:`numpy.ndarray`
+        The coefficient matrix (kernel).
+    y : :class:`numpy.ndarray`
+        The right-hand-side array.
+    x : :class:`numpy.ndarray`
+        Initial guess for the solution.
+    iterations : int
+        Number of iterations.
 
-        y : :class:`numpy.ndarray`
-            The right-hand-side array.
-
-        iterations : int
-            Number of iterations.
+    Returns
+    -------
+    :class:`numpy.ndarray`
+        The regularized solution vector.
 
     References
     ----------
@@ -377,23 +554,17 @@ def conjugated_gradient(K, y, iterations):
 
     Parameters
     ----------
-        K : :class:`numpy.ndarray`
-            The coefficient matrix.
+    K : :class:`numpy.ndarray`
+        The coefficient matrix (kernel).
+    y : :class:`numpy.ndarray`
+        The right-hand-side array.
+    iterations : int
+        Number of iterations.
 
-        y : :class:`numpy.ndarray`
-            The right-hand-side array.
-        
-        iterations : int
-            Number of iterations
-
-        x0 : :class:`numpy.ndarray`
-            Initial guess of solution.
-
-        delta : float
-            Error tolerance level.
-
-        print_info : bool
-            Print iteration information.
+    Returns
+    -------
+    :class:`numpy.ndarray`
+        The regularized solution vector.
 
     References
     ----------
@@ -418,26 +589,64 @@ def conjugated_gradient(K, y, iterations):
 
 @jit(nopython=True)
 def least_squares(K, y, cutoff):
-    """Return the Spectral Cut-off solution to a linear matrix equation.
+    r"""Return the Spectral Cut-off solution to a linear matrix equation.
 
     See explanation at `<https://numpy.org/doc/stable/reference
     /generated/numpy.linalg.lstsq.html>`_
 
     Parameters
     ----------
-        K : :class:`numpy.ndarray`
-            The coefficient matrix.
+    K : :class:`numpy.ndarray`
+        The coefficient matrix (kernel).
+    y : :class:`numpy.ndarray`
+        The right-hand-side array.
+    cutoff : float
+        Truncation level (rcond) for singular values.
 
-        y : :class:`numpy.ndarray`
-            The right-hand-side array.
-
-        alpha : float
-            Truncation level of singular values.
+    Returns
+    -------
+    :class:`numpy.ndarray`
+        The least squares solution vector.
     """
     return lag.lstsq(K, y, rcond=cutoff)[0]
 
 @jit(nopython=True)
 def svd(K=None, y=None, alpha=None, min_sv=None, U=None, s=None, V=None):
+    r"""Solve linear system using SVD with Tikhonov regularization and spectral cutoff.
+
+    Parameters
+    ----------
+    K : :class:`numpy.ndarray`, optional
+        Coefficient matrix (kernel). If provided, computes SVD.
+    y : :class:`numpy.ndarray`, optional
+        Right-hand side vector.
+    alpha : float, optional
+        Tikhonov regularization parameter.
+    min_sv : float, optional
+        Minimum singular value threshold (spectral cutoff).
+    U : :class:`numpy.ndarray`, optional
+        Left singular vectors (if precomputed).
+    s : :class:`numpy.ndarray`, optional
+        Singular values (if precomputed).
+    V : :class:`numpy.ndarray`, optional
+        Right singular vectors (if precomputed).
+
+    Returns
+    -------
+    :class:`numpy.ndarray` or tuple
+        If K and y provided: solution vector.
+        If only K provided: (U, s, V) SVD components.
+        If U, s, V, y provided: solution vector.
+
+    Notes
+    -----
+    The solution is computed as:
+
+    .. math::
+        x = \sum_{n} \frac{s_n}{s_n^2 + \alpha} (U_n^* y) V_n
+
+    where singular values below `min_sv` are truncated.
+    """
     if K is not None and y is None:
         U, s, Vh = lag.svd(K)
         V = np.transpose(np.conj(Vh))

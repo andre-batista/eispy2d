@@ -540,13 +540,13 @@ def update_greenf(contrast, greenf_d, greenf_s):
     key step that distinguishes DBIM from standard Born methods.
 
     The update is performed using the formula:
+
     .. math::
         G_S^{new} = (I - G_D \\chi)^{-1} G_S
 
-    where :math:`G_S` is the scattered field Green's function,
-    :math:`G_D` is the domain Green's function, :math:`\\chi` is the
-    contrast function, and :math:`I` is the identity matrix.
-
+    where \(G_S\) is the scattered field Green's function,
+    \(G_D\) is the domain Green's function, \(\chi\) is the
+    contrast function, and \(I\) is the identity matrix.
     Parameters
     ----------
     contrast : numpy.ndarray

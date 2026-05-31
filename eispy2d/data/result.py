@@ -2317,55 +2317,16 @@ def add_violin(data, axis=None, meanline=False, labels=None, xlabel=None,
 def get_figure(nsubplots=1, number_lines=1):
     r"""Create a matplotlib figure with optimized layout and sizing.
 
-    Creates a figure with the specified number of subplots arranged in an
-    optimal grid layout. Automatically calculates appropriate font sizes
-    and spacing based on the number of subplots and lines per subplot.
-
-    Parameters
-    ----------
-    nsubplots : int, optional
-        Number of subplots to create in the figure. Default is 1.
-        Subplots are arranged in a nearly square grid layout.
-    number_lines : int, optional
-        Expected number of lines per subplot. Used to calculate optimal
-        legend font size. Default is 1.
+    ... (restante já está correto)
 
     Returns
     -------
     fig : :class:`matplotlib.figure.Figure`
         The created figure object.
-    axes : :class:`matplotlib.axes.Axes` or :class:`numpy.ndarray`
-        Single axes object (if nsubplots=1) or array of axes objects
-        (if nsubplots>1) for plotting.
+    axes : :class:`numpy.ndarray`
+        Flattened array of axes objects (1D). For nsubplots=1, returns array with one element.
     legend_fontsize : float
-        Recommended font size for legends based on figure layout.
-
-    Examples
-    --------
-    >>> # Single subplot
-    >>> fig, ax, legend_fs = get_figure(nsubplots=1)
-    >>> ax.plot([1, 2, 3], [1, 4, 2])
-    >>> plt.show()
-    >>> 
-    >>> # Multiple subplots
-    >>> fig, axes, legend_fs = get_figure(nsubplots=4, number_lines=2)
-    >>> for i, ax in enumerate(axes):
-    ...     ax.plot([1, 2, 3], [i, i+1, i+2])
-    ...     ax.set_title(f'Subplot {i+1}')
-    >>> plt.show()
-    >>> 
-    >>> # Use with error plotting
-    >>> fig, axes, _ = get_figure(nsubplots=len(error_indicators))
-    >>> for i, indicator in enumerate(error_indicators):
-    ...     axes[i].plot(iterations, error_values[indicator])
-    ...     axes[i].set_title(indicator)
-
-    Notes
-    -----
-    - Grid layout is optimized to be as close to square as possible
-    - Font sizes are automatically adjusted based on subplot density
-    - Designed specifically for electromagnetic inverse scattering result visualization
-    - Figure size is automatically scaled based on number of subplots
+        Recommended font size for legends.
     """
     # Compute number of rows and columns
     nrows = round(np.sqrt(nsubplots))
@@ -2495,16 +2456,15 @@ def compute_zeta_rn(es_o, es_a):
 def compute_rre(es_o, es_a):
     r"""Compute the Relative Residual Error (RRE) between scattered fields.
 
-    Calculates the relative residual error as defined in the literature [1]
-    for electromagnetic inverse scattering problems. This metric is particularly
-    useful for determining optimal Tikhonov regularization parameters.
+    Calculates the relative residual error as defined in the literature [1]_
+    for electromagnetic inverse scattering problems.
 
     Parameters
     ----------
-    es_o : :class:`numpy.ndarray`
+    es_o : numpy.ndarray
         Original (measured) scattered field matrix.
         Shape: (N_measurements, N_sources). Units: [V/m].
-    es_a : :class:`numpy.ndarray`
+    es_a : numpy.ndarray
         Approximated (computed) scattered field matrix.
         Shape: (N_measurements, N_sources). Units: [V/m].
 
@@ -2512,16 +2472,9 @@ def compute_rre(es_o, es_a):
     -------
     float
         Relative residual error as a percentage. Formula:
-        
-        .. math::
-            RRE = 100 \\times \\frac{||\\mathbf{E}^s_{meas} - \\mathbf{E}^s_{comp}||_2}{||\\mathbf{E}^s_{meas}||_2}
 
-    Notes
-    -----
-    The RRE provides a normalized measure of the reconstruction quality
-    that accounts for the magnitude of the measured data. This makes it
-    more interpretable than absolute error metrics and is particularly
-    useful for regularization parameter selection.
+        .. math::
+            \text{RRE} = 100 \times \frac{\left\|\mathbf{E}^s_{\mathrm{meas}} - \mathbf{E}^s_{\mathrm{comp}}\right\|_2}{\left\|\mathbf{E}^s_{\mathrm{meas}}\right\|_2}
 
     References
     ----------
@@ -2599,10 +2552,10 @@ def compute_zeta_epad(epsilon_ro, epsilon_rr):
 
     Parameters
     ----------
-    epsilon_ro : :class:`numpy.ndarray`
+    epsilon_ro : numpy.ndarray
         Original (true) relative permittivity map.
         Shape: (N_x, N_y). Dimensionless.
-    epsilon_rr : :class:`numpy.ndarray`
+    epsilon_rr : numpy.ndarray
         Reconstructed relative permittivity map.
         Shape: (N_x, N_y). Dimensionless.
 
@@ -2615,12 +2568,14 @@ def compute_zeta_epad(epsilon_ro, epsilon_rr):
     -----
     The error is computed as:
 
-    .. math:: 
-        \\zeta_{\\epsilon PAD} = \\frac{100}{N_p} \\sum_{i=1}^{N_p} \\frac{|\\epsilon_{r,o,i} - \\epsilon_{r,r,i}|}{|\\epsilon_{r,o,i}|}
+    .. math::
+        \zeta_{\epsilon \mathrm{PAD}} = \frac{100}{N_p} \sum_{i=1}^{N_p} 
+        \frac{|\epsilon_{r,r,i}^{\text{rec}} - \epsilon_{r,o,i}^{\text{true}}|}{|\epsilon_{r,o,i}^{\text{true}}|}
 
-    where :math:`\\epsilon_{r,o,i}` is the original permittivity at pixel :math:`i`,
-    :math:`\\epsilon_{r,r,i}` is the reconstructed permittivity, and :math:`N_p`
+    where :math:`\epsilon_{r,\mathrm{o},i}` is the original permittivity at pixel :math:`i`,
+    :math:`\epsilon_{r,\mathrm{r},i}` is the reconstructed permittivity, and :math:`N_p`
     is the total number of pixels.
+    
 
     Examples
     --------

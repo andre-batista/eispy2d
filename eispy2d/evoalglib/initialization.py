@@ -6,10 +6,35 @@ from eispy2d.core import error
 from eispy2d.evoalglib import representation as rpt
 
 class Initialization(ABC):
+    """Abstract base class for population initialization strategies.
+
+    Methods
+    -------
+    run(population_size, representation, incident_field, inputdata)
+        Initialize population.
+    """
     def __init__(self):
         super().__init__()
     @abstractmethod
     def run(self, population_size, representation, incident_field, inputdata):
+        """Initialize population.
+
+        Parameters
+        ----------
+        population_size : int
+            Number of individuals in the population.
+        representation : Representation
+            Solution representation.
+        incident_field : numpy.ndarray
+            Incident field data.
+        inputdata : InputData
+            Input data object containing problem parameters.
+
+        Returns
+        -------
+        numpy.ndarray
+            Initial population matrix (POP × NVAR).
+        """
         pass
     @abstractmethod
     def __str__(self):
@@ -17,6 +42,11 @@ class Initialization(ABC):
 
 
 class UniformRandomDistribution(Initialization):
+    """Uniform random distribution initialization.
+
+    Initializes population with random values uniformly distributed
+    in [0, 1] for all variables.
+    """
     def __init__(self):
         super().__init__()
     def run(self, population_size, representation, incident_field, inputdata):
@@ -28,6 +58,17 @@ class UniformRandomDistribution(Initialization):
 
 
 class BornApproximation(Initialization):
+    """Born approximation initialization.
+
+    Initializes population using the Born approximation to estimate
+    initial fields. Requires DiscretizationElementBased representation.
+
+    Notes
+    -----
+    This initialization uses the first-order Born approximation to
+    initialize the total field, providing a better starting point than
+    random initialization for electromagnetic inverse scattering problems.
+    """
     def __init__(self):
         super().__init__()
     def run(self, population_size, representation, incident_field, inputdata):

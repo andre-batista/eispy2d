@@ -240,6 +240,7 @@ class Discretization(ABC):
 
         The data equation relates the scattered field to the scatterer
         properties and internal fields:
+
         .. math::
             E^s = G^s J
 
@@ -249,7 +250,7 @@ class Discretization(ABC):
         Parameters
         ----------
         scattered_field : array_like
-            Measured scattered field data at receiver locations
+            Measured scattered field data at receiver locations.
         contrast : array_like, optional
             Contrast function values at discretization points. Required
             if `total_field` is provided.
@@ -257,27 +258,27 @@ class Discretization(ABC):
             Total electric field at discretization points. Required
             if `contrast` is provided.
         current : array_like, optional
-            Contrast source (current) at discretization points. Alternative
-            to providing contrast and total_field separately.
+            Contrast source (current) at discretization points. If provided,
+            `contrast` and `total_field` are ignored.
 
         Returns
         -------
         array_like
             Data residual vector representing the difference between
-            measured and computed scattered field
+            measured and computed scattered field.
 
         Raises
         ------
         MissingInputError
-            If required parameter combinations are not provided
+            If required parameter combinations are not provided.
         Error
-            If no valid parameter combination is given
+            If no valid parameter combination is given.
 
         Notes
         -----
         The method requires either:
         - Both `contrast` and `total_field` parameters, or
-        - The `current` parameter alone
+        - The `current` parameter alone.
 
         The residual is computed as:
         residual = measured_scattered_field - predicted_scattered_field
@@ -311,7 +312,7 @@ class Discretization(ABC):
     @abstractmethod   
     def residual_state(self, incident_field, contrast=None, total_field=None,
                        current=None):
-        """Compute residual for the state equation.
+        r"""Compute residual for the state equation.
 
         This method computes the residual (error) in the state equation,
         which relates the total field, contrast function, and current source.
@@ -319,16 +320,17 @@ class Discretization(ABC):
         field quantities within the scattering domain.
 
         The state equation can be written as:
-        .. math::
-            J = \\chi E^t
 
-        where :math:`J` is the contrast source, :math:`\\chi` is the contrast
+        .. math::
+            J = \chi E^t
+
+        where :math:`J` is the contrast source, :math:`\chi` is the contrast
         function, and :math:`E^t` is the total electric field.
 
         Parameters
         ----------
         incident_field : array_like
-            Incident electric field at discretization points
+            Incident electric field at discretization points.
         contrast : array_like, optional
             Contrast function values at discretization points. Required
             if `total_field` or `current` is provided.
@@ -343,19 +345,19 @@ class Discretization(ABC):
         -------
         array_like
             State residual vector representing the inconsistency in the
-            state equation
+            state equation.
 
         Raises
         ------
         MissingInputError
-            If required parameter combinations are not provided
+            If required parameter combinations are not provided.
         Error
-            If no valid parameter combination is given
+            If no valid parameter combination is given.
 
         Notes
         -----
         The method requires:
-        - `contrast` parameter along with either `total_field` or `current`
+        - `contrast` parameter along with either `total_field` or `current`.
 
         The residual measures how well the state equation is satisfied:
         - If using total_field: residual = contrast * total_field - current
@@ -392,7 +394,7 @@ class Discretization(ABC):
     @abstractmethod
     def solve(self, scattered_field=None, incident_field=None, contrast=None,
               total_field=None, current=None, linear_solver=None):
-        """Solve the linear inverse scattering problem.
+        r"""Solve the linear inverse scattering problem.
 
         This method solves the discretized linear inverse scattering problem
         to reconstruct the contrast function from measured scattered field data.
@@ -400,32 +402,33 @@ class Discretization(ABC):
         requiring regularization techniques.
 
         The linear problem typically has the form:
-        .. math::
-            G \\chi = E^s
 
-        where :math:`G` is the system matrix, :math:`\\chi` is the contrast
+        .. math::
+            G \chi = E^s
+
+        where :math:`G` is the system matrix, :math:`\chi` is the contrast
         function to be reconstructed, and :math:`E^s` is the scattered field data.
 
         Parameters
         ----------
         scattered_field : array_like, optional
-            Measured scattered field data at receiver locations
+            Measured scattered field data at receiver locations.
         incident_field : array_like, optional
-            Incident electric field at discretization points
+            Incident electric field at discretization points.
         contrast : array_like, optional
-            Initial or known contrast function values
+            Initial or known contrast function values.
         total_field : array_like, optional
-            Total electric field at discretization points
+            Total electric field at discretization points.
         current : array_like, optional
-            Contrast source (current) at discretization points
-        linear_solver : LinearSolver, optional
+            Contrast source (current) at discretization points.
+        linear_solver : :class:`Regularization`, optional
             Regularization/linear solver method to use for solving the
-            potentially ill-conditioned linear system
+            potentially ill-conditioned linear system.
 
         Returns
         -------
         array_like
-            Reconstructed contrast function coefficients at discretization points
+            Reconstructed contrast function coefficients at discretization points.
 
         Notes
         -----

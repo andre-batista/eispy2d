@@ -4,12 +4,51 @@ from abc import ABC, abstractmethod
 from numpy.random import rand, randint
 
 class Crossover(ABC):
+    """Abstract base class for crossover operators in evolutionary algorithms.
+
+    Crossover operators combine two parent solutions to produce offspring.
+
+    Methods
+    -------
+    run(x1, x2, fx1, fx2, probability=None)
+        Perform crossover operation.
+    copy(new=None)
+        Create a copy of the crossover operator.
+    """
     def __init__(self):
         pass
     @abstractmethod
     def run(self, x1, x2, fx1, fx2, probability=None):
+        """Perform crossover operation.
+
+        Parameters
+        ----------
+        x1, x2 : numpy.ndarray
+            Parent solutions.
+        fx1, fx2 : numpy.ndarray or float
+            Fitness values of parents.
+        probability : float, optional
+            Crossover probability.
+
+        Returns
+        -------
+        tuple
+            (offspring, fitness) where fitness may be NaN for new offspring.
+        """
         pass
     def copy(self, new=None):
+        """Create a copy of the crossover operator.
+
+        Parameters
+        ----------
+        new : Crossover, optional
+            If provided, copies data into this object.
+            If None, creates a new copy.
+
+        Returns
+        -------
+        Crossover or None
+        """
         if new is None:
             return Crossover()
         else:
@@ -20,6 +59,16 @@ class Crossover(ABC):
 
 
 class Discrete(Crossover):
+    """Discrete crossover operator.
+
+    Creates offspring by taking each variable from either parent with
+    equal probability. Also known as uniform crossover.
+
+    Notes
+    -----
+    For 1D inputs, each variable is independently chosen from either parent.
+    For 2D inputs, the operation is applied row-wise.
+    """
     def __init__(self):
         super().__init__()
     def run(self, x1, x2, fx1, fx2, probability=None):
@@ -70,6 +119,22 @@ class Discrete(Crossover):
 
               
 class Convex(Crossover):
+    """Convex crossover operator.
+
+    Creates offspring as a convex combination of parents:
+    x = u*x1 + (1-u)*x2 where u is random in [-xi, 1+xi].
+
+    Parameters
+    ----------
+    extrapolation : float, default=0
+        Extrapolation factor. Values > 0 allow exploration outside
+        the convex hull of parents.
+
+    Notes
+    -----
+    When extrapolation > 0, the operator can produce solutions outside
+    the parent range, enabling better exploration.
+    """
     def __init__(self, extrapolation=0):
         super().__init__()
         self.xi = extrapolation
@@ -117,6 +182,22 @@ class Convex(Crossover):
 
 
 class SimulatedBinary(Crossover):
+    """Simulated Binary Crossover (SBX) operator.
+
+    Creates offspring by simulating the behavior of binary crossover
+    in real-valued spaces. The distribution index eta controls the
+    spread of offspring around parents.
+
+    Parameters
+    ----------
+    eta : float
+        Distribution index. Higher values produce offspring closer to parents.
+
+    Notes
+    -----
+    SBX is commonly used in real-coded genetic algorithms and produces
+    offspring with a probability distribution that mimics binary crossover.
+    """
     # quanto maior eta, mais proximo do pai
     def __init__(self, eta):
         super().__init__()
@@ -191,6 +272,22 @@ class SimulatedBinary(Crossover):
 
 
 class Binomial(Crossover):
+    """Binomial crossover operator.
+
+    Creates offspring by mixing variables from two parents based on
+    a crossover rate. Commonly used in Differential Evolution.
+
+    Parameters
+    ----------
+    crossover_rate : float
+        Probability of taking variable from the second parent.
+
+    Notes
+    -----
+    Binomial crossover is the standard crossover operator in DE.
+    Each variable has crossover_rate probability of coming from the
+    second parent, otherwise from the first.
+    """
     def __init__(self, crossover_rate):
         super().__init__()
         self.CR = crossover_rate

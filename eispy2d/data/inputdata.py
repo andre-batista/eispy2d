@@ -126,69 +126,37 @@ class InputData:
 
         Call signatures::
 
-            InputData(import_filename='my_file',
-                      import_filepath='./data/')
-            InputData(name='instance00',
-                      configuration_filename='setup00', ...)
+            InputData(import_filename='my_file', import_filepath='./data/')
+            InputData(name='instance00', configuration=config_obj, ...)
 
         Parameters
         ----------
-            name : string
-                The name of the instance.
-
-            `configuration_filename` : string
-                A string with the name of the problem configuration
-                file.
-
-            resolution : 2-tuple
-                The size, in pixels, of the image to be recovered. Y-X
-                ordered.
-
-            scattered_field : :class:`numpy.ndarray`
-                A matrix containing the scattered field information at
-                S-domain.
-
-            total_field : :class:`numpy.ndarray`
-                A matrix containing the total field information at
-                D-domain.
-
-            incident_field : :class:`numpy.ndarray`
-                A matrix containing the incident field information at
-                D-domain.
-
-            relative_permittivity_map : :class:`numpy.ndarray`
-                A matrix with the discretized image of the relative
-                permittivity map.
-
-            conductivity_map : :class:`numpy.ndarray`
-                A matrix with the discretized image of the conductivity
-                map.
-
-            noise : float
-                Noise level of scattered field data.
-
-            homogeneous_objects : bool
-                A flag to indicate if the instance only contains
-                homogeneous objects.
-
-            compute_residual_error : bool
-                A flag to indicate the measurement of the residual error
-                throughout or at the end of the solver executation.
-
-             compute_map_error : bool
-                A flag to indicate the measurement of the error in
-                predicting the dielectric properties of the image.
-
-             compute_totalfield_error : bool
-                A flag to indicate the measurement of the estimation
-                error of the total field throughout or at the end of the
-                solver executation.
-
-            import_filename : string
-                A string with the name of the saved file.
-
-            import_filepath : string
-                A string with the path to the saved file.
+        name : str
+            The name of the instance.
+        configuration : :class:`Configuration` or str
+            A Configuration object or a string with the name of the problem configuration file.
+        resolution : 2-tuple of int
+            The size, in pixels, of the image to be recovered. Y-X ordered.
+            Required if `rel_permittivity` and `conductivity` are None.
+        scattered_field : :class:`numpy.ndarray`, optional
+            A matrix containing the scattered field information at S-domain.
+            Shape: (N_measurements, N_sources).
+        total_field : :class:`numpy.ndarray`, optional
+            A matrix containing the total field information at D-domain.
+        incident_field : :class:`numpy.ndarray`, optional
+            A matrix containing the incident field information at D-domain.
+        rel_permittivity : :class:`numpy.ndarray`, optional
+            A matrix with the discretized image of the relative permittivity map.
+        conductivity : :class:`numpy.ndarray`, optional
+            A matrix with the discretized image of the conductivity map.
+        noise : float, optional
+            Noise level of scattered field data (percentage).
+        indicators : list of str or str, optional
+            List of indicator names to compute. If None, uses default set.
+        import_filename : str, optional
+            A string with the name of the saved file.
+        import_filepath : str, optional
+            A string with the path to the saved file.
         """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
@@ -297,19 +265,25 @@ class InputData:
 
         Parameters
         ----------
-            figure_title : str, optional
-                A title that you want to give to the figure.
-
-            show : boolean, default: False
-                If `True`, a window will be raised to show the image. If
-                `False`, the image will be saved.
-
-            file_path : str, default: ''
-                A path where you want to save the figure.
-
-            file_format : str, default: 'eps'
-                The file format. It must be one of the available ones by
-                `matplotlib.pyplot.savefig()`.
+        image : str, optional
+            Type of image to draw. Options: 'epsilon_r', 'sigma', 'both', 'contrast'.
+            Default is 'contrast'.
+        axis : :class:`matplotlib.axes.Axes` or :class:`numpy.ndarray`, optional
+            Axes to plot on. If None, new figure is created.
+        title : str or bool, optional
+            Title for the plot(s). If False, no title. If True, uses default.
+        file_path : str, default: ''
+            A path where you want to save the figure.
+        file_format : str, default: 'eps'
+            The file format (e.g., 'eps', 'png', 'pdf').
+        show : bool, default: False
+            If True, a window will be raised to show the image.
+        save : bool, default: False
+            If True, the figure will be saved.
+        suptitle : str, optional
+            Super title for the whole figure (used only for 'both').
+        fontsize : int, default: 10
+            Font size for labels and titles.
         """
         if (image != PERMITTIVITY and image != CONDUCTIVITY
                 and image != BOTH_PROPERTIES and image != CONTRAST):
@@ -445,7 +419,28 @@ class InputData:
     def plot_scattered_field(self, figure_title=None, file_path='',
                              file_format='eps', show=False, fontsize=10,
                              interpolation='spline36', axes=None):
-        """Summarize the method."""
+        """Plot the scattered field pattern as a 2D heatmap.
+
+        Displays the magnitude of the scattered field for all source-measurement
+        combinations.
+
+        Parameters
+        ----------
+        figure_title : str, optional
+            Title for the plot. Default uses object name.
+        file_path : str, default: ''
+            Path to save the figure.
+        file_format : str, default: 'eps'
+            File format for saving.
+        show : bool, default: False
+            If True, display the plot.
+        fontsize : int, default: 10
+            Font size.
+        interpolation : str, default: 'spline36'
+            Interpolation method for `imshow`.
+        axes : :class:`matplotlib.axes.Axes`, optional
+            Axes to plot on. If None, creates new figure.
+        """
         if self.scattered_field is None:
             raise error.EmptyAttribute('InputData', 'es')
 
@@ -477,7 +472,27 @@ class InputData:
     def plot_total_field(self, axis=None, source=None, title=None,
                          file_path='', file_format='eps', show=False,
                          fontsize=10, file_name=None):
-        """Summarize the method."""
+        """Plot total field magnitude maps for one or more sources.
+
+        Parameters
+        ----------
+        axis : :class:`matplotlib.axes.Axes` or :class:`numpy.ndarray`, optional
+            Axes to plot on.
+        source : int or list of int, optional
+            Source index(es) to plot. If None, plots all sources.
+        title : str, optional
+            Title for the plot(s).
+        file_path : str, default: ''
+            Path to save the figure.
+        file_format : str, default: 'eps'
+            File format.
+        show : bool, default: False
+            If True, display the plot.
+        fontsize : int, default: 10
+            Font size.
+        file_name : str, optional
+            Custom filename for saving.
+        """
         if self.total_field is None:
             raise error.EmptyAttribute('InputData', 'et')
         if self.resolution is None:
@@ -657,6 +672,28 @@ class InputData:
 
 
 def degrees_nonlinearity(inputdata):
+    r"""Compute the Degree of Non-Linearity (DNL) for the given input data.
+
+    The DNL is computed following the traditional model (H₀ [1]) based on
+    the data equation and Richmond discretization.
+
+    Parameters
+    ----------
+    inputdata : :class:`InputData`
+        Input data object containing ground truth maps and configuration.
+
+    Returns
+    -------
+    float
+        Degree of non-linearity value.
+
+    References
+    ----------
+    .. [1] Bevacqua, M. T., & Isernia, T. (2021). "Quantitative non-linear
+           inverse scattering: A wealth of possibilities through smart
+           rewritings of the basic equations." IEEE Open Journal of Antennas
+           and Propagation, 2, 335-348.
+    """
     discretization = ric.Richmond(inputdata.configuration,
                                        inputdata.resolution,
                                        state=True)

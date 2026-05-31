@@ -96,86 +96,48 @@ STOP_CRITERIA = 'stop criteria'
 
 
 class ContrastSourceInversion(dtm.Deterministic):
-    r"""
-    Contrast Source Inversion method for nonlinear electromagnetic inverse scattering.
-    
+    r"""Contrast Source Inversion method for nonlinear electromagnetic inverse scattering.
+
     This class implements the Contrast Source Inversion (CSI) method, which
     simultaneously reconstructs both the contrast function and the contrast
     sources (induced currents) in electromagnetic inverse scattering problems.
     The method uses an iterative conjugate gradient optimization approach to
     minimize a cost functional with both data and object error terms.
-    
+
     The CSI method solves the nonlinear inverse problem by minimizing:
-    
+
     .. math::
         F = F_S + F_D = \frac{\|\mathbf{E}^s - \mathbf{G}^s \mathbf{J}\|^2}{\|\mathbf{E}^s\|^2} + 
-        \frac{\|\\chi \mathbf{E} - \mathbf{J}\|^2}{\|\\chi \mathbf{E}^i\|^2}
-    
+        \frac{\|\chi \mathbf{E} - \mathbf{J}\|^2}{\|\chi \mathbf{E}^i\|^2}
+
     where:
-    - :math:`F_S` is the data error term (scattered field misfit)
-    - :math:`F_D` is the object error term (current-contrast consistency)
-    - :math:`\mathbf{J}` is the contrast source (induced current)
-    - :math:`\\chi` is the contrast function
-    - :math:`\mathbf{E}` is the total electric field
-    - :math:`\mathbf{E}^s` is the scattered field
-    - :math:`\mathbf{E}^i` is the incident field
-    - :math:`\mathbf{G}^s` is the scattered field Green's function
-    
+    - \(F_S\) is the data error term (scattered field misfit)
+    - \(F_D\) is the object error term (current-contrast consistency)
+    - \(\mathbf{J}\) is the contrast source (induced current)
+    - \(\chi\) is the contrast function
+    - \(\mathbf{E}\) is the total electric field
+    - \(\mathbf{E}^s\) is the scattered field
+    - \(\mathbf{E}^i\) is the incident field
+    - \(\mathbf{G}^s\) is the scattered field Green's function
+
     Parameters
     ----------
-    stop_criteria : object
-        Stopping criteria object defining convergence conditions
-        (maximum iterations, error tolerance, etc.)
-    forward_solver : object, default=mom.MoM_CG_FFT()
-        Forward solver implementation for computing electromagnetic fields
+    stop_criteria : StopCriteria
+        Stopping criteria object defining convergence conditions.
+    forward_solver : ForwardSolver, default=mom.MoM_CG_FFT()
+        Forward solver implementation for computing electromagnetic fields.
     alias : str, default='csi'
-        Alias name for the method used in saving/loading
+        Alias name for the method.
     import_filename : str, optional
-        Filename to import method parameters from
+        Filename to import method parameters from.
     import_filepath : str, default=''
-        Path to import file
-    
-    Attributes
-    ----------
-    name : str
-        Human-readable name of the method
-    forward : object
-        Forward solver for electromagnetic field computation
-    stop_criteria : object
-        Stopping criteria configuration
-    
-    Methods
-    -------
-    solve(inputdata, discretization, print_info=True, print_file=sys.stdout, initial_guess=None)
-        Solve the inverse scattering problem using CSI
-    save(file_path='')
-        Save method configuration to file
-    importdata(file_name, file_path='')
-        Import method configuration from file
-    copy(new=None)
-        Create a copy of the method
-    
-    Notes
-    -----
-    The CSI method offers several advantages:
-    - Simultaneous reconstruction of contrast and sources
-    - Robust convergence properties
-    - Efficient conjugate gradient optimization
-    - Automatic field normalization for stability
-    
-    The algorithm uses the Polak-Ribière conjugate gradient formula:
-    
-    .. math::
-        \gamma^{(k+1)} = \frac{(\mathbf{g}^{(k+1)} - \mathbf{g}^{(k)})^H \mathbf{g}^{(k+1)}}{\|\mathbf{g}^{(k)}\|^2}
-    
-    where :math:`\mathbf{g}^{(k)}` is the gradient at iteration k.
-    
+        Path to import file.
+
     References
     ----------
     .. [1] van den Berg, Peter M., and Roy E. Kleinman. "A contrast source
        inversion method." Inverse problems 13.6 (1997): 1607.
-    .. [2] Abubakar, Aria, et al. "A robust iterative method for Born inversion."
-       IEEE Transactions on Geoscience and Remote Sensing 42.2 (2004): 342-354.
+    
     
     Examples
     --------
@@ -1065,7 +1027,7 @@ def compute_contrast(J, E):
     Compute contrast function from contrast source and total field.
     
     This function computes the contrast function by solving the
-    least squares problem for the relationship J = \chi E.
+    least squares problem for the relationship J = \\chi E.
     
     Parameters
     ----------

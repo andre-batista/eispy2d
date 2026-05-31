@@ -15,12 +15,12 @@ class MissingInputError(Error):
         function_name : str
             A string containing the name of the function.
 
-        input_names : str
-            A string or a list of string with the names of the missing
+        input_names : str or list of str
+            A string or a list of strings with the names of the missing
             inputs.
 
         message : str
-            Explanation of the error
+            Explanation of the error.
     """
 
     def __init__(self, function_name, input_names):
@@ -54,7 +54,7 @@ class ExcessiveInputsError(Error):
         function_name : str
             A string with the name of the function.
 
-        input_names : str
+        input_names : list of str
             A list of strings with the input names.
     """
 
@@ -141,12 +141,18 @@ class WrongValueInput(Error):
 
 
 class EmptyAttribute(Error):
-    """Exception for empty class atribute.
+    """Exception for empty class attribute.
 
     Attributes
     ----------
         class_name : str
+            Name of the class.
+
         attribute_name : str
+            Name of the empty attribute.
+
+        message : str
+            Explanation of the error.
     """
 
     def __init__(self, class_name, attribute_name):

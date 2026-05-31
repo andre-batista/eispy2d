@@ -7,6 +7,32 @@ class StopCriteria:
     def __init__(self, max_evaluations=None, max_iterations=None,
                  max_evals_woimp=None, max_iter_woimp=None,
                  cost_function_threshold=None, improvement_threshold=None):
+        """Initialize stopping criteria for iterative algorithms.
+
+        Parameters
+        ----------
+        max_evaluations : int, optional
+            Maximum number of objective function evaluations.
+        max_iterations : int, optional
+            Maximum number of iterations.
+        max_evals_woimp : int, optional
+            Maximum number of evaluations without improvement.
+        max_iter_woimp : int, optional
+            Maximum number of iterations without improvement.
+        cost_function_threshold : float, optional
+            Threshold for the objective function value.
+        improvement_threshold : float, optional
+            Minimum relative improvement (percentage) to be considered as
+            improvement. Required if max_evals_woimp or max_iter_woimp is set.
+
+        Raises
+        ------
+        Error
+            If no stopping criterion is provided, or if improvement_threshold
+            is missing when using improvement-based criteria.
+        MissingInputError
+            If improvement_threshold is missing when required.
+        """
         if (max_evaluations is None and max_iterations is None
                 and max_evals_woimp is None and max_iter_woimp
                 and cost_function_threshold is None):
@@ -29,6 +55,7 @@ class StopCriteria:
         self.miwi_counter = None
 
     def reset_memory(self):
+        """Reset internal counters and stored values for stopping criteria."""
         self.last_fx = 1e20
         self.last_nevals = 0
         self.last_niter = 0
@@ -37,6 +64,22 @@ class StopCriteria:
 
     def stop(self, number_evaluations, number_iterations,
              current_best_evaluation):
+        """Check if any stopping criterion has been met.
+
+        Parameters
+        ----------
+        number_evaluations : int
+            Current number of objective function evaluations.
+        number_iterations : int
+            Current number of iterations.
+        current_best_evaluation : float
+            Current best objective function value.
+
+        Returns
+        -------
+        bool
+            True if any stopping criterion is met, False otherwise.
+        """
         FLAG = False
         if self.max_evals is not None and number_evaluations >= self.max_evals:
             FLAG = True
@@ -80,6 +123,18 @@ class StopCriteria:
         return FLAG
 
     def copy(self, new=None):
+        """Create a copy of the StopCriteria object.
+
+        Parameters
+        ----------
+        new : StopCriteria, optional
+            If provided, copies data into this object. If None, creates a new copy.
+
+        Returns
+        -------
+        StopCriteria or None
+            New StopCriteria object if new=None, otherwise None.
+    """
         if new is None:
             new = StopCriteria(self.max_evals, self.max_iter,
                                self.max_evals_woimp, self.max_iter_woimp,
@@ -104,6 +159,7 @@ class StopCriteria:
             self.miwi_counter = new.miwi_counter
 
     def __str__(self):
+        """Return string representation of the stopping criteria."""
         message = 'Stop Criteria'
         if self.max_evals is not None:
             message += '\nMaximum number of evaluations: %d' % self.max_evals

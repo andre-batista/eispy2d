@@ -12,6 +12,36 @@ RAND2BEST = 'rand-to-best'
 
 
 class DifferentialEvolution(Mechanism):
+    """Differential Evolution (DE) evolutionary mechanism.
+
+    Implements various DE mutation strategies including:
+    - Rand: DE/rand/1
+    - Best: DE/best/1
+    - Current-to-best: DE/current-to-best/1
+    - Rand-to-best: DE/rand-to-best/1
+
+    Parameters
+    ----------
+    boundary_condition : BoundaryCondition
+        Boundary handling strategy.
+    selection : Selection
+        Selection operator.
+    mutation : {'rand', 'best', 'current-to-best', 'rand-to-best'}
+        DE mutation strategy.
+    scaling_factor : float
+        Mutation scaling factor (F).
+    crossover : Crossover
+        Crossover operator.
+    pcross : float, default=1.0
+        Crossover probability.
+    index_selection : {'random', 'permutation'}, default='random'
+        How to select indices for mutation.
+
+    Methods
+    -------
+    run(population, population_fitness, objective_function, current_nevals)
+        Execute one generation of DE.
+    """
     def __init__(self, boundary_condition, selection, mutation, scaling_factor,
                  crossover, pcross=1., index_selection='random'):
         if (mutation != RAND and mutation != BEST
@@ -34,10 +64,37 @@ class DifferentialEvolution(Mechanism):
         self.index_selection = index_selection
 
     def reset_variables(self, population_size, representation):
+        """Reset internal variables for a new run.
+
+        Parameters
+        ----------
+        population_size : int
+            Size of the population.
+        representation : Representation
+            Solution representation.
+        """
         super().reset_variables(population_size, representation)
 
     def run(self, population, population_fitness, objective_function,
             current_nevals):
+        """Execute one generation of Differential Evolution.
+
+        Parameters
+        ----------
+        population : numpy.ndarray
+            Current population matrix (POP × NVAR).
+        population_fitness : numpy.ndarray
+            Fitness values of current population.
+        objective_function : ObjectiveFunction
+            Objective function to evaluate.
+        current_nevals : int
+            Current number of evaluations.
+
+        Returns
+        -------
+        tuple
+            (population, population_fitness, new_evaluation_count)
+        """
         _, _, nevals = super().run(population, population_fitness,
                                    objective_function, current_nevals)
         P, fx, objfun = population, population_fitness, objective_function

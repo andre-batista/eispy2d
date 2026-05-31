@@ -153,6 +153,26 @@ class Collocation(dct.Discretization):
     def __init__(self, configuration=None, trial=None, elements=None,
                  name=None, alias='clc', import_filename=None,
                  import_filepath=''):
+        r"""Initialize the Collocation discretization method.
+
+        Parameters
+        ----------
+        configuration : Configuration, optional
+            Problem configuration object.
+        trial : str, optional
+            Type of trial function (e.g., 'pulse', 'linear', 'cubic').
+        elements : int or tuple of int
+            Number of discretization elements. If int, creates square grid (N×N).
+            If tuple, creates rectangular grid (NY×NX).
+        name : str, optional
+            Custom name for the discretization method.
+        alias : str, default='clc'
+            Short alias for file operations.
+        import_filename : str, optional
+            Filename to import configuration from.
+        import_filepath : str, default=''
+            Path to import file.
+        """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
         else:
@@ -356,48 +376,49 @@ def _kernel_GSE(GS, E, NM, NS, N):
 
 
 def kernel_GSX(GS, X):
-    """
-    Compute kernel matrix for scattered field Green's function with contrast.
-    
+    r"""Compute kernel matrix for scattered field Green's function with contrast.
+
     Computes the kernel matrix for the scattered field using the Green's
     function matrix GS and contrast function X. This function handles
     different input formats for the contrast function.
-    
+
     Parameters
     ----------
     GS : numpy.ndarray
         Green's function matrix for scattered field with shape (NM, N)
         where NM is the number of measurement points and N is the number
-        of discretization elements
+        of discretization elements.
     X : numpy.ndarray
         Contrast function that can be:
         - 1D array of length N (contrast values)
         - 2D array with total elements N (reshaped to 1D)
         - 2D diagonal matrix with shape (N, N) (diagonal extracted)
-        
+
     Returns
     -------
     numpy.ndarray
         Kernel matrix K with shape (NM, N) containing the computed
-        kernel values for electromagnetic scattering with contrast
-        
+        kernel values for electromagnetic scattering with contrast.
+
     Notes
     -----
     The kernel matrix is computed as:
-    K[m, n] = GS[m, n] * X[n]
-    
+
+    .. math::
+        K[m, n] = GS[m, n] \cdot X[n]
+
     This function automatically handles different contrast formats:
     - Vector contrast: Direct multiplication
     - Matrix contrast: Diagonal elements used
     - Reshaped contrast: Automatically flattened
-    
+
     Examples
     --------
     >>> GS = np.random.complex128((128, 64*64))  # 128 measurements, 64x64 grid
     >>> X = np.random.complex128((64*64,))       # 1D contrast
     >>> K = kernel_GSX(GS, X)
     >>> print(K.shape)  # (128, 64*64) = (128, 4096)
-    
+
     >>> # Using 2D contrast matrix
     >>> X_2d = np.random.complex128((64*64, 64*64))
     >>> K = kernel_GSX(GS, X_2d)  # Uses diagonal elements
@@ -625,46 +646,47 @@ def _kernel_GDE(GD, E, N, NS):
 
 
 def lhs_XEi(X, Ei):
-    """
-    Compute left-hand side matrix for contrast and incident field.
-    
+    r"""Compute left-hand side matrix for contrast and incident field.
+
     Computes the left-hand side matrix by multiplying the contrast
     function X with the incident electric field Ei. This operation
     is commonly used in electromagnetic inverse scattering formulations
     for computing the source term in the Lippmann-Schwinger equation.
-    
+
     Parameters
     ----------
     X : numpy.ndarray
         Contrast function with shape (N,) where N is the number
-        of discretization elements
+        of discretization elements.
     Ei : numpy.ndarray
         Incident electric field matrix with shape (N, NS) where
         N is the number of discretization elements and NS is the
-        number of sources
-        
+        number of sources.
+
     Returns
     -------
     numpy.ndarray
         Left-hand side matrix with shape (N, NS) containing the
-        element-wise product X * Ei for each source
-        
+        element-wise product :math:`X \cdot Ei` for each source.
+
     Notes
     -----
     The computation is performed as:
-    lhs[n, s] = X[n] * Ei[n, s]
-    
+
+    .. math::
+        \text{lhs}[n, s] = X[n] \cdot Ei[n, s]
+
     This represents the source term in the electromagnetic inverse
-    scattering equation: X * Ei, where X is the contrast function
-    and Ei is the incident field.
-    
+    scattering equation: :math:`X \cdot Ei`, where X is the contrast
+    function and Ei is the incident field.
+
     Examples
     --------
     >>> X = np.random.complex128((4096,))      # 64x64 grid contrast
     >>> Ei = np.random.complex128((4096, 16))  # 64x64 grid, 16 sources
     >>> lhs = lhs_XEi(X, Ei)
     >>> print(lhs.shape)  # (4096, 16)
-    
+
     >>> # Verify computation for first source
     >>> expected = X * Ei[:, 0]
     >>> np.allclose(lhs[:, 0], expected)  # Should be True

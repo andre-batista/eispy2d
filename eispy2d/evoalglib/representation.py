@@ -5,9 +5,36 @@ from eispy2d.core import error
 from eispy2d.discretization import collocation as clc
 
 class Representation(ABC):
+    """Abstract base class for solution representation.
+
+    Defines how solutions are encoded and decoded in evolutionary algorithms.
+
+    Attributes
+    ----------
+    nvar : int
+        Number of decision variables.
+    lb : numpy.ndarray
+        Lower bounds for variables.
+    ub : numpy.ndarray
+        Upper bounds for variables.
+    dtype : type
+        Data type of variables.
+    """
     def __init__(self):
         self.nvar, self.lb, self.ub, self.dtype = None, None, None, None
     def unit2real(self, x):
+        """Convert unit-space values to real-space values.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            Values in [0, 1] range.
+
+        Returns
+        -------
+        numpy.ndarray
+            Values in real space.
+        """
         if x.ndim == 1:
             return self.lb + x*(self.ub-self.lb)
         elif x.ndim == 2:
@@ -15,6 +42,18 @@ class Representation(ABC):
             ub = np.tile(self.ub, (x.shape[0], 1))
             return self.lb + x*(self.ub-self.lb)
     def real2unit(self, x):
+        """Convert real-space values to unit-space values.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            Values in real space.
+
+        Returns
+        -------
+        numpy.ndarray
+            Values in [0, 1] range.
+        """
         if x.ndim == 1:
             return (x-self.lb)/(self.ub-self.lb)
         elif x.ndim == 2:
@@ -23,15 +62,69 @@ class Representation(ABC):
             return (x-self.lb)/(self.ub-self.lb)
     @abstractmethod
     def contrast(self, x, mode='array'):
+        """Extract contrast function from solution vector.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            Solution vector.
+        mode : {'array', 'image'}, default='array'
+            Output format.
+
+        Returns
+        -------
+        numpy.ndarray
+            Contrast function.
+        """
         return self.unit2real(x)
     @abstractmethod
     def total_field(self, x, mode='array'):
+        """Extract total field from solution vector.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            Solution vector.
+        mode : {'array', 'image'}, default='array'
+            Output format.
+
+        Returns
+        -------
+        numpy.ndarray
+            Total field.
+        """
         return self.unit2real(x)
     @abstractmethod
     def scattered_field(self, x):
+        """Compute scattered field from solution.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            Solution vector.
+
+        Returns
+        -------
+        numpy.ndarray
+            Scattered field.
+        """
         return None
     @abstractmethod
     def current(self, x, mode='array'):
+        """Extract current from solution vector.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            Solution vector.
+        mode : {'array', 'image'}, default='array'
+            Output format.
+
+        Returns
+        -------
+        numpy.ndarray
+            Current distribution.
+        """
         return None
     @abstractmethod
     def __str__(self):
@@ -39,6 +132,19 @@ class Representation(ABC):
 
 
 class CanonicalProblems(Representation):
+    """Representation for canonical optimization problems.
+
+    Used for testing evolutionary algorithms on standard benchmark functions.
+
+    Parameters
+    ----------
+    number_variables : int
+        Number of decision variables.
+    lb : float or array-like
+        Lower bound(s) for variables.
+    ub : float or array-like
+        Upper bound(s) for variables.
+    """
     def __init__(self, number_variables, lb, ub):
         super().__init__()
         self.nvar = number_variables
@@ -62,6 +168,20 @@ class CanonicalProblems(Representation):
         
 
 class DiscretizationElementBased(Representation):
+    """Representation for electromagnetic inverse scattering problems.
+
+    Represents the contrast function and total field using discretization
+    elements. Supports perfect dielectric and good conductor assumptions.
+
+    Parameters
+    ----------
+    discretization : Discretization
+        Discretization method.
+    contrast_bounds : float, tuple, or list
+        Bounds for contrast variables.
+    total_bounds : float, complex, tuple, or list
+        Bounds for total field variables.
+    """
     def __init__(self, discretization, contrast_bounds, total_bounds):
         super().__init__()
 

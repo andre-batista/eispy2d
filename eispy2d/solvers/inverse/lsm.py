@@ -25,6 +25,33 @@ def standard(x):
 
 
 class LinearSamplingMethod(dtm.Deterministic):
+    """Linear Sampling Method for qualitative inverse scattering.
+
+    This class implements the Linear Sampling Method (LSM), a qualitative
+    technique for shape reconstruction of scatterers. The method identifies
+    the support of the scatterer without reconstructing material properties.
+
+    Parameters
+    ----------
+    alias : str, default=''
+        Alias name for the algorithm.
+    regularization : Regularization, optional
+        Regularization method for solving linear systems.
+    tikhonov : float, optional
+        Tikhonov regularization parameter.
+    sv_cutoff : float, optional
+        Singular value cutoff threshold.
+    threshold : float, optional
+        Threshold for indicator function.
+    far_field : bool, optional
+        Whether to use far-field approximation.
+    indicator_function : callable, default=standard
+        Function to compute indicator values.
+    import_filename : str, optional
+        Filename to import algorithm state from.
+    import_filepath : str, default=''
+        Path to import file.
+    """
     def __init__(self, alias='', regularization=None, tikhonov=None,
                  sv_cutoff=None, threshold=None, far_field=None,
                  indicator_function=standard, import_filename=None,

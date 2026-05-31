@@ -19,6 +19,73 @@ GREENF_DATA = 'GS'
 GREENF_STATE = 'GD'
 
 class Richmond(clc.Collocation):
+    r"""Richmond discretization method for electromagnetic inverse scattering.
+
+    Implements the Richmond discretization method, which is a specific case of
+    the collocation method using pulse basis functions. This method is widely
+    used in electromagnetic inverse scattering for its simplicity and numerical
+    stability, particularly when dealing with the singularities in the Green's
+    function integrals.
+
+    The Richmond method approximates the scattered field using:
+    - Pulse basis functions for the contrast function
+    - Collocation points at the center of each discretization cell
+    - Analytical treatment of the Green's function singularity
+
+    Parameters
+    ----------
+    configuration : Configuration
+        Problem configuration object.
+    elements : int or tuple of int
+        Number of discretization elements. If int, creates square grid (N×N).
+        If tuple, creates rectangular grid (NY×NX).
+    state : bool, default: True
+        If True, computes the state-space Green's function matrix (GD).
+    alias : str, default: 'ric'
+        Short alias for the method.
+    import_filename : str, optional
+        Filename to import configuration from.
+    import_filepath : str, default=''
+        Path to import file.
+
+    Attributes
+    ----------
+    GS : numpy.ndarray
+        Data-space Green's function matrix (measurements × elements).
+    GD : numpy.ndarray or None
+        State-space Green's function matrix (elements × elements).
+        None if `state=False` at initialization.
+
+    Methods
+    -------
+    residual_data()
+        Compute residual for the data equation.
+    residual_state()
+        Compute residual for the state equation.
+    solve()
+        Solve linear inverse scattering problem.
+    scattered_field()
+        Compute scattered field from scatterer properties.
+    contrast_image()
+        Convert contrast coefficients to image format.
+    total_image()
+        Convert total field coefficients to image format.
+
+    Notes
+    -----
+    The Green's function matrices are computed using the analytical formulas
+    from Richmond's method, which handles the singularity at the origin
+    by using the small-argument approximation of the Hankel function.
+
+    Examples
+    --------
+    >>> config = Configuration(name='test', wavelength=1.0)
+    >>> discretization = Richmond(configuration=config, elements=(32, 32))
+    >>> 
+    >>> # Access Green's function matrices
+    >>> print(f"GS shape: {discretization.GS.shape}")
+    >>> print(f"GD shape: {discretization.GD.shape}")
+    """
     def __init__(self, configuration=None, elements=None, state=True, alias='ric',
                  import_filename=None, import_filepath=''):
         if import_filename is not None:
@@ -38,6 +105,31 @@ class Richmond(clc.Collocation):
                          % self.elements[1])
     def residual_data(self, scattered_field, contrast=None, total_field=None,
                       current=None):
+        r"""Compute residual for the data equation using Richmond discretization.
+
+                    Parameters
+        ----------
+        scattered_field : array_like
+            Measured scattered field data.
+        contrast : array_like, optional
+            Contrast function values.
+        total_field : array_like, optional
+            Total electric field.
+        current : array_like, optional
+            Contrast source (current).
+
+        Returns
+        -------
+        array_like
+            Residual vector: :math:`E^s - G^s J` where :math:`J` is either
+            :math:`\chi E^t` or the provided `current`.
+
+        Notes
+        -----
+        The residual is computed as:
+        - If `current` is None: :math:`\text{res} = E^s - G^s \chi E^t`
+        - If `current` is provided: :math:`\text{res} = E^s - G^s J`
+        """
         Es, X, E, J = scattered_field, contrast, total_field, current
         super().residual_data(Es, contrast=X, total_field=E, current=J)
         if current is None:
@@ -54,6 +146,30 @@ class Richmond(clc.Collocation):
         return res
     def residual_state(self, incident_field, contrast=None, total_field=None,
                        current=None):
+        r"""Compute residual for the state equation using Richmond discretization.
+
+        Parameters
+        ----------
+        incident_field : array_like
+            Incident electric field.
+        contrast : array_like, optional
+            Contrast function values.
+        total_field : array_like, optional
+            Total electric field.
+        current : array_like, optional
+            Contrast source (current).
+
+        Returns
+        -------
+        array_like
+            Residual vector.
+
+        Notes
+        -----
+        The residual depends on the parameters provided:
+        - If `current` is None: :math:`\text{res} = E^t - E^i - G^D \chi E^t`
+        - If `current` is provided: :math:`\text{res} = J - \chi E^i - \chi G^D J`
+        """
         Ei, X, E, J = incident_field, contrast, total_field, current
         super().residual_state(Ei, contrast=X, total_field=E, current=J)
         if self.GD is None:
@@ -79,6 +195,36 @@ class Richmond(clc.Collocation):
         return res
     def solve(self, scattered_field=None, incident_field=None, contrast=None, total_field=None,
               current=None, linear_solver=None):
+        r"""Solve the linear inverse scattering problem using Richmond discretization.
+
+        Parameters
+        ----------
+        scattered_field : array_like, optional
+            Measured scattered field data.
+        incident_field : array_like, optional
+            Incident electric field.
+        contrast : array_like, optional
+            Contrast function values.
+        total_field : array_like, optional
+            Total electric field.
+        current : array_like, optional
+            Contrast source.
+        linear_solver : Regularization, optional
+            Regularization method for solving the linear system.
+
+        Returns
+        -------
+        array_like
+            Reconstructed contrast function or field coefficients.
+
+        Notes
+        -----
+        The method can solve for:
+        - Contrast function X: requires `scattered_field` and `total_field`
+        - Total field E: requires `scattered_field` and `contrast`
+        - Current source J: requires `scattered_field`
+        - Other combinations for state-space problems.
+        """
         super().solve(scattered_field=scattered_field, incident_field=incident_field,
                       contrast=contrast, total_field=total_field, current=current)
         Es, Ei, X, E, J = scattered_field, incident_field, contrast, total_field, current

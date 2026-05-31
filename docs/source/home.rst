@@ -16,7 +16,7 @@ Features
 - Benchmarking tools
 
 Package Structure
-----------------
+-----------------
 
 The library is organized into the following subpackages:
 

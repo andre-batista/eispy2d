@@ -6,6 +6,27 @@ from scipy.special import hankel2 as hv2
 
 
 class FFTProduct:
+    """Fast Fourier Transform-based convolution product for Green's function.
+
+    This class computes the matrix-vector product using FFT-based convolution
+    for efficient implementation of the Method of Moments.
+
+    Attributes
+    ----------
+    discretization : Discretization
+        Discretization object containing the Green's function matrix.
+    G : numpy.ndarray
+        Extended Green's function matrix for FFT convolution.
+    adjoint : bool
+        Whether to use the adjoint operator.
+    conjugate : bool
+        Whether to use the conjugate operator.
+
+    Methods
+    -------
+    compute(J)
+        Compute the convolution product.
+    """
     @property
     def discretization(self):
         return self._discretization
@@ -36,6 +57,19 @@ class FFTProduct:
         self.discretization = discretization
 
     def compute(self, J):
+        """Compute the convolution product.
+
+        Parameters
+        ----------
+        J : numpy.ndarray
+            Current density matrix with shape (N, NS) where N is the number
+            of discretization elements and NS is the number of sources.
+
+        Returns
+        -------
+        numpy.ndarray
+            Result of the convolution product.
+        """
         NY, NX = self.discretization.elements
         NS = self.discretization.configuration.NS
         J = J.reshape((NY, NX, NS))
@@ -48,6 +82,18 @@ class FFTProduct:
 
 
 def green(discretization):
+    """Compute the Green's function matrix for convolution.
+
+    Parameters
+    ----------
+    discretization : Discretization
+        Discretization object.
+
+    Returns
+    -------
+    G : numpy.ndarray
+        Green's function matrix for FFT convolution.
+    """
     Nx, Ny = discretization.elements 
     kb = discretization.configuration.kb
     dx = discretization.configuration.Lx/Nx

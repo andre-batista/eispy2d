@@ -34,17 +34,32 @@ MEMORY_LIMIT = 16e9  # [GB]
 
 
 class MoM_CG_FFT(fwr.ForwardSolver):
-    """Method of Moments - Conjugated-Gradient FFT Method.
+    """Method of Moments with Conjugated-Gradient FFT method.
 
     This class implements the Method of Moments following the
-    Conjugated-Gradient FFT formulation.
+    Conjugated-Gradient FFT formulation for solving electromagnetic
+    scattering problems.
 
     Attributes
     ----------
-        MAX_IT : int
-            Maximum number of iterations.
-        TOL : float
-            Tolerance level of error.
+    TOL : float
+        Tolerance level for convergence.
+    MAX_IT : int
+        Maximum number of iterations.
+    name : str
+        Solver name ("Method of Moments - CG-FFT").
+
+    Methods
+    -------
+    incident_field(resolution, configuration)
+        Compute the incident field matrix.
+    solve(inputdata, noise=None, PRINT_INFO=False,
+          COMPUTE_SCATTERED_FIELD=True, SAVE_INTERN_FIELD=True)
+        Solve the forward problem.
+    save(file_name, file_path='')
+        Save solver state to file.
+    importdata(file_name, file_path='')
+        Import solver state from file.
     """
 
     def __init__(self, tolerance=1e-3, maximum_iterations=5000,
@@ -414,7 +429,26 @@ class MoM_CG_FFT(fwr.ForwardSolver):
         return E, n, error_res
 
     def __fft_A(self, E, G, NX, NY, NS, Xr):
-        """Compute Matrix-vector product by using two-dimensional FFT."""
+        """Compute matrix-vector product using 2D FFT (forward operator).
+
+        Parameters
+        ----------
+        E : numpy.ndarray
+            Input vector (NX*NY × NS).
+        G : numpy.ndarray
+            Extended matrix (2NY-1 × 2NX-1).
+        NX, NY : int
+            Number of cells in x and y directions.
+        NS : int
+            Number of incidences.
+        Xr : numpy.ndarray
+            Contrast map (NY × NX).
+
+        Returns
+        -------
+        numpy.ndarray
+            Result of A*E.
+        """
         u = np.tile(Xr.reshape((-1, 1)), (1, NS))*E
         u = np.reshape(u, (NY, NX, NS))
         H = np.tile(G[:, :, np.newaxis], (1, 1, NS))
@@ -426,7 +460,26 @@ class MoM_CG_FFT(fwr.ForwardSolver):
         return E - e
 
     def __fft_AH(self, E, G, NX, NY, NS, Xr):
-        """Summarize the method."""
+        """Compute matrix-vector product using 2D FFT (adjoint operator).
+
+        Parameters
+        ----------
+        E : numpy.ndarray
+            Input vector (NX*NY × NS).
+        G : numpy.ndarray
+            Extended matrix (2NY-1 × 2NX-1).
+        NX, NY : int
+            Number of cells in x and y directions.
+        NS : int
+            Number of incidences.
+        Xr : numpy.ndarray
+            Contrast map (NY × NX).
+
+        Returns
+        -------
+        numpy.ndarray
+            Result of A^*E.
+        """
         u = np.reshape(E, (NY, NX, NS))
         H = np.tile(G[:, :, np.newaxis], (1, 1, NS))
         e = fft.ifft2(fft.fft2(np.conj(H), axes=(0, 1))

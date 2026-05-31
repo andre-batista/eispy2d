@@ -125,98 +125,34 @@ def square(side_length, axis_length_x=2., axis_length_y=2., resolution=None,
     ----------
     side_length : float
         Length of the square's side in the same units as axis_length_x/y.
-        Must be positive and smaller than the image dimensions.
     axis_length_x : float, default=2.0
-        Physical length of the image in the x-direction. Defines the
-        coordinate system extent from -axis_length_x/2 to +axis_length_x/2.
+        Physical length of the image in the x-direction.
     axis_length_y : float, default=2.0
-        Physical length of the image in the y-direction. Defines the
-        coordinate system extent from -axis_length_y/2 to +axis_length_y/2.
+        Physical length of the image in the y-direction.
     resolution : tuple of int, optional
-        Image resolution as (NY, NX) where NY is the number of pixels in
-        y-direction and NX is the number of pixels in x-direction.
-        Required if rel_permittivity and conductivity are not provided.
+        Image resolution as (NY, NX). Required if rel_permittivity and
+        conductivity are not provided.
     background_rel_permittivity : float, default=1.0
-        Relative permittivity of the background medium. Must be >= 1.0
-        for physical validity.
+        Relative permittivity of the background medium.
     background_conductivity : float, default=0.0
-        Conductivity of the background medium in S/m. Must be >= 0.0.
+        Conductivity of the background medium in S/m.
     object_rel_permittivity : float, default=1.0
-        Relative permittivity of the square object. Must be >= 1.0.
+        Relative permittivity of the square object.
     object_conductivity : float, default=0.0
-        Conductivity of the square object in S/m. Must be >= 0.0.
+        Conductivity of the square object in S/m.
     center : list of float, default=[0.0, 0.0]
-        Center position of the square as [x, y] coordinates relative to
-        the image center. Values should be within the image bounds.
+        Center position of the square as [x, y] coordinates.
     rotate : float, default=0.0
-        Rotation angle of the square around its center in degrees.
-        Positive values correspond to counterclockwise rotation.
+        Rotation angle in degrees (counterclockwise).
     rel_permittivity : numpy.ndarray, optional
-        Existing relative permittivity array to overlay the square on.
-        If provided, the square will be added to this array.
+        Existing relative permittivity array to overlay on.
     conductivity : numpy.ndarray, optional
-        Existing conductivity array to overlay the square on.
-        If provided, the square will be added to this array.
+        Existing conductivity array to overlay on.
 
     Returns
     -------
     tuple of numpy.ndarray
-        A tuple (epsilon_r, sigma) containing:
-        - epsilon_r: 2D array of relative permittivity values
-        - sigma: 2D array of conductivity values in S/m
-        Both arrays have the same shape as specified by resolution
-        or the input arrays.
-
-    Raises
-    ------
-    MissingInputError
-        If neither resolution nor both rel_permittivity and conductivity
-        arrays are provided.
-
-    Notes
-    -----
-    The coordinate system places the origin (0, 0) at the image center.
-    The rotation is applied around the object's center, not the image center.
-    
-    The function uses pixel-based rasterization, so very thin features may
-    not be accurately represented at low resolutions.
-
-    Examples
-    --------
-    >>> import draw
-    >>> import numpy as np
-    
-    >>> # Create a simple dielectric square
-    >>> epsilon_r, sigma = draw.square(
-    ...     side_length=0.5,
-    ...     resolution=(64, 64),
-    ...     object_rel_permittivity=2.0
-    ... )
-    >>> print(f"Square created with shape: {epsilon_r.shape}")
-    Square created with shape: (64, 64)
-    
-    >>> # Create a rotated conducting square
-    >>> epsilon_r, sigma = draw.square(
-    ...     side_length=0.3,
-    ...     resolution=(100, 100),
-    ...     object_conductivity=1.0,
-    ...     center=[0.1, -0.1],
-    ...     rotate=45.0
-    ... )
-    
-    >>> # Overlay on existing arrays
-    >>> epsilon_r, sigma = draw.square(
-    ...     side_length=0.2,
-    ...     object_rel_permittivity=3.0,
-    ...     rel_permittivity=epsilon_r,
-    ...     conductivity=sigma
-    ... )
-    
-    See Also
-    --------
-    circle : Draw circular objects
-    ellipse : Draw elliptical objects
-    polygon : Draw regular polygons
+        (epsilon_r, sigma) arrays with the square drawn.
     """
     # Check input requirements
     if resolution is None and (rel_permittivity is None
@@ -270,41 +206,40 @@ def triangle(side_length, axis_length_x=2., axis_length_y=2., resolution=None,
              object_rel_permittivity=1., object_conductivity=0.,
              rel_permittivity=None, conductivity=None, rotate=0.,
              center=[0., 0.]):
-    """Draw an equilateral triangle.
+    """Draw an equilateral triangle with specified electromagnetic properties.
 
     Parameters
     ----------
-        side_length : float
-            Length of the side of the triangle.
+    side_length : float
+        Length of the triangle's side.
+    axis_length_x : float, default=2.0
+        Physical length of the image in the x-direction.
+    axis_length_y : float, default=2.0
+        Physical length of the image in the y-direction.
+    resolution : tuple of int, optional
+        Image resolution as (NY, NX). Required if rel_permittivity and
+        conductivity are not provided.
+    background_rel_permittivity : float, default=1.0
+        Background relative permittivity.
+    background_conductivity : float, default=0.0
+        Background conductivity in S/m.
+    object_rel_permittivity : float, default=1.0
+        Triangle's relative permittivity.
+    object_conductivity : float, default=0.0
+        Triangle's conductivity in S/m.
+    rel_permittivity : numpy.ndarray, optional
+        Existing permittivity array to overlay on.
+    conductivity : numpy.ndarray, optional
+        Existing conductivity array to overlay on.
+    rotate : float, default=0.0
+        Rotation angle in degrees (counterclockwise).
+    center : list of float, default=[0.0, 0.0]
+        Center position as [x, y] coordinates.
 
-        axis_length_x, axis_length_y : float, default: 2.0
-            Length of the size of the image.
-
-        resolution : 2-tuple
-            Image resolution, in y and x directions, i.e., (NY, NX).
-            *Either this argument or rel_permittivity or
-            conductivity must be given!*
-
-        background_rel_permittivity : float, default: 1.0
-
-        background_conductivity : float, default: 0.0
-
-        object_rel_permittivity : float, default: 1.0
-
-        object_conductivity : float, default: 0.0
-
-        center : list, default: [0.0, 0.0]
-            Center of the object in the image. The center of the image
-            corresponds to the origin of the coordinates.
-
-        rel_permittivity : :class:`numpy.ndarray`, default:None
-            A predefined image in which the object will be drawn.
-
-        conductivity : :class:`numpy.ndarray`, default:None
-            A predefined image in which the object will be drawn.
-
-        rotate : float, default: 0.0 degrees
-            Rotation of the object around its center. In degrees.
+    Returns
+    -------
+    tuple of numpy.ndarray
+        (epsilon_r, sigma) arrays with the triangle drawn.
     """
     # Check input requirements
     if resolution is None and (rel_permittivity is None
@@ -1578,62 +1513,47 @@ def wave(number_peaks, rel_permittivity_peak=1., conductivity_peak=0.,
          background_conductivity=0., rel_permittivity=None,
          conductivity=None, wave_bounds_proportion=(1., 1.),
          center=[0., 0.], rotate=0.):
-    """Draw waves.
+    """Draw a wave pattern with specified electromagnetic properties.
 
     Parameters
     ----------
-        number_peaks : int
-            Number of peaks for both direction or for x-axis (if
-            `number_peaks_x` is not None).
+    number_peaks : int
+        Number of peaks for both directions or for x-axis (if number_peaks_y is None).
+    rel_permittivity_peak : float, default=1.0
+        Peak value of relative permittivity.
+    conductivity_peak : float, default=0.0
+        Peak value of conductivity in S/m.
+    rel_permittivity_valley : float, optional
+        Valley value of relative permittivity. If None, uses peak value.
+    conductivity_valley : float, optional
+        Valley value of conductivity. If None, uses peak value.
+    resolution : tuple of int, optional
+        Image resolution as (NY, NX).
+    number_peaks_y : int, optional
+        Number of peaks in y-direction. If None, uses number_peaks.
+    axis_length_x : float, default=2.0
+        Physical length in x-direction.
+    axis_length_y : float, default=2.0
+        Physical length in y-direction.
+    background_rel_permittivity : float, default=1.0
+        Background relative permittivity.
+    background_conductivity : float, default=0.0
+        Background conductivity in S/m.
+    rel_permittivity : numpy.ndarray, optional
+        Existing permittivity array to overlay on.
+    conductivity : numpy.ndarray, optional
+        Existing conductivity array to overlay on.
+    wave_bounds_proportion : tuple, default=(1.0, 1.0)
+        Proportion of image dimensions for wave area.
+    center : list of float, default=[0.0, 0.0]
+        Center position as [x, y] coordinates.
+    rotate : float, default=0.0
+        Rotation angle in degrees.
 
-        number_peaks_y : float, optional
-            Number of peaks in y-direction.
-
-        wave_bounds_proportion : 2-tuple
-            The wave may be placed only at a rectangular area of the
-            image controlled by this parameters. The values should be
-            proportional to `axis_length_y` and `axis_length_x`,
-            respectively, i.e, the values should be > 0. and < 1. Then,
-            you may control center and rotation of the figure.
-
-        axis_length_x, axis_length_y : float, default: 2.0
-            Length of the size of the image.
-
-        resolution : 2-tuple
-            Image resolution, in y and x directions, i.e., (NY, NX).
-            *Either this argument or rel_permittivity or
-            conductivity must be given!*
-
-        background_rel_permittivity : float, default: 1.0
-
-        background_conductivity : float, default: 0.0
-
-        rel_permittivity_peak : float, default: 1.0
-            Peak value of relative permittivity.
-
-        rel_permittivity_valley : None or float
-            Valley value of relative permittivity. If None, then peak
-            value is assumed.
-
-        conductivity_peak : float, default: 1.0
-            Peak value of conductivity.
-
-        conductivity_valley : None or float
-            Valley value of conductivity. If None, then peak value
-            is assumed.
-
-        center : list, default: [0.0, 0.0]
-            Center of the object in the image. The center of the image
-            corresponds to the origin of the coordinates.
-
-        rel_permittivity : :class:`numpy.ndarray`, default:None
-            A predefined image in which the object will be drawn.
-
-        conductivity : :class:`numpy.ndarray`, default: None
-            A predefined image in which the object will be drawn.
-
-        rotate : float, default: 0.0 degrees
-            Rotation of the object around its center. In degrees.
+    Returns
+    -------
+    tuple of numpy.ndarray
+        (epsilon_r, sigma) arrays with the wave pattern drawn.
     """
     # Check input requirements
     if resolution is None and (rel_permittivity is None
@@ -1731,66 +1651,47 @@ def random_waves(number_waves, maximum_number_peaks,
                  rel_permittivity=None, conductivity=None,
                  wave_bounds_proportion=(1., 1.), center=[0., 0.], rotate=0.,
                  edge_smoothing=0.03):
-    """Draw random waves.
+    """Draw random wave patterns with specified electromagnetic properties.
 
     Parameters
     ----------
-        number_waves : int
-            Number of wave components.
+    number_waves : int
+        Number of wave components.
+    maximum_number_peaks : int
+        Maximum number of peaks (controls smallest wavelength).
+    maximum_number_peaks_y : int, optional
+        Maximum number of peaks in y-direction. If None, uses maximum_number_peaks.
+    resolution : tuple of int, optional
+        Image resolution as (NY, NX).
+    rel_permittivity_amplitude : float, default=0.0
+        Maximum amplitude of relative permittivity variation.
+    conductivity_amplitude : float, default=0.0
+        Maximum amplitude of conductivity variation in S/m.
+    axis_length_x : float, default=2.0
+        Physical length in x-direction.
+    axis_length_y : float, default=2.0
+        Physical length in y-direction.
+    background_rel_permittivity : float, default=1.0
+        Background relative permittivity.
+    background_conductivity : float, default=0.0
+        Background conductivity in S/m.
+    rel_permittivity : numpy.ndarray, optional
+        Existing permittivity array to overlay on.
+    conductivity : numpy.ndarray, optional
+        Existing conductivity array to overlay on.
+    wave_bounds_proportion : tuple, default=(1.0, 1.0)
+        Proportion of image dimensions for wave area.
+    center : list of float, default=[0.0, 0.0]
+        Center position as [x, y] coordinates.
+    rotate : float, default=0.0
+        Rotation angle in degrees.
+    edge_smoothing : float, default=0.03
+        Percentage of cells at boundary to smooth.
 
-        maximum_number_peaks : int
-            Different wavelengths are considered. The maximum number of
-            peaks controls the size of the smallest possible wavelength.
-
-        maximum_number_peaks_y : float, optional
-            Maximum number of peaks in y-direction. If None, then it
-            will be the same as `maximum_number_peaks`.
-
-        wave_bounds_proportion : 2-tuple
-            The wave may be placed only at a rectangular area of the
-            image controlled by this parameter. The values should be
-            proportional to `axis_length_y` and `axis_length_x`,
-            respectively, i.e, the values should be > 0. and < 1. Then,
-            you may control center and rotation of the figure.
-
-        axis_length_x, axis_length_y : float, default: 2.0
-            Length of the size of the image.
-
-        resolution : 2-tuple
-            Image resolution, in y and x directions, i.e., (NY, NX).
-            *Either this argument or rel_permittivity or
-            conductivity must be given!*
-
-        background_rel_permittivity : float, default: 1.0
-
-        background_conductivity : float, default: 0.0
-
-        rel_permittivity_amplitude : float, default: 1.0
-            Maximum amplitude of relative permittivity variation
-
-        conductivity_amplitude : float, default: 1.0
-            Maximum amplitude of conductivity variation
-
-        conductivity_valley : None or float
-            Valley value of conductivity. If None, then peak value
-            is assumed.
-
-        center : list, default: [0.0, 0.0]
-            Center of the object in the image. The center of the image
-            corresponds to the origin of the coordinates.
-
-        rel_permittivity : :class:`numpy.ndarray`, default:None
-            A predefined image in which the object will be drawn.
-
-        conductivity : :class:`numpy.ndarray`, default: None
-            A predefined image in which the object will be drawn.
-
-        rotate : float, default: 0.0 degrees
-            Rotation of the object around its center. In degrees.
-
-        edge_smoothing : float, default: 0.03
-            Percentage of cells at the boundary of the wave area which
-            will be smoothed.
+    Returns
+    -------
+    tuple of numpy.ndarray
+        (epsilon_r, sigma) arrays with the random wave pattern drawn.
     """
     # Check input requirements
     if resolution is None and (rel_permittivity is None
@@ -1908,75 +1809,49 @@ def random_gaussians(number_distributions, maximum_spread=.8,
                      background_rel_permittivity=1.,
                      rel_permittivity=None, center=[0., 0.],
                      conductivity=None, rotate=0., edge_smoothing=0.03):
-    """Draw random gaussians.
+    """Draw random Gaussian distributions with specified electromagnetic properties.
 
     Parameters
     ----------
-        number_distributions : int
-            Number of distributions.
+    number_distributions : int
+        Number of Gaussian distributions.
+    maximum_spread : float, default=0.8
+        Maximum spread of Gaussian (proportional to area).
+    minimum_spread : float, default=0.5
+        Minimum spread of Gaussian.
+    distance_from_border : float, default=0.1
+        Minimum distance from border for distribution centers.
+    resolution : tuple of int, optional
+        Image resolution as (NY, NX).
+    surface_area : tuple, default=(1.0, 1.0)
+        Proportion of image dimensions for distribution area.
+    rel_permittivity_amplitude : float, default=0.0
+        Maximum amplitude of relative permittivity variation.
+    conductivity_amplitude : float, default=0.0
+        Maximum amplitude of conductivity variation in S/m.
+    axis_length_x : float, default=2.0
+        Physical length in x-direction.
+    axis_length_y : float, default=2.0
+        Physical length in y-direction.
+    background_conductivity : float, default=0.0
+        Background conductivity in S/m.
+    background_rel_permittivity : float, default=1.0
+        Background relative permittivity.
+    rel_permittivity : numpy.ndarray, optional
+        Existing permittivity array to overlay on.
+    center : list of float, default=[0.0, 0.0]
+        Center position as [x, y] coordinates.
+    conductivity : numpy.ndarray, optional
+        Existing conductivity array to overlay on.
+    rotate : float, default=0.0
+        Rotation angle in degrees.
+    edge_smoothing : float, default=0.03
+        Percentage of cells at boundary to smooth.
 
-        minimum_spread, maximum_spread : float, default: .5 and .8
-            Control the spread of the gaussian function, proportional to
-            the length of the gaussian area. This means that these
-            parameters should be > 0 and < 1. 1 means that :math:`sigma
-            = L_x/6`.
-
-        distance_from_border : float, default: .1
-            Control the bounds of the center of the distribution. It is
-            proportional to the length of the area.
-
-        surface_area : 2-tuple, default: (1., 1.)
-            The distribution may be placed only at a rectangular area of
-            the image controlled by this parameter. The values should be
-            proportional to `axis_length_y` and `axis_length_x`,
-            respectively, i.e, the values should be > 0. and < 1. Then,
-            you may control center and rotation of the figure.
-
-        wave_bounds_proportion : 2-tuple
-            The wave may be placed only at a rectangular area of the
-            image controlled by this parameters. The values should be
-            proportional to `axis_length_y` and `axis_length_x`,
-            respectively, i.e, the values should be > 0. and < 1. Then,
-            you may control center and rotation of the figure.
-
-        axis_length_x, axis_length_y : float, default: 2.0
-            Length of the size of the image.
-
-        resolution : 2-tuple
-            Image resolution, in y and x directions, i.e., (NY, NX).
-            *Either this argument or rel_permittivity or
-            conductivity must be given!*
-
-        background_rel_permittivity : float, default: 1.0
-
-        background_conductivity : float, default: 0.0
-
-        rel_permittivity_amplitude : float, default: 1.0
-            Maximum amplitude of relative permittivity variation
-
-        conductivity_amplitude : float, default: 1.0
-            Maximum amplitude of conductivity variation
-
-        conductivity_valley : None or float
-            Valley value of conductivity. If None, then peak value
-            is assumed.
-
-        center : list, default: [0.0, 0.0]
-            Center of the object in the image. The center of the image
-            corresponds to the origin of the coordinates.
-
-        rel_permittivity : :class:`numpy.ndarray`, default:None
-            A predefined image in which the object will be drawn.
-
-        conductivity : :class:`numpy.ndarray`, default: None
-            A predefined image in which the object will be drawn.
-
-        rotate : float, default: 0.0 degrees
-            Rotation of the object around its center. In degrees.
-
-        edge_smoothing : float, default: 0.03
-            Percentage of cells at the boundary of the image area which
-            will be smoothed.
+    Returns
+    -------
+    tuple of numpy.ndarray
+        (epsilon_r, sigma) arrays with the Gaussian distributions drawn.
     """
     # Check input requirements
     if resolution is None and (rel_permittivity is None
@@ -2100,27 +1975,26 @@ def random_gaussians(number_distributions, maximum_spread=.8,
 
 
 def isleft(x0, y0, x1, y1, x2, y2):
-    r"""Check if a point is left, on, right of an infinite line.
+    r"""Check if a point is left, on, or right of an infinite line.
 
     The point to be tested is (x2, y2). The infinite line is defined by
     (x0, y0) -> (x1, y1).
 
     Parameters
     ----------
-        x0, y0 : float
-            A point within the infinite line.
-
-        x1, y1 : float
-            A point within the infinite line.
-
-        x2, y2 : float
-            The point to be tested.
+    x0, y0 : float
+        A point on the infinite line.
+    x1, y1 : float
+        Another point on the infinite line.
+    x2, y2 : float
+        The point to be tested.
 
     Returns
     -------
-        * float < 0, if it is on the left.
-        * float = 0, if it is on the line.
-        * float > 0, if it is on the left.
+    float
+        < 0 if point is on the left,
+        = 0 if point is on the line,
+        > 0 if point is on the right.
 
     References
     ----------
@@ -2131,24 +2005,19 @@ def isleft(x0, y0, x1, y1, x2, y2):
 
 
 def winding_number(x, y, xv, yv):
-    r"""Check if a point is within a polygon.
-
-    The method determines if a point is within a polygon through the
-    Winding Number Algorithm. If this number is zero, then it means that
-    the point is out of the polygon. Otherwise, it is within the
-    polygon.
+    r"""Check if a point is within a polygon using the Winding Number Algorithm.
 
     Parameters
     ----------
-        x, y : float
-            The point that should be tested.
-
-        xv, yv : :class:`numpy.ndarray`
-            A 1-d array with vertex points of the polygon.
+    x, y : float
+        The point to be tested.
+    xv, yv : numpy.ndarray
+        1D arrays with vertex coordinates of the polygon.
 
     Returns
     -------
-        bool
+    bool
+        True if the point is inside the polygon, False otherwise.
 
     References
     ----------

@@ -698,7 +698,7 @@ class Benchmark(exp.Experiment):
                 if nfig == 1:
                     axis = axis[0]
             elif (not isinstance(axis, axes.Axes)
-                    and not type(axis, np.ndarray)):
+                    and not isinstance(axis, np.ndarray)):
                 raise error.WrongTypeInput('Benchmark.plot', 'axis',
                                            'Axes or Axes-numpy.ndarray',
                                            str(type(axis)))
@@ -3457,7 +3457,7 @@ class Benchmark(exp.Experiment):
                                                 str(method))
                 nfig = len(method)
             else:
-                raise error.WrongTypeInput('Benchamrk.normality', 'method',
+                raise error.WrongTypeInput('Benchmark.normality', 'method',
                                            'None, int, str, int-list or '
                                            + 'str-list', str(type(method)))   
      

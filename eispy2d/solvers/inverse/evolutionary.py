@@ -13,6 +13,42 @@ from eispy2d.evoalglib import representation as rpt
 
 
 class EvolutionaryAlgorithm(stc.Stochastic):
+    """Evolutionary Algorithm for electromagnetic inverse scattering.
+
+    This class implements a general evolutionary algorithm framework for solving
+    electromagnetic inverse scattering problems. It supports various evolutionary
+    mechanisms including Differential Evolution, Particle Swarm Optimization,
+    and Genetic Algorithms.
+
+    Parameters
+    ----------
+    population_size : int
+        Size of the population.
+    initialization : Initialization
+        Population initialization strategy.
+    objective_function : ObjectiveFunction
+        Objective function to evaluate solution quality.
+    representation : Representation
+        Solution representation scheme.
+    mechanism : Mechanism
+        Evolutionary mechanism (DE, PSO, GA, etc.).
+    stop_criteria : StopCriteria
+        Stopping criteria for the algorithm.
+    outputmode : OutputMode
+        Output processing mode for stochastic results.
+    alias : str, default='ea'
+        Alias name for the algorithm.
+    parallelization : bool, default=False
+        Whether to enable parallel processing.
+    number_executions : int, default=1
+        Number of executions to perform.
+    forward_solver : ForwardSolver, optional
+        Forward solver for field computations.
+    import_filename : str, optional
+        Filename to import algorithm state from.
+    import_filepath : str, default=''
+        Path to import file.
+    """
     def __init__(self, population_size, initialization, objective_function,
                  representation, mechanism, stop_criteria, outputmode,
                  alias='ea', parallelization=False, number_executions=1,
@@ -85,6 +121,26 @@ class EvolutionaryAlgorithm(stc.Stochastic):
         
     def run_algorithm(self, inputdata, run_name, incident_field,
                       print_info=True, print_file=sys.stdout):
+        """Run a single execution of the evolutionary algorithm.
+
+        Parameters
+        ----------
+        inputdata : InputData
+            Input data object containing problem configuration.
+        run_name : str
+            Name for this execution.
+        incident_field : numpy.ndarray
+            Incident field data.
+        print_info : bool, default=True
+            Whether to print progress information.
+        print_file : file-like object, default=sys.stdout
+            Output stream for printing.
+
+        Returns
+        -------
+        Result
+            Result object for this execution.
+        """
         result = rst.Result(run_name,
                             method_name=self.alias,
                             configuration=inputdata.configuration)

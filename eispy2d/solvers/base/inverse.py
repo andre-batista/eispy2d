@@ -19,38 +19,48 @@ PARALLELIZATION = 'parallelization'
 
 
 class InverseSolver(ABC):
-    """Abstract inverse solver class.
+    """Abstract base class for inverse scattering solvers.
 
-    This class defines the basic defintion of any implementation of
-    inverse solver.
+    This class defines the basic interface for any implementation of an
+    inverse solver for electromagnetic scattering problems.
 
     Attributes
     ----------
-        name : str
-            The name of the solver.
+    name : str
+        The name of the solver.
+    alias : str
+        Short identifier for the solver.
+    parallelization : bool
+        Whether parallel processing is enabled.
+    execution_time : float
+        Execution time for a single run of the method (set by derived classes).
 
-        version : str
-            The version of method.
-
-        config : :class:`configuration.Configuration`
-            An object of problem configuration.
-
-        execution_time : float
-            The amount of time for a single execution of the method.
-
-    Notes
-    -----
-        The name of the method should be defined by default.
+    Methods
+    -------
+    solve(inputdata, discretization, print_info=True, print_file=sys.stdout)
+        Solve the inverse scattering problem.
+    save(file_path='')
+        Save solver state to file.
+    importdata(file_name, file_path='')
+        Load solver state from file.
+    copy(new=None)
+        Create a copy of the solver instance.
     """
 
     def __init__(self, alias='', parallelization=False, import_filename=None,
                  import_filepath=''):
-        """Create the object.
+        """Create an inverse solver object.
 
         Parameters
         ----------
-            configuration : :class:`configuration.Configuration`
-                An object of problem configuration.
+        alias : str, default=''
+            Short identifier for the solver.
+        parallelization : bool, default=False
+            Whether to enable parallel processing.
+        import_filename : str, optional
+            If provided, imports solver configuration from this file.
+        import_filepath : str, default=''
+            Path to the import file.
         """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
@@ -65,22 +75,25 @@ class InverseSolver(ABC):
               print_file=sys.stdout):
         """Solve the inverse scattering problem.
 
-        This is the model routine for any method implementation. The
-        input may include other arguments. But the output must always be
-        an object of :class:`results.Results`.
+        This is the main routine for any method implementation. The input
+        may include additional arguments, but the output must always be a
+        Result object.
 
         Parameters
         ----------
-            inputdata : :class:`inputdata.InputData`
-                An object of the class which defines an instance.
-
-            print_info : bool
-                A flag to indicate if information should be displayed or
-                not on the screen.
+        inputdata : InputData
+            Input data object defining the problem instance.
+        discretization : Discretization
+            Discretization scheme to use.
+        print_info : bool, default=True
+            Whether to display progress information.
+        print_file : file-like object, default=sys.stdout
+            Output stream for printed information.
 
         Returns
         -------
-            :class:`results.Results`
+        Result
+            Result object containing the reconstruction results.
         """
         if print_info:
             self._print_title(inputdata, discretization, print_file=print_file)
@@ -90,11 +103,16 @@ class InverseSolver(ABC):
                           configuration=inputdata.configuration)
 
     def _print_title(self, inputdata, discretization, print_file=sys.stdout):
-        """Print the title of the execution.
+        """Print the execution title header.
 
         Parameters
         ----------
-            instance : :class:`results.Results`
+        inputdata : InputData
+            Input data object for the problem.
+        discretization : Discretization
+            Discretization scheme being used.
+        print_file : file-like object, default=sys.stdout
+            Output stream for printed information.
         """
         print("==============================================================",
               file=print_file)
@@ -110,12 +128,38 @@ class InverseSolver(ABC):
 
     @abstractmethod
     def save(self, file_path=''):
+        """Save solver configuration to file.
+
+        Parameters
+        ----------
+        file_path : str, default=''
+            Base path for saving the configuration.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the serialized solver data.
+        """
         return {NAME: self.name,
                 ALIAS: self.alias,
                 PARALLELIZATION: self.parallelization}
     
     @abstractmethod
     def importdata(self, file_name, file_path=''):
+        """Import solver configuration from file.
+
+        Parameters
+        ----------
+        file_name : str
+            Name of the file to import from.
+        file_path : str, default=''
+            Path to the import file.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the imported data.
+        """
         data = cfg.import_dict(file_name, file_path)
         self.name = data[NAME]
         self.alias = data[ALIAS]
@@ -123,6 +167,19 @@ class InverseSolver(ABC):
         return data
 
     def copy(self, new=None):
+        """Create a copy of the solver instance.
+
+        Parameters
+        ----------
+        new : InverseSolver, optional
+            If provided, copies configuration into this instance.
+            If None, creates a new instance.
+
+        Returns
+        -------
+        InverseSolver or None
+            New instance if new=None, otherwise None.
+        """
         if new is None:
             return InverseSolver(self.alias, self.parallelization)
         else:

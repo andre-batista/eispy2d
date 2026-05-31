@@ -219,12 +219,11 @@ class CaseStudy(exp.Experiment):
     def __init__(self, name=None, method=None, discretization=None, test=None,
                  stochastic_runs=30, save_stochastic_runs=False,
                  import_filename=None, import_filepath=''):
-        """
-        Initialize a case study for electromagnetic inverse scattering.
-        
+        """Initialize a case study for electromagnetic inverse scattering.
+
         Creates a new case study with specified parameters or imports from
         an existing saved case study file.
-        
+
         Parameters
         ----------
         name : str, optional
@@ -243,13 +242,13 @@ class CaseStudy(exp.Experiment):
             Filename to import case study configuration from
         import_filepath : str, default=''
             Path to import file
-            
+
         Examples
         --------
         >>> # Create new case study
         >>> case = CaseStudy(name='test', method=my_method, 
         ...                  discretization=my_disc, test=my_test)
-        
+
         >>> # Import from saved file
         >>> case = CaseStudy(import_filename='saved_case.pkl')
         """
@@ -320,13 +319,12 @@ class CaseStudy(exp.Experiment):
             pickle.dump(data, datafile)
 
     def run(self, parallelization=None, save_stochastic_executions=False):
-        """
-        Execute the case study with the configured methods.
-        
+        """Execute the case study with the configured methods.
+
         Runs the inverse scattering method(s) on the test data with specified
         parallelization strategy. Supports both deterministic and stochastic
         methods with different parallelization approaches.
-        
+
         Parameters
         ----------
         parallelization : bool, str, or None, default=None
@@ -338,29 +336,29 @@ class CaseStudy(exp.Experiment):
         save_stochastic_executions : bool, default=False
             Whether to save individual stochastic execution results
             (parameter name kept for backward compatibility)
-            
+
         Raises
         ------
         error.MissingAttributesError
             If test data is not available
-            
+
         Notes
         -----
         The method automatically detects single vs. multiple methods and
         applies appropriate parallelization strategies:
-        
+
         - For single deterministic methods: Simple parallel execution
         - For single stochastic methods: Parallel stochastic executions
         - For multiple methods: Choice between method-level or execution-level parallelization
-        
+
         Examples
         --------
         >>> # Run with default parallelization
         >>> case.run()
-        
+
         >>> # Run without parallelization
         >>> case.run(parallelization=False)
-        
+
         >>> # Run with method-level parallelization
         >>> case.run(parallelization='method')
         """
@@ -1456,7 +1454,7 @@ class CaseStudy(exp.Experiment):
                                      x=jm,
                                      title=figure_title,
                                      xlabel='Algorithms',
-                                     ylabel=rst.indicador_label(i),
+                                     ylabel=rst.indicator_label(i),
                                      style='s',
                                      markersize=20,
                                      yscale=yscale,
@@ -1657,11 +1655,11 @@ class CaseStudy(exp.Experiment):
                 confidence_level=.95, xscale=None):
         """
         Calculate and visualize confidence intervals for performance indicators.
-        
+
         Computes confidence intervals for performance indicators from stochastic
         method executions and creates visualization plots with optional
         statistical information output.
-        
+
         Parameters
         ----------
         indicator : str or list of str
@@ -1690,34 +1688,34 @@ class CaseStudy(exp.Experiment):
             Confidence level for interval calculation (0 < confidence_level < 1)
         xscale : str, optional
             X-axis scale ('linear', 'log', etc.)
-            
+
         Returns
         -------
         matplotlib.axes.Axes or None
             Axes object if axis is None and show is False
-            
+
         Raises
         ------
         error.WrongTypeInput
             If indicator is not string or list of strings
         error.WrongValueInput
             If indicator is not in the valid indicator set
-            
+
         Notes
         -----
         Confidence intervals are calculated using appropriate statistical methods
         based on the distribution of the performance indicator values. The method
         requires stochastic methods with saved executions.
-        
+
         Examples
         --------
         >>> # Basic confidence interval plot
         >>> case.confint('total_error', show=True)
-        
+
         >>> # Multiple indicators with custom confidence level
         >>> case.confint(['total_error', 'data_error'], 
         ...              confidence_level=0.99, show=True)
-        
+
         >>> # Specific method analysis
         >>> case.confint('total_error', method=0, show=True)
         """

@@ -18,6 +18,24 @@ THRESHOLD = 'threshold'
 
 
 class MUSIC(dtm.Deterministic):
+    """Multiple Signal Classification imaging method.
+
+    This class implements the MUSIC algorithm for qualitative imaging,
+    which uses singular value decomposition to identify scatterer locations.
+
+    Parameters
+    ----------
+    alias : str, default=''
+        Alias name for the algorithm.
+    sv_cutoff : int or float, optional
+        Singular value cutoff (int: number of values, float: threshold).
+    threshold : float, optional
+        Threshold for indicator function.
+    import_filename : str, optional
+        Filename to import algorithm state from.
+    import_filepath : str, default=''
+        Path to import file.
+    """
     def __init__(self, alias='', sv_cutoff=None, threshold=None,
                  import_filename=None, import_filepath=''):
         if import_filename is not None:

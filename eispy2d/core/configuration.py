@@ -483,7 +483,21 @@ class Configuration:
 
 
 def import_dict(file_name, file_path=''):
-    """Import dictionary with configuration data."""
+    """Import dictionary with configuration data.
+
+    Parameters
+    ----------
+        file_name : str
+            Name of the pickle file.
+
+        file_path : str, default: ''
+            Path to the file.
+
+    Returns
+    -------
+        data : dict
+            Dictionary with configuration attributes.
+    """
     with open(file_path + file_name, 'rb') as datafile:
         data = pickle.load(datafile)
     return data
@@ -611,7 +625,18 @@ def get_coordinates_sdomain(radius, n_samples, shift=0.):
 
 
 def get_bounds(length):
-    """Compute the standard bound coordinates."""
+    """Compute the standard bound coordinates.
+
+    Parameters
+    ----------
+        length : float
+            Length of the domain (e.g., Lx or Ly).
+
+    Returns
+    -------
+        xmin, xmax : float
+            The lower and upper bounds of the interval.
+    """
     return -length/2, length/2
 
 
@@ -625,8 +650,9 @@ def get_coordinates_ddomain(configuration=None, resolution=None,
         The function must be called in only one of the two different
         ways:
 
-        >>> get_coordinates_ddomain(configuration=Configuration()
-                                    resolution=(100, 100))
+        >>> config = Configuration(name='example', wavelength=1.0)
+        >>> get_coordinates_ddomain(configuration=config, resolution=(100, 100))
+
         >>> get_coordinates_ddomain(dx=.1, dy=.1, xmin=-1., xmax=1.,
                                     ymin=-1., ymax=1.)
 
@@ -635,8 +661,8 @@ def get_coordinates_ddomain(configuration=None, resolution=None,
         configuration : :class:`Configuration`
             A configuration object.
 
-        resolution : 2-tuple
-            Discretization size in y- and x-coordinates (this order).
+        resolution : 2-tuple of int
+            Discretization size in y- and x-coordinates (Ny, Nx) (this order).
 
         dx, dy : float
             Cell size.
@@ -692,10 +718,10 @@ def get_contrast_map(epsilon_r=None, sigma=None, epsilon_rb=None, sigma_b=None,
 
     Parameters
     ----------
-        epsilon_r : `:class:numpy.ndarray`
+        epsilon_r : :class:`numpy.ndarray`
             A matrix with the relative permittivity map.
 
-        sigma : `:class:numpy.ndarray`
+        sigma : :class:`numpy.ndarray`
             A matrix with the conductivity map [S/m].
 
         epsilon_rb : float
@@ -706,8 +732,8 @@ def get_contrast_map(epsilon_r=None, sigma=None, epsilon_rb=None, sigma_b=None,
 
         omega : float
             Angular frequency of operation [rad/s].
-        
-        configuration : `class:Configuration`
+
+        configuration : :class:`Configuration`
             A configuration object that may replace `epsilon_rb`,
             `sigma_b` and `omega`.
     """
@@ -786,7 +812,7 @@ def solve_frequency(lambda_b, mu_r, epsilon_r, sigma):
     r"""Approximate the frequency.
 
     The routine estimates the corresponding frequency for a given
-    combination of wavelength [1/m], relative permeability, relative
+    combination of wavelength [m], relative permeability, relative
     permittivity and conductivity [S/m] values.
 
     Parameters
@@ -798,10 +824,10 @@ def solve_frequency(lambda_b, mu_r, epsilon_r, sigma):
             Relative permeability.
 
         epsilon_r : float
-            Relative permittivity
+            Relative permittivity.
 
         sigma : float
-            Conductivity [S/m]
+            Conductivity [S/m].
 
     Notes
     -----
@@ -809,7 +835,7 @@ def solve_frequency(lambda_b, mu_r, epsilon_r, sigma):
         unidimensional problems. The solution is the one which minimizes
         the following objective-function:
 
-        .. math:: \phi(f) = \lambda_b - \frac{1}{fR\{\sqrt{\mu(\epsilon - j\frac{\sigma}{2\pi f})}\}}
+        .. math:: \phi(f) = \lambda_b - \frac{1}{f \Re\left\{ \sqrt{\mu\left(\epsilon - j\frac{\sigma}{2\pi f}\right)} \right\}}
     """
     # Constants
     mu = mu_r*ct.mu_0
@@ -868,11 +894,11 @@ def plot_ddomain_limits(axes, bounds):
 
     Parameters
     ----------
-        axes : :class:`matplotlib.pyplot.Figure.axes.Axes`
+        axes : :class:`matplotlib.pyplot.Axes`
             Axes object.
 
-        bounds : 4-tuple
-            x and y axis bounds.
+        bounds : 4-tuple of float
+            (xmin, xmax, ymin, ymax) bounds.
     """
     axes.plot(np.array([bounds[0], bounds[0], bounds[1], bounds[1],
                         bounds[0]]),
@@ -885,7 +911,7 @@ def plot_antennas(axes, x, y, wavelength, color, label):
 
     Parameters
     ----------
-        axes : :class:`matplotlib.pyplot.Figure.axes.Axes`
+        axes : :class:`matplotlib.pyplot.Axes`
             Axes object.
 
         x : :class:`numpy.ndarray`
@@ -895,12 +921,18 @@ def plot_antennas(axes, x, y, wavelength, color, label):
             Array with the y-coordinates.
 
         wavelength : float
+            Wavelength in meters (used for scaling).
 
         color : {'r', 'g'}
             Color of the points.
 
-        label : string
+        label : str
             Name of the antenna array.
+
+    Returns
+    -------
+        :class:`matplotlib.lines.Line2D`
+            The plotted line object.
     """
     return axes.plot(x/wavelength, y/wavelength, color + 'o', label=label)[0]
 
@@ -909,11 +941,11 @@ def degrees_of_freedom(object_radius, wavenumber=None, epsilon_r=None,
                        wavelength_unit=False, wavelength=None, frequency=None):
     r"""Compute the degrees of freedom of an EIS problem.
 
-    The dregrees of freedom for electromagnetic inverse scattering
+    The degrees of freedom for electromagnetic inverse scattering
     problems are the minimum number of measurements and sources. In this
     routine, it is implemented as follows:
 
-    .. math:: M = 4\times\ceil{2ka}
+    .. math:: M = 4 \times \lceil 2ka \rceil
 
     where :math:`k` is the wavenumber and :math:`a` is the object
     radius. This formula is similar to [1]_ except that we are
