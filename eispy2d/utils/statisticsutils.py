@@ -18,7 +18,7 @@ from statsmodels.api import graphics
 import pingouin as pg
 
 from eispy2d.core import error
-from eispy2d.data import result as rst
+from eispy2d.core import result as rst
 
 
 def rcbd(data, alpha=0.05):

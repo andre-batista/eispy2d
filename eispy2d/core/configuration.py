@@ -59,7 +59,7 @@ import matplotlib.pyplot as plt
 from numba import jit
 
 from eispy2d.core import error 
-from eispy2d.data import result as rst
+from eispy2d.core import result as rst
 
 # Constants for easy access of saved pickle file
 NAME = 'name'

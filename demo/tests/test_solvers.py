@@ -13,13 +13,13 @@ import numpy as np
 
 
 from eispy2d.core.configuration import Configuration
-from eispy2d.data.inputdata import InputData
-from eispy2d.data.result import Result
+from eispy2d.core.inputdata import InputData
+from eispy2d.core.result import Result
 from eispy2d.solvers.base.forward import ForwardSolver
 from eispy2d.solvers.base.inverse import InverseSolver
 from eispy2d.solvers.base.deterministic import Deterministic
 from eispy2d.solvers.base.stochastic import Stochastic, OutputMode, EACH_EXECUTION, AVERAGE_CASE
-from eispy2d.regularization.regularization import Tikhonov, TIK_FIXED
+from eispy2d.solvers.inverse.regularization import Tikhonov, TIK_FIXED
 from eispy2d.utils.stopcriteria import StopCriteria
 
 

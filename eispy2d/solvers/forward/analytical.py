@@ -29,7 +29,7 @@ from scipy.special import jv, jvp, hankel2, h2vp
 from matplotlib import pyplot as plt
 
 from eispy2d.solvers.base import forward as fwr
-from eispy2d.data import inputdata as ipt
+from eispy2d.core import inputdata as ipt
 from eispy2d.core import configuration as cfg
 from eispy2d.core import error
 

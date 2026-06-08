@@ -5,8 +5,8 @@ import multiprocessing
 from numpy import pi
 from joblib import Parallel, delayed
 
-from eispy2d.data import result as rst
-from eispy2d.data import inputdata as ipt
+from eispy2d.core import result as rst
+from eispy2d.core import inputdata as ipt
 from eispy2d.solvers.base import stochastic as stc
 from eispy2d.core import configuration as cfg
 from eispy2d.evoalglib import representation as rpt

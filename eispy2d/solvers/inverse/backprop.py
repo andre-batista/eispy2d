@@ -30,7 +30,7 @@ from numba import jit
 from eispy2d.solvers.base import deterministic as dtm
 from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.core import configuration as cfg
-from eispy2d.data import result as rst
+from eispy2d.core import result as rst
 from eispy2d.solvers.forward import fftproduct as fftproduct
 
 FORWARD = 'forward'

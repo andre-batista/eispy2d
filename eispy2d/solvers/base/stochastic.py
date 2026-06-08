@@ -5,7 +5,7 @@ from abc import abstractmethod
 
 from eispy2d.core import error
 from eispy2d.solvers.base import inverse as inv
-from eispy2d.data import result as rst
+from eispy2d.core import result as rst
 
 
 NEXECUTIONS = 'nexec'

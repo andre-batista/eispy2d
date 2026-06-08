@@ -11,8 +11,8 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from eispy2d.core.configuration import Configuration
-from eispy2d.data.inputdata import InputData
-from eispy2d.data.result import (
+from eispy2d.core.inputdata import InputData
+from eispy2d.core.result import (
     RESIDUAL_NORM_ERROR,
     REL_PERMITTIVITY_PAD_ERROR,
     INDICATOR_SET

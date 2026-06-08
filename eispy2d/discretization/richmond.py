@@ -9,7 +9,7 @@ from scipy.interpolate import NearestNDInterpolator
 
 
 from eispy2d.core import configuration as cfg
-from eispy2d.regularization import regularization as reg
+from eispy2d.solvers.inverse import regularization as reg
 from eispy2d.discretization import discretization as dct
 from eispy2d.discretization import collocation as clc
 from eispy2d.core import error

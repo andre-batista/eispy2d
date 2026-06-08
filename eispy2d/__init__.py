@@ -27,8 +27,8 @@ from eispy2d.core.error import (
 # ============================================================================
 # Data
 # ============================================================================
-from eispy2d.data.inputdata import InputData
-from eispy2d.data.result import Result
+from eispy2d.core.inputdata import InputData
+from eispy2d.core.result import Result
 from eispy2d.data.testset import TestSet
 
 # ============================================================================
@@ -86,7 +86,7 @@ from eispy2d.utils.draw import (
     rhombus, trapezoid, parallelogram, random,
     wave, random_waves, random_gaussians,
 )
-from eispy2d.regularization.regularization import (
+from eispy2d.solvers.inverse.regularization import (
     Regularization, Tikhonov, Landweber, ConjugatedGradient,
     LeastSquares, SingularValueDecomposition,
     TIK_FIXED, TIK_MOZOROV, TIK_LCURVE,
@@ -101,7 +101,7 @@ from eispy2d.utils.statisticsutils import (
 # ============================================================================
 # Result Indicators (Constants)
 # ============================================================================
-from eispy2d.data.result import (
+from eispy2d.core.result import (
     RESIDUAL_NORM_ERROR,
     RESIDUAL_PAD_ERROR,
     REL_PERMITTIVITY_PAD_ERROR,

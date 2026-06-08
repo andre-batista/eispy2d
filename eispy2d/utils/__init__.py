@@ -33,7 +33,7 @@ from eispy2d.utils.draw import (
     random_gaussians,
 )
 
-from eispy2d.regularization.regularization import (
+from eispy2d.solvers.inverse.regularization import (
     Regularization,
     Tikhonov,
     Landweber,

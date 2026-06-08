@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 from eispy2d.core import error
 from eispy2d.discretization import richmond as ric
 from eispy2d.core import configuration as cfg
-from eispy2d.data import result as rst
+from eispy2d.core import result as rst
 
 # Constants for easier access to fields of the saved pickle file
 NAME = 'name'

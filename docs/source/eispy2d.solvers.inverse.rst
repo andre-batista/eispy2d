@@ -132,6 +132,14 @@ eispy2d.solvers.inverse.stochastic module
    :show-inheritance:
    :undoc-members:
 
+eispy2d.solvers.inverse.regularization module
+--------------------------------------------
+
+.. automodule:: eispy2d.solvers.inverse.regularization
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 Module contents
 ---------------
 

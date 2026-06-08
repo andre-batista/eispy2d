@@ -10,7 +10,7 @@ from scipy.special import jv
 from numba import jit
 
 from eispy2d.core import configuration as cfg
-from eispy2d.data import result as rst
+from eispy2d.core import result as rst
 from eispy2d.solvers.base import deterministic as dtm
 
 

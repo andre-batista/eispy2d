@@ -20,12 +20,11 @@ from eispy2d.experiments import (
     benchmark as bmk,
     experiment as exp,
 )
-from eispy2d.regularization import regularization as reg
+from eispy2d.solvers.inverse import regularization as reg
 from eispy2d.discretization import richmond as ric
-from eispy2d.core import configuration as cfg
+from eispy2d.core import configuration as cfg, result as rst
 from eispy2d.data import (
     testset as tst,
-    result as rst,
 )
 from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.utils import stopcriteria as stp

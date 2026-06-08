@@ -8,8 +8,8 @@ from joblib import Parallel, delayed
 import multiprocessing
 
 from eispy2d.core import configuration as cfg
-from eispy2d.data import inputdata as ipt
-from eispy2d.data import result as rst
+from eispy2d.core import inputdata as ipt
+from eispy2d.core import result as rst
 from eispy2d.experiments import experiment as exp
 from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.utils import draw as draw

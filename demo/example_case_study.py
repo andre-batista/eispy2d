@@ -20,8 +20,8 @@ from numpy import random as rnd
 
 from eispy2d.experiments import casestudy as cst
 from eispy2d.discretization import richmond as ric
-from eispy2d.core import configuration as cfg
-from eispy2d.data import inputdata as ipt, result as rst
+from eispy2d.core import configuration as cfg, inputdata as ipt
+from eispy2d.core import result as rst
 from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.solvers.inverse import evolutionary as evo
 from eispy2d.solvers.base import stochastic as stc

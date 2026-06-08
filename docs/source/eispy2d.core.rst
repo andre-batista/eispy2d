@@ -20,6 +20,26 @@ eispy2d.core.error module
    :show-inheritance:
    :undoc-members:
 
+eispy2d.core.inputdata module
+-----------------------------
+
+.. automodule:: eispy2d.core
+.inputdata
+
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+eispy2d.core.result module
+--------------------------
+
+.. automodule:: eispy2d.core
+.result
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+
 Module contents
 ---------------
 

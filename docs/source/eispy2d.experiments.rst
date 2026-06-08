@@ -28,6 +28,15 @@ eispy2d.experiments.experiment module
    :show-inheritance:
    :undoc-members:
 
+eispy2d.core.testset module
+---------------------------
+
+.. automodule:: eispy2d.core
+.testset
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 Module contents
 ---------------
 

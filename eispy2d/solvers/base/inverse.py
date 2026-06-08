@@ -11,7 +11,7 @@ import sys
 
 # Developed libraries
 from eispy2d.core import configuration as cfg
-from eispy2d.data import result as rst
+from eispy2d.core import result as rst
 
 NAME = 'name'
 ALIAS = 'alias'
