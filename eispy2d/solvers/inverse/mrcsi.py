@@ -1,17 +1,19 @@
-r"""The Born Iterative Method.
+r"""Multiplicative Regularization Contrast Source Inversion (MRCSI).
 
-This module implements the Born Iterative Method [1]_ as a derivation of
-Solver class. The object contains an object of a forward solver and
-one of linear inverse solver. The method solves the nonlinear
-inverse problem iteratively. The implemented in
-:class:`BornIterativeMethod`
+This module implements the Multiplicative Regularization Contrast Source
+Inversion method [1]_ as a derivation of the Solver class. The method
+solves the nonlinear electromagnetic inverse scattering problem by
+minimizing a cost functional formed by the product of a data misfit term
+and a regularization factor based on the total variation of the contrast
+profile. A key advantage of this multiplicative approach is that the
+regularization parameter does not need to be determined prior to
+inversion. The implemented class is :class:`MRContrastSourceInversion`.
 
 References
 ----------
-.. [1] Wang, Y. M., and Weng Cho Chew. "An iterative solution of the
-   two‐dimensional electromagnetic inverse scattering problem."
-   International Journal of Imaging Systems and Technology 1.1 (1989):
-   100-108.
+.. [1] van den Berg, P. M., Abubakar, A., & Fokkema, J. T. (2003).
+   Multiplicative regularization for contrast profile inversion.
+   Radio Science, 38(2).
 """
 
 # Standard libraries
@@ -39,49 +41,43 @@ EXPONENT = 'exponent'
 
 
 class MRContrastSourceInversion(dtm.Deterministic):
-    r"""The Born Interative Method (BIM).
+    r"""Multiplicative Regularization Contrast Source Inversion (MRCSI).
 
-    This class implements a classical nonlinear inverse solver [1]_. The
-    method is based on coupling forward and inverse solvers in an
-    iterative process. Therefore, it depends on the definition of a
-    forward solver implementation and an linear inverse one.
+    This class implements the Multiplicative Regularization Contrast
+    Source Inversion method [1]_. The algorithm minimizes a cost
+    functional defined as the product of a normalized data misfit term
+    and a total-variation-based regularization factor. Because the
+    regularization enters multiplicatively, no regularization parameter
+    needs to be chosen before the inversion starts, and the additional
+    nonlinearity introduced by the regularization factor is kept
+    manageable through an appropriate updating scheme.
+
+    The contrast sources (induced currents) and the contrast profile are
+    updated alternately via conjugate-gradient steps. The total-variation
+    norm used as regularization factor is controlled by the exponent
+    parameter ``p``.
 
     Attributes
     ----------
         forward : :class:`forward.Forward`:
-            An implementation of the abstract class which defines a
-            forward method which solves the total electric field.
+            An implementation of the abstract Forward class used to
+            compute the incident electric field.
 
-        inverse : :class:`inverse.Inverse`:
-            An implementation of the abstract class which defines method
-            for solving the linear inverse scattering problem.
+        exponent : float
+            Exponent ``p`` of the weighted L\ :sup:`p`-norm total
+            variation regularization factor. Typical value is ``p = 1``
+            (standard TV) or ``p = 2`` (smooth TV).
 
-        MAX_IT : int
-            The number of iterations.
-
-        sc_measure : str
-            Stop criterion for the algorithm. The algorithm will stop
-            when the amount of variation from the current iteration in
-            respect to the last one is below some threshold percentage:
-
-            .. math:: \frac{|\zeta^i-\zeta^{i-1}|}{\zeta^{i-1}}*100
-                      \leq \eta
-
-        stopcriterion_measure : float
-            Threshold criterion for stop the algorithm.
-
-        divergence_tolerance : int, default: 5
-            Number of iterations in which it will be accepted a
-            divergence occurrence, i.e., the new solution has a larger
-            evaluation than the previous considering the stop criterion
-            measure.
+        stop_criteria : stop-criterion object
+            Object controlling the termination condition of the
+            iterative loop (e.g., maximum number of iterations or
+            relative change threshold).
 
     References
     ----------
-    .. [1] Wang, Y. M., and Weng Cho Chew. "An iterative solution of the
-       two‐dimensional electromagnetic inverse scattering problem."
-       International Journal of Imaging Systems and Technology 1.1 (1989):
-       100-108.
+    .. [1] van den Berg, P. M., Abubakar, A., & Fokkema, J. T. (2003).
+       Multiplicative regularization for contrast profile inversion.
+       Radio Science, 38(2).
     """
 
     def __init__(self, stop_criteria, exponent=1.,
@@ -91,38 +87,34 @@ class MRContrastSourceInversion(dtm.Deterministic):
 
         Parameters
         ----------
-            configuration : :class:`configuration.Configuration`
-                It may be either an object of problem configuration or
-                a string to a pre-saved file or a 2-tuple with the file
-                name and path, respectively.
+            stop_criteria : stop-criterion object
+                Object that controls the termination of the iterative
+                loop. It must expose a ``stop(evaluations, iteration,
+                objective_function)`` method returning ``True`` when
+                convergence is detected.
 
-            version : str
-                A string naming the version of this method. It may be
-                useful when using different implementation of forward
-                and inverse solvers.
+            exponent : float, default: 1.0
+                Exponent ``p`` of the weighted L\ :sup:`p`-norm total
+                variation used as the multiplicative regularization
+                factor. Use ``p = 1`` for standard total variation and
+                ``p = 2`` for a smoother (differentiable) variant.
 
-            forward_solver : :class:`forward.Forward`
-                An implementation of the abstract class Forward which
-                defines a method for computing the total intern field.
+            forward_solver : :class:`forward.Forward`, optional
+                An implementation of the abstract Forward class used to
+                compute the incident electric field. Defaults to
+                :class:`mom_cg_fft.MoM_CG_FFT`.
 
-            inverse_solver : :class:`inverse.Inverse`
-                An implementation of the abstract class Inverse which
-                defines a method for solving the linear inverse problem.
+            alias : str, default: ``'mrcsi'``
+                Short identifier for the solver, used when saving
+                results to disk.
 
-            maximum_iterations : int, default: 10
-                Maximum number of iterations.
+            import_filename : str or None, default: None
+                If provided, the solver state is restored from a
+                previously saved file instead of being initialized
+                from scratch.
 
-            stopcriterion_measure : str, default: None
-                Define the measure for stop criterion. The algorithm
-                will stop when the amount of variation from the current
-                iteration in respect to the last one is below some
-                threshold percentage:
-
-                .. math:: \frac{|\zeta^i-\zeta^{i-1}|}{\zeta^{i-1}}*100
-                          \leq \eta
-
-            stopcriterion_measure : float, default: 1e-3
-                Threshold criterion for stop the algorithm.
+            import_filepath : str, default: ``''``
+                Directory path where the import file is located.
         """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
@@ -136,16 +128,41 @@ class MRContrastSourceInversion(dtm.Deterministic):
 
     def solve(self, inputdata, discretization, print_info=True,
               print_file=sys.stdout, initial_guess=None):
-        """Solve a nonlinear inverse problem.
+        """Solve the nonlinear inverse scattering problem.
+
+        Executes the MRCSI iterative loop: contrast sources and the
+        contrast profile are updated alternately via conjugate-gradient
+        steps while minimizing the multiplicative cost functional
+        (data misfit term times total-variation regularization factor).
 
         Parameters
         ----------
-            instance : :class:`inputdata.InputData`
-                An object which defines a case problem with scattered
-                field and some others information.
+            inputdata : :class:`inputdata.InputData`
+                Object containing the measured scattered field, the
+                problem configuration, and any target indicators.
 
-            print_info : bool
-                Print or not the iteration information.
+            discretization : discretization object
+                Object that describes the spatial discretization of the
+                investigation domain (grid elements, Green's functions,
+                interpolation methods).
+
+            print_info : bool, default: True
+                Whether to print iteration progress to ``print_file``.
+
+            print_file : file-like object, default: ``sys.stdout``
+                Destination for iteration messages.
+
+            initial_guess : array-like or None, default: None
+                Initial contrast profile. If ``None``, the
+                back-propagation method is used to generate a first
+                estimate.
+
+        Returns
+        -------
+        result : :class:`result.Result`
+            Object containing the reconstructed contrast, relative
+            permittivity, conductivity, scattered field, and optional
+            performance indicators (execution time, iteration count).
         """
         result = super().solve(inputdata, discretization,
                                print_info=print_info, print_file=print_file)

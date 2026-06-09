@@ -1,17 +1,22 @@
-r"""The Born Iterative Method.
+r"""Subspace-Based Optimization Method (SOM) for inverse scattering.
 
-This module implements the Born Iterative Method [1]_ as a derivation of
-Solver class. The object contains an object of a forward solver and
-one of linear inverse solver. The method solves the nonlinear
-inverse problem iteratively. The implemented in
-:class:`BornIterativeMethod`
+This module implements the Subspace-Based Optimization Method [1]_ as a
+derivation of the Solver class. The key idea is to decompose the space of
+contrast sources (induced currents) into two orthogonal complementary
+subspaces: a *signal subspace*, whose contribution to the contrast source
+is determined analytically via spectral analysis of the data operator
+(without any optimization), and a *noise subspace*, whose contribution is
+recovered by a conjugate-gradient optimization. This decomposition
+significantly accelerates convergence and endows the algorithm with
+robustness against measurement noise. The implemented class is
+:class:`SubspaceBasedOptimizationMethod`.
 
 References
 ----------
-.. [1] Wang, Y. M., and Weng Cho Chew. "An iterative solution of the
-   two-dimensional electromagnetic inverse scattering problem."
-   International Journal of Imaging Systems and Technology 1.1 (1989):
-   100-108.
+.. [1] X. Chen, "Subspace-Based Optimization Method for Solving
+   Inverse-Scattering Problems," IEEE Transactions on Geoscience and
+   Remote Sensing, vol. 48, no. 1, pp. 42-49, Jan. 2010,
+   doi: 10.1109/TGRS.2009.2025122.
 """
 
 # Standard libraries
@@ -40,49 +45,47 @@ STOP_CRITERIA = 'stop criteria'
 
 
 class SubspaceBasedOptimizationMethod(dtm.Deterministic):
-    r"""The Born Interative Method (BIM).
+    r"""Subspace-Based Optimization Method (SOM).
 
-    This class implements a classical nonlinear inverse solver [1]_. The
-    method is based on coupling forward and inverse solvers in an
-    iterative process. Therefore, it depends on the definition of a
-    forward solver implementation and an linear inverse one.
+    This class implements the Subspace-Based Optimization Method [1]_
+    for solving nonlinear electromagnetic inverse scattering problems.
+    The space of contrast sources is split into two orthogonal
+    complementary subspaces via singular-value decomposition (SVD) of
+    the data operator:
+
+    * **Signal subspace** (first ``cutoff_index`` singular vectors):
+      the projection of the contrast source onto this subspace is
+      determined analytically from the measured scattered field, without
+      any optimization step.
+    * **Noise subspace** (remaining singular vectors): the projection
+      onto this subspace is recovered iteratively by a
+      conjugate-gradient minimization of a normalized cost functional.
+
+    This partitioning makes convergence significantly faster than
+    contrast-source inversion and yields robustness against noise.
 
     Attributes
     ----------
         forward : :class:`forward.Forward`:
-            An implementation of the abstract class which defines a
-            forward method which solves the total electric field.
+            An implementation of the abstract Forward class used to
+            compute the incident electric field.
 
-        inverse : :class:`inverse.Inverse`:
-            An implementation of the abstract class which defines method
-            for solving the linear inverse scattering problem.
+        stop_criteria : stop-criterion object
+            Object controlling the termination condition of the
+            iterative loop.
 
-        MAX_IT : int
-            The number of iterations.
-
-        sc_measure : str
-            Stop criterion for the algorithm. The algorithm will stop
-            when the amount of variation from the current iteration in
-            respect to the last one is below some threshold percentage:
-
-            .. math:: \frac{|\zeta^i-\zeta^{i-1}|}{\zeta^{i-1}}*100
-                      \leq \eta
-
-        stopcriterion_measure : float
-            Threshold criterion for stop the algorithm.
-
-        divergence_tolerance : int, default: 5
-            Number of iterations in which it will be accepted a
-            divergence occurrence, i.e., the new solution has a larger
-            evaluation than the previous considering the stop criterion
-            measure.
+        cutoff_index : int
+            Number of singular values/vectors retained to span the
+            signal subspace (denoted *L* in [1]_). Increasing this
+            value incorporates more spectral content into the
+            analytically determined component of the contrast source.
 
     References
     ----------
-    .. [1] Wang, Y. M., and Weng Cho Chew. "An iterative solution of the
-       two dimensional electromagnetic inverse scattering problem."
-       International Journal of Imaging Systems and Technology 1.1 (1989):
-       100-108.
+    .. [1] X. Chen, "Subspace-Based Optimization Method for Solving
+       Inverse-Scattering Problems," IEEE Transactions on Geoscience
+       and Remote Sensing, vol. 48, no. 1, pp. 42-49, Jan. 2010,
+       doi: 10.1109/TGRS.2009.2025122.
     """
 
     def __init__(self, stop_criteria, cutoff_index=5,
@@ -92,38 +95,34 @@ class SubspaceBasedOptimizationMethod(dtm.Deterministic):
 
         Parameters
         ----------
-            configuration : :class:`configuration.Configuration`
-                It may be either an object of problem configuration or
-                a string to a pre-saved file or a 2-tuple with the file
-                name and path, respectively.
+            stop_criteria : stop-criterion object
+                Object that controls the termination of the iterative
+                loop. It must expose a ``stop(evaluations, iteration,
+                objective_function)`` method returning ``True`` when
+                convergence is detected.
 
-            version : str
-                A string naming the version of this method. It may be
-                useful when using different implementation of forward
-                and inverse solvers.
+            cutoff_index : int, default: 5
+                Number of dominant singular values/vectors (denoted *L*
+                in [1]_) used to span the signal subspace. The
+                corresponding contrast-source component is determined
+                analytically; the remainder is found by optimization.
 
-            forward_solver : :class:`forward.Forward`
-                An implementation of the abstract class Forward which
-                defines a method for computing the total intern field.
+            forward_solver : :class:`forward.Forward`, optional
+                An implementation of the abstract Forward class used to
+                compute the incident electric field. Defaults to
+                :class:`mom_cg_fft.MoM_CG_FFT`.
 
-            inverse_solver : :class:`inverse.Inverse`
-                An implementation of the abstract class Inverse which
-                defines a method for solving the linear inverse problem.
+            alias : str, default: ``'som'``
+                Short identifier for the solver, used when saving
+                results to disk.
 
-            maximum_iterations : int, default: 10
-                Maximum number of iterations.
+            import_filename : str or None, default: None
+                If provided, the solver state is restored from a
+                previously saved file instead of being initialized
+                from scratch.
 
-            stopcriterion_measure : str, default: None
-                Define the measure for stop criterion. The algorithm
-                will stop when the amount of variation from the current
-                iteration in respect to the last one is below some
-                threshold percentage:
-
-                .. math:: \frac{|\zeta^i-\zeta^{i-1}|}{\zeta^{i-1}}*100
-                          \leq \eta
-
-            stopcriterion_measure : float, default: 1e-3
-                Threshold criterion for stop the algorithm.
+            import_filepath : str, default: ``''``
+                Directory path where the import file is located.
         """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
@@ -136,16 +135,43 @@ class SubspaceBasedOptimizationMethod(dtm.Deterministic):
 
     def solve(self, inputdata, discretization, print_info=True,
               print_file=sys.stdout, initial_guess=None):
-        """Solve a nonlinear inverse problem.
+        """Solve the nonlinear inverse scattering problem.
+
+        Executes the SOM iterative loop. At each iteration, the
+        noise-subspace coefficients are updated by a conjugate-gradient
+        step while the signal-subspace component of the contrast source
+        remains fixed (determined analytically from the SVD of the data
+        operator). The contrast profile is then updated in closed form
+        from the total contrast source.
 
         Parameters
         ----------
-            instance : :class:`inputdata.InputData`
-                An object which defines a case problem with scattered
-                field and some others information.
+            inputdata : :class:`inputdata.InputData`
+                Object containing the measured scattered field, the
+                problem configuration, and any target indicators.
 
-            print_info : bool
-                Print or not the iteration information.
+            discretization : discretization object
+                Object that describes the spatial discretization of the
+                investigation domain (grid elements, Green's functions,
+                interpolation methods).
+
+            print_info : bool, default: True
+                Whether to print iteration progress to ``print_file``.
+
+            print_file : file-like object, default: ``sys.stdout``
+                Destination for iteration messages.
+
+            initial_guess : array-like or None, default: None
+                Initial contrast profile. If ``None``, the
+                back-propagation method is used to generate a first
+                estimate.
+
+        Returns
+        -------
+        result : :class:`result.Result`
+            Object containing the reconstructed contrast, relative
+            permittivity, conductivity, scattered field, and optional
+            performance indicators (execution time, iteration count).
         """
         result = super().solve(inputdata, discretization,
                                print_info=print_info, print_file=print_file)
