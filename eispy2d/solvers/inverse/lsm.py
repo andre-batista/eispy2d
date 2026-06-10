@@ -1,3 +1,41 @@
+r"""Linear Sampling Method for qualitative electromagnetic inverse scattering.
+
+This module implements the Linear Sampling Method (LSM) [1]_, a qualitative
+technique that reconstructs the *support* (shape) of scattering objects
+without recovering material properties. For each sampling point in the
+investigation domain, the method solves a far-field (or near-field) integral
+equation of the first kind; the norm of the solution is large outside the
+scatterer and small inside, yielding a sharp indicator image.
+
+The module supports far-field and near-field measurement configurations and
+provides optional Tikhonov or singular-value regularization.
+
+Classes
+-------
+LinearSamplingMethod : dtm.Deterministic
+    Main class implementing the Linear Sampling Method.
+
+Functions
+---------
+standard(x)
+    Default indicator function: :math:`-\log_{10}(x)`.
+solve(U, s, V, solution, rhs, alpha)
+    Numba-accelerated SVD-based solver for the LSM linear system.
+
+Constants
+---------
+REGULARIZATION, TIKHONOV, SV_CUTOFF, THRESHOLD, FAR_FIELD, INDICATOR
+    Serialization keys.
+
+References
+----------
+.. [1] Colton, D., & Kirsch, A. (1996). A simple method for solving inverse
+   scattering problems in the resonance region. Inverse Problems, 12(4),
+   383-393.
+.. [2] Colton, D., & Kress, R. (2013). Inverse Acoustic and Electromagnetic
+   Scattering Theory (3rd ed.). Springer.
+"""
+
 import sys
 import pickle
 import time as tm
@@ -21,6 +59,22 @@ INDICATOR = 'indicator'
 
 
 def standard(x):
+    r"""Default LSM indicator function.
+
+    Transforms the norm of the LSM solution into a positive-valued
+    indicator. Large values indicate points *outside* the scatterer;
+    small values indicate points *inside*.
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Array of solution norms, one value per sampling point.
+
+    Returns
+    -------
+    numpy.ndarray
+        Indicator values :math:`-\log_{10}(x)`, same shape as `x`.
+    """
     return -np.log10(x)
 
 
@@ -56,6 +110,35 @@ class LinearSamplingMethod(dtm.Deterministic):
                  sv_cutoff=None, threshold=None, far_field=None,
                  indicator_function=standard, import_filename=None,
                  import_filepath=''):
+        """Initialize the Linear Sampling Method.
+
+        Parameters
+        ----------
+        alias : str, default: ''
+            Short identifier for the solver.
+        regularization : Regularization, optional
+            Regularization object (e.g. :class:`Tikhonov`). When provided,
+            it is used for every sampling point instead of the built-in SVD
+            solver.
+        tikhonov : float, optional
+            Tikhonov parameter for the built-in SVD solver. Ignored when
+            `regularization` is provided.
+        sv_cutoff : float, optional
+            Singular-value cutoff threshold for the built-in SVD solver.
+        threshold : float, optional
+            Binary threshold applied to the normalized indicator image.
+            If set, pixels below this value are set to zero.
+        far_field : bool or None, optional
+            Force far-field (``True``) or near-field (``False``) kernel.
+            If ``None``, the choice is made automatically based on the
+            measurement radius :math:`R_o` and wavelength :math:`\lambda_b`.
+        indicator_function : callable, default: standard
+            Function that maps solution norms to indicator values.
+        import_filename : str, optional
+            Filename of a previously saved solver state to restore.
+        import_filepath : str, default: ''
+            Directory containing the import file.
+        """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
         else:
@@ -70,6 +153,31 @@ class LinearSamplingMethod(dtm.Deterministic):
 
     def solve(self, inputdata, discretization=None, print_info=True,
               print_file=sys.stdout):
+        """Solve the inverse scattering problem using the Linear Sampling Method.
+
+        For each point in the investigation domain, an integral equation of
+        the first kind is solved; the norm of the solution provides the
+        indicator image identifying the scatterer's support.
+
+        Parameters
+        ----------
+        inputdata : InputData
+            Object containing the measured scattered field, problem
+            configuration, and optional ground-truth data for error metrics.
+        discretization : Discretization or None, optional
+            Not used by LSM; kept for API compatibility with the base class.
+        print_info : bool, default: True
+            Whether to print progress information.
+        print_file : file-like object, default: sys.stdout
+            Destination for progress messages.
+
+        Returns
+        -------
+        result : Result
+            Result object containing the reconstructed indicator image
+            (stored as relative permittivity / conductivity maps) and
+            optional error metrics.
+        """
         result = super().solve(inputdata, discretization,
                                print_info=print_info, print_file=print_file)
         if self.far_field is not None:
@@ -142,6 +250,17 @@ class LinearSamplingMethod(dtm.Deterministic):
         return result
 
     def save(self, file_path=''):
+        """Save the Linear Sampling Method state to file.
+
+        Serializes all solver parameters (regularization, thresholds,
+        field-approximation mode, indicator function) using pickle.
+
+        Parameters
+        ----------
+        file_path : str, default: ''
+            Directory where the state file is written. The file is named
+            after the solver's alias.
+        """
         data = super().save(file_path=file_path)
         data[REGULARIZATION] = self.regularization
         data[TIKHONOV] = self.tikhonov
@@ -153,6 +272,18 @@ class LinearSamplingMethod(dtm.Deterministic):
             pickle.dump(data, datafile)
 
     def importdata(self, file_name, file_path=''):
+        """Import Linear Sampling Method state from file.
+
+        Restores all solver parameters previously saved with
+        :meth:`save`.
+
+        Parameters
+        ----------
+        file_name : str
+            Name of the file containing the saved solver state.
+        file_path : str, default: ''
+            Directory containing the file.
+        """
         data = super().importdata(file_name, file_path=file_path)
         self.regularization = data[REGULARIZATION]
         self.tikhonov = data[TIKHONOV]
@@ -187,6 +318,20 @@ class LinearSamplingMethod(dtm.Deterministic):
               file=print_file)
 
     def copy(self, new=None):
+        """Create a copy of this Linear Sampling Method instance.
+
+        Parameters
+        ----------
+        new : LinearSamplingMethod, optional
+            Existing instance to copy attributes into. If ``None``,
+            a new instance is created and returned.
+
+        Returns
+        -------
+        LinearSamplingMethod or None
+            A new instance when `new` is ``None``; otherwise ``None``
+            (the provided instance is modified in place).
+        """
         if new is None:
             return LinearSamplingMethod(alias=self.alias,
                                         regularization=self.regularization,
@@ -283,6 +428,29 @@ class LinearSamplingMethod(dtm.Deterministic):
 
 @jit(nopython=True)
 def solve(U, s, V, solution, rhs, alpha):
+    """Compute LSM solution norms via SVD with Tikhonov regularization.
+
+    For each sampling point (column of `rhs`), solves the regularized
+    system and stores the norm of the solution in `solution`.
+
+    Parameters
+    ----------
+    U : numpy.ndarray
+        Left singular vectors, shape ``(NM, P)``.
+    s : numpy.ndarray
+        Singular values, shape ``(P,)``.
+    V : numpy.ndarray
+        Right singular vectors (already conjugate-transposed), shape
+        ``(N, P)`` where ``N`` is the number of domain elements.
+    solution : numpy.ndarray
+        Output array of shape ``(N_sampling,)`` that is filled in place
+        with the solution norms.
+    rhs : numpy.ndarray
+        Right-hand-side matrix of shape ``(NM, N_sampling)`` whose
+        columns are the Green's-function vectors for each sampling point.
+    alpha : float
+        Tikhonov regularization parameter.
+    """
     N = solution.size
     P = s.size
     for n in range(N):

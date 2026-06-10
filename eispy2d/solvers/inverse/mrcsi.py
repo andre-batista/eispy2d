@@ -424,6 +424,17 @@ class MRContrastSourceInversion(dtm.Deterministic):
         print('p = {:.2}'.format(self.exponent), file=print_file)
 
     def save(self, file_path=''):
+        """Save the MRCSI solver state to file.
+
+        Serializes the forward solver, stop criteria, and exponent parameter
+        using pickle.
+
+        Parameters
+        ----------
+        file_path : str, default: ''
+            Directory where the state file is written. The file is named
+            after the solver's alias.
+        """
         data = super().save(file_path=file_path)
         data[FORWARD] = self.forward
         data[STOP_CRITERIA] = self.stop_criteria
@@ -432,12 +443,38 @@ class MRContrastSourceInversion(dtm.Deterministic):
             pickle.dump(data, datafile)
 
     def importdata(self, file_name, file_path=''):
+        """Import MRCSI solver state from file.
+
+        Restores the forward solver, stop criteria, and exponent parameter
+        previously saved with :meth:`save`.
+
+        Parameters
+        ----------
+        file_name : str
+            Name of the file containing the saved solver state.
+        file_path : str, default: ''
+            Directory containing the file.
+        """
         data = super().importdata(file_name, file_path=file_path)
         self.forward = data[FORWARD]
         self.stop_criteria= data[STOP_CRITERIA]
         self.exponent = data[EXPONENT]
 
     def copy(self, new=None):
+        """Create a copy of this MRCSI instance.
+
+        Parameters
+        ----------
+        new : MRContrastSourceInversion, optional
+            Existing instance to copy attributes into. If ``None``,
+            a new instance is created and returned.
+
+        Returns
+        -------
+        MRContrastSourceInversion or None
+            A new instance when `new` is ``None``; otherwise ``None``
+            (the provided instance is modified in place).
+        """
         if new is None:
             return MRContrastSourceInversion(self.stop_criteria,
                                              forward_solver=self.forward, 
@@ -459,10 +496,86 @@ class MRContrastSourceInversion(dtm.Deterministic):
 
 @jit(nopython=True)
 def compute_delta_square(chi, Ei, J, GDJ, eta_d):
+    r"""Compute the :math:`\delta^2` stabilization term for MRCSI.
+
+    Evaluates the normalized squared residual of the domain equation
+    used as the adaptive stabilization term in the total-variation
+    regularization factor:
+
+    .. math::
+
+        \delta^2 = \frac{\|\chi E_i - J + \chi G_D J\|^2}{\eta_d}
+
+    Parameters
+    ----------
+    chi : numpy.ndarray
+        Diagonal contrast matrix, shape ``(N, N)``.
+    Ei : numpy.ndarray
+        Incident electric field, shape ``(N, NS)``.
+    J : numpy.ndarray
+        Current contrast-source vector, shape ``(N, NS)``.
+    GDJ : numpy.ndarray
+        Domain Green's function applied to ``J``, shape ``(N, NS)``.
+    eta_d : float
+        Normalization factor for the domain equation.
+
+    Returns
+    -------
+    float
+        The :math:`\delta^2` value.
+    """
     return np.sum(np.abs(chi @ Ei - J + chi @ GDJ)**2)/eta_d
 
 @jit(nopython=True)
 def get_gradient_x(chi, E, J, eta_d, gradXx, gradXy, dx, dy, p, rho, eta_s, d2):
+    r"""Compute the contrast gradient for the MRCSI multiplicative update.
+
+    Evaluates the gradient of the multiplicative cost functional with respect
+    to the contrast profile, combining the domain-equation gradient and the
+    total-variation gradient:
+
+    .. math::
+
+        \nabla_x\,\mathcal{F} =
+            \frac{\eta_d\,F_{TV}\,g_d + F\,g_{TV}}{\|E\|^2}
+
+    where :math:`g_d` is the domain-equation gradient contribution,
+    :math:`g_{TV}` is the TV gradient, :math:`F` is the current objective
+    value, and :math:`F_{TV}` is the total-variation value.
+
+    Parameters
+    ----------
+    chi : numpy.ndarray
+        Diagonal contrast matrix, shape ``(N, N)``.
+    E : numpy.ndarray
+        Total electric field, shape ``(N, NS)``.
+    J : numpy.ndarray
+        Current contrast-source vector, shape ``(N, NS)``.
+    eta_d : float
+        Domain-equation normalization factor.
+    gradXx : numpy.ndarray
+        x-component of the contrast gradient, shape matching the
+        investigation domain.
+    gradXy : numpy.ndarray
+        y-component of the contrast gradient.
+    dx : float
+        Grid spacing in the x direction.
+    dy : float
+        Grid spacing in the y direction.
+    p : float
+        Exponent of the total-variation norm (typically 1 or 2).
+    rho : numpy.ndarray
+        Data-equation residual (scattered-field error), shape ``(NM, NS)``.
+    eta_s : float
+        Scattered-field normalization factor.
+    d2 : float
+        :math:`\delta^2` stabilization value from :func:`compute_delta_square`.
+
+    Returns
+    -------
+    numpy.ndarray
+        Contrast gradient vector, shape ``(N,)``.
+    """
     aux1 = gradXx**2 + gradXy**2 + d2
     Ftv = np.trapz(np.trapz(np.sqrt(aux1)**p, dx=dy), dx=dx)
     gd = -np.sum((chi@E - J)*np.conj(E), axis=1)

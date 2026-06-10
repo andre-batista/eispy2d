@@ -1,3 +1,30 @@
+r"""Evolutionary Algorithm framework for electromagnetic inverse scattering.
+
+This module implements a general-purpose Evolutionary Algorithm (EA)
+framework for solving electromagnetic inverse scattering problems. It
+supports population-based metaheuristics including Differential Evolution
+(DE), Particle Swarm Optimization (PSO), and Genetic Algorithms (GA),
+selected via the `mechanism` argument.
+
+The algorithm iterates over a population of candidate solutions, evaluating
+them through an objective function and updating them using the chosen
+evolutionary mechanism. Multiple independent executions can be performed
+(optionally in parallel) and aggregated by an output mode object.
+
+Classes
+-------
+EvolutionaryAlgorithm : stc.Stochastic
+    Main class implementing the evolutionary algorithm framework.
+
+References
+----------
+.. [1] Storn, R., & Price, K. (1997). Differential evolution — a simple and
+   efficient heuristic for global optimization over continuous spaces.
+   Journal of Global Optimization, 11(4), 341-359.
+.. [2] Kennedy, J., & Eberhart, R. (1995). Particle swarm optimization.
+   Proceedings of ICNN'95, vol. 4, pp. 1942-1948.
+"""
+
 import sys
 import time as tm
 import numpy as np
@@ -53,6 +80,42 @@ class EvolutionaryAlgorithm(stc.Stochastic):
                  representation, mechanism, stop_criteria, outputmode,
                  alias='ea', parallelization=False, number_executions=1,
                 forward_solver=None, import_filename=None, import_filepath=''):
+        """Initialize the Evolutionary Algorithm.
+
+        Parameters
+        ----------
+        population_size : int
+            Number of candidate solutions in the population.
+        initialization : Initialization
+            Strategy for generating the initial population.
+        objective_function : ObjectiveFunction
+            Callable-like object that evaluates the quality of a candidate
+            solution.
+        representation : Representation
+            Object encoding and decoding candidate solutions. When an
+            instance of :class:`CanonicalProblems`, the forward solver and
+            scattered field are not used.
+        mechanism : Mechanism
+            Evolutionary update mechanism (e.g. DE, PSO, GA).
+        stop_criteria : StopCriteria
+            Object controlling the termination condition of each execution.
+        outputmode : OutputMode
+            Strategy for aggregating results from multiple executions.
+        alias : str, default: 'ea'
+            Short identifier for the solver.
+        parallelization : bool, default: False
+            If ``True``, independent executions are run in parallel using
+            all available CPU cores via :mod:`joblib`.
+        number_executions : int, default: 1
+            Number of independent executions to perform.
+        forward_solver : ForwardSolver, optional
+            Forward solver used to compute the incident field when
+            `representation` is not a :class:`CanonicalProblems` instance.
+        import_filename : str, optional
+            Filename of a previously saved solver state to restore.
+        import_filepath : str, default: ''
+            Directory containing the import file.
+        """
         if import_filename is not None:
             self.importdata(import_filename, import_filepath)
         else:
@@ -70,6 +133,32 @@ class EvolutionaryAlgorithm(stc.Stochastic):
 
     def solve(self, inputdata, discretization=None, print_info=True,
               print_file=sys.stdout):
+        """Solve the inverse scattering problem using the evolutionary algorithm.
+
+        Runs one or more independent executions of the evolutionary loop and
+        combines the results using the configured output mode.
+
+        Parameters
+        ----------
+        inputdata : InputData
+            Object containing the measured scattered field, problem
+            configuration, and target indicators. When `representation` is
+            a :class:`CanonicalProblems` instance, a synthetic
+            :class:`InputData` is created internally.
+        discretization : Discretization or None, optional
+            Not used when `representation` is a :class:`CanonicalProblems`
+            instance; otherwise forwarded to the base-class :meth:`solve`.
+        print_info : bool, default: True
+            Whether to print progress information.
+        print_file : file-like object, default: sys.stdout
+            Destination for progress messages.
+
+        Returns
+        -------
+        result : Result
+            Aggregated result object produced by the output mode from all
+            independent executions.
+        """
         if isinstance(self.representation, rpt.CanonicalProblems):
             CANONICAL = True
         else:
@@ -214,6 +303,16 @@ class EvolutionaryAlgorithm(stc.Stochastic):
         return result
 
     def save(self, file_path):
+        """Save the Evolutionary Algorithm state to file.
+
+        Delegates to the base-class :meth:`save`, which serializes
+        the common stochastic solver attributes.
+
+        Parameters
+        ----------
+        file_path : str
+            Directory where the state file is written.
+        """
         super().save(file_path=file_path)
             
     def _update_results(self, inputdata, result, xopt, fopt):
@@ -248,6 +347,20 @@ class EvolutionaryAlgorithm(stc.Stochastic):
                             objective_function=fopt)
 
     def copy(self, new=None):
+        """Create a copy of this Evolutionary Algorithm instance.
+
+        Parameters
+        ----------
+        new : EvolutionaryAlgorithm, optional
+            Existing instance to copy attributes into. If ``None``,
+            a new instance is created and returned.
+
+        Returns
+        -------
+        EvolutionaryAlgorithm or None
+            A new instance when `new` is ``None``; otherwise ``None``
+            (the provided instance is modified in place).
+        """
         if new is None:
             return EvolutionaryAlgorithm(self.population_size,
                                          self.initiallization,

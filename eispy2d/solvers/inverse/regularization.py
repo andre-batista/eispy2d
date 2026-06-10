@@ -1,3 +1,51 @@
+r"""Regularization methods for ill-posed linear inverse problems.
+
+This module provides a collection of regularization algorithms used to
+stabilize the solution of ill-conditioned linear systems of the form
+:math:`Kx = y` that arise in electromagnetic inverse scattering. All
+concrete classes inherit from the abstract base class
+:class:`Regularization` and expose a uniform ``solve(K, y)`` interface.
+
+Classes
+-------
+Regularization : ABC
+    Abstract base class defining the regularization interface.
+Tikhonov : Regularization
+    Tikhonov (L2) regularization with fixed, Morozov, or L-curve parameter
+    selection.
+Landweber : Regularization
+    Iterative Landweber regularization.
+ConjugatedGradient : Regularization
+    Conjugated-gradient (CGLS) regularization.
+LeastSquares : Regularization
+    Least-squares solution with spectral cut-off (pseudo-inverse).
+SingularValueDecomposition : Regularization
+    SVD-based regularization combining Tikhonov damping and spectral
+    cut-off.
+
+Functions
+---------
+tikhonov(K, y, alpha)
+    Tikhonov regularized solution of :math:`Kx = y`.
+mozorov_choice(K, y, delta)
+    Morozov discrepancy-principle parameter selection.
+lcurve_choice(K, y, bounds, number_terms)
+    L-curve parameter selection.
+landweber(K, y, x, iterations)
+    Landweber iterative solution.
+conjugated_gradient(K, y, iterations)
+    Conjugated-gradient iterative solution.
+least_squares(K, y, cutoff)
+    Least-squares solution via :func:`numpy.linalg.lstsq`.
+svd(K, y, alpha, min_sv, U, s, V)
+    SVD-based regularized solution.
+
+References
+----------
+.. [1] Kirsch, Andreas. *An Introduction to the Mathematical Theory
+   of Inverse Problems*. Vol. 120. Springer, 2011.
+"""
+
 import numpy as np
 from numba import jit, prange
 from numpy import linalg as lag
@@ -11,18 +59,79 @@ TIK_LCURVE = 'lcurve'
 
 
 class Regularization(ABC):
+    """Abstract base class for regularization methods.
+
+    All regularization strategies must inherit from this class and
+    implement the :meth:`solve` method, which accepts a coefficient
+    matrix and a right-hand-side vector (or matrix) and returns the
+    regularized solution.
+    """
     def __init__(self):
+        """Initialize base regularization object."""
         pass
     @abstractmethod
     def solve(self, K, y):
-        pass
+        """Solve the regularized linear system :math:`Kx = y`.
+
+        Parameters
+        ----------
+        K : numpy.ndarray
+            Coefficient matrix (kernel), shape ``(M, N)``.
+        y : numpy.ndarray
+            Right-hand side, shape ``(M,)`` or ``(M, P)``.
+
+        Returns
+        -------
+        numpy.ndarray
+            Regularized solution, shape ``(N,)`` or ``(N, P)``.
+        """
     @abstractmethod
     def __str__(self):
         return 'Regularization Method: '
 
 
 class Tikhonov(Regularization):
-    
+    r"""Tikhonov (L2) regularization for ill-posed linear systems.
+
+    Solves :math:`Kx = y` by minimizing the Tikhonov functional:
+
+    .. math::
+
+        \|Kx - y\|^2 + \alpha \|x\|^2
+
+    The optimal solution is :math:`x^\alpha = (K^*K + \alpha I)^{-1}K^*y`.
+    The regularization parameter :math:`\alpha` can be specified directly
+    or determined automatically via the Morozov discrepancy principle or
+    the L-curve criterion.
+
+    Parameters
+    ----------
+    choice : int, float, or {'fixed', 'mozorov', 'lcurve'}
+        Regularization parameter selection strategy:
+
+        - ``int`` or ``float``: fixed regularization parameter value.
+        - ``'fixed'``: use a fixed parameter value (requires `parameter`).
+        - ``'mozorov'``: Morozov discrepancy principle.
+        - ``'lcurve'``: L-curve criterion.
+    parameter : float, optional
+        Fixed regularization parameter value. Required when
+        ``choice='fixed'``.
+
+    Attributes
+    ----------
+    alpha : float or None
+        Active regularization parameter. ``None`` when the parameter
+        is determined automatically at solve time.
+    choice : str
+        Selected parameter-choice strategy.
+
+    Raises
+    ------
+    MissingInputError
+        If ``choice='fixed'`` and `parameter` is ``None``.
+    WrongTypeInput
+        If `parameter` is provided with an unsupported type.
+    """
     def __init__(self, choice, parameter=None):
         r"""Initialize Tikhonov regularization.
 
@@ -123,6 +232,28 @@ class Tikhonov(Regularization):
 
 
 class Landweber(Regularization):
+    r"""Iterative Landweber regularization.
+
+    Approximates the solution of :math:`Kx = y` by fixed-point
+    iteration:
+
+    .. math::
+
+        x_{n+1} = x_n + a\,K^*(y - K\,x_n), \quad a = \|K\|^{-2}
+
+    The number of iterations acts as an implicit regularization
+    parameter: early stopping prevents over-fitting to noise.
+
+    Parameters
+    ----------
+    iterations : int
+        Number of Landweber iterations to perform.
+
+    Attributes
+    ----------
+    M : int
+        Number of iterations.
+    """
     def __init__(self, iterations):
         r"""Initialize Landweber regularization.
 
@@ -174,6 +305,22 @@ class Landweber(Regularization):
 
 
 class ConjugatedGradient(Regularization):
+    r"""Conjugated-gradient (CGLS) regularization.
+
+    Iteratively solves the normal equations :math:`K^*K\,x = K^*y`
+    using the conjugated-gradient method. Early stopping (controlled
+    by the number of iterations) provides implicit regularization.
+
+    Parameters
+    ----------
+    iterations : int
+        Maximum number of CG iterations.
+
+    Attributes
+    ----------
+    M : int
+        Number of iterations.
+    """
     def __init__(self, iterations):
         r"""Initialize Conjugated Gradient regularization.
 
@@ -219,6 +366,25 @@ class ConjugatedGradient(Regularization):
 
 
 class LeastSquares(Regularization):
+    r"""Least-squares regularization with spectral cut-off.
+
+    Computes the minimum-norm least-squares solution of :math:`Kx = y`
+    via :func:`numpy.linalg.lstsq`. Singular values below the specified
+    `cutoff` (rcond) threshold are treated as zero, which acts as a
+    spectral truncation regularizer (TSVD).
+
+    Parameters
+    ----------
+    cutoff : float, optional
+        Relative cut-off threshold for singular values (``rcond``
+        argument of :func:`numpy.linalg.lstsq`). If ``None``, the
+        NumPy default is used.
+
+    Attributes
+    ----------
+    cutoff : float or None
+        Active singular-value cut-off ratio.
+    """
     def __init__(self, cutoff=None):
         r"""Initialize Least Squares regularization with spectral cutoff.
 
@@ -265,6 +431,36 @@ class LeastSquares(Regularization):
 
 
 class SingularValueDecomposition(Regularization):
+    r"""SVD-based regularization with Tikhonov damping and spectral cut-off.
+
+    Computes the regularized pseudo-inverse of :math:`K` via singular
+    value decomposition, combining Tikhonov damping and a spectral
+    cut-off filter:
+
+    .. math::
+
+        x = \sum_{n:\,s_n \geq s_{\min}}
+            \frac{s_n}{s_n^2 + \alpha}\,(U_n^*\,y)\,V_n
+
+    where :math:`\alpha` is the Tikhonov parameter and :math:`s_{\min}`
+    is the cut-off threshold for singular values.
+
+    Parameters
+    ----------
+    tikhonov : float, default: 0.0
+        Tikhonov regularization parameter :math:`\alpha`. Use ``0.0``
+        for pure spectral truncation.
+    cutoff : float, default: 0.0
+        Minimum singular value threshold :math:`s_{\min}`. Singular
+        values below this threshold are discarded.
+
+    Attributes
+    ----------
+    tikhonov : float
+        Active Tikhonov parameter.
+    cutoff : float
+        Active singular-value cut-off.
+    """
     def __init__(self, tikhonov=.0, cutoff=.0):
         r"""Initialize SVD-based regularization.
 

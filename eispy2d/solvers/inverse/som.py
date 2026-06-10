@@ -384,6 +384,16 @@ class SubspaceBasedOptimizationMethod(dtm.Deterministic):
         print(self.stop_criteria, file=print_file)
 
     def save(self, file_path=''):
+        """Save the SOM solver state to file.
+
+        Serializes the forward solver and stop criteria using pickle.
+
+        Parameters
+        ----------
+        file_path : str, default: ''
+            Directory where the state file is written. The file is named
+            after the solver's alias.
+        """
         data = super().save(file_path=file_path)
         data[FORWARD] = self.forward
         data[STOP_CRITERIA] = self.stop_criteria
@@ -391,11 +401,37 @@ class SubspaceBasedOptimizationMethod(dtm.Deterministic):
             pickle.dump(data, datafile)
 
     def importdata(self, file_name, file_path=''):
+        """Import SOM solver state from file.
+
+        Restores the forward solver and stop criteria previously saved
+        with :meth:`save`.
+
+        Parameters
+        ----------
+        file_name : str
+            Name of the file containing the saved solver state.
+        file_path : str, default: ''
+            Directory containing the file.
+        """
         data = super().importdata(file_name, file_path=file_path)
         self.forward = data[FORWARD]
         self.stop_criteria= data[STOP_CRITERIA]
 
     def copy(self, new=None):
+        """Create a copy of this SOM instance.
+
+        Parameters
+        ----------
+        new : SubspaceBasedOptimizationMethod, optional
+            Existing instance to copy attributes into. If ``None``,
+            a new instance is created and returned.
+
+        Returns
+        -------
+        SubspaceBasedOptimizationMethod or None
+            A new instance when `new` is ``None``; otherwise ``None``
+            (the provided instance is modified in place).
+        """
         if new is None:
             return SubspaceBasedOptimizationMethod(
                 self.stop_criteria, forward_solver=self.forward,
@@ -416,6 +452,38 @@ class SubspaceBasedOptimizationMethod(dtm.Deterministic):
 
 
 def initial_parameters(GS, L, Es):
+    r"""Initialize the SOM subspace decomposition parameters.
+
+    Performs the SVD of the data operator ``GS`` and extracts the signal
+    subspace (first ``L`` singular vectors). Returns all arrays needed to
+    start the main SOM iterative loop.
+
+    Parameters
+    ----------
+    GS : numpy.ndarray
+        Scattering Green's function matrix, shape ``(NM, N)``.
+    L : int
+        Number of dominant singular values/vectors retained for the signal
+        subspace (denoted *L* in [1]_).
+    Es : numpy.ndarray
+        Measured scattered field matrix, shape ``(NM, NS)``.
+
+    Returns
+    -------
+    tuple
+        ``(J_po, Gs_V_ne, alpha_ne, alpha_neo, rho, grad, del_dat,
+        E_s_norm_sq, J_po_norm_sq)``
+
+        - **J_po** *(N, NS)*: Signal-subspace component of the contrast source.
+        - **Gs_V_ne** *(N, N-L)*: Noise-subspace right singular vectors.
+        - **alpha_ne** *(N-L, NS)*: Noise-subspace coefficients (initialized to zero).
+        - **alpha_neo** *(N-L, NS)*: Previous-step noise-subspace coefficients.
+        - **rho** *(N-L, NS)*: CG search direction (initialized to zero).
+        - **grad** *(N-L, NS)*: Gradient (initialized to zero).
+        - **del_dat** *(NM, NS)*: Initial data-equation residual.
+        - **E_s_norm_sq** *(NS,)*: Column-wise squared norms of ``Es``.
+        - **J_po_norm_sq** *(NS,)*: Column-wise squared norms of ``J_po``.
+    """
     NS = Es.shape[1]
     N = GS.shape[1]
     Gs_U, Gs_S, Gs_V = svd(GS)
@@ -440,6 +508,33 @@ def initial_parameters(GS, L, Es):
 @jit(nopython=True)
 def gradient_terms(GS, Gs_V_ne, del_dat, E_s_norm_sq, N, L, del_sta,
                    J_po_norm_sq):
+    r"""Compute the three gradient building blocks for the SOM CG step.
+
+    Parameters
+    ----------
+    GS : numpy.ndarray
+        Scattering Green's function matrix, shape ``(NM, N)``.
+    Gs_V_ne : numpy.ndarray
+        Noise-subspace right singular vectors, shape ``(N, N-L)``.
+    del_dat : numpy.ndarray
+        Data-equation residual :math:`G_S J - E_s`, shape ``(NM, NS)``.
+    E_s_norm_sq : numpy.ndarray
+        Column-wise squared norms of the scattered field, shape ``(NS,)``.
+    N : int
+        Total number of domain discretization points.
+    L : int
+        Signal-subspace dimension.
+    del_sta : numpy.ndarray
+        Domain-equation residual, shape ``(N, NS)``.
+    J_po_norm_sq : numpy.ndarray
+        Column-wise squared norms of ``J_po``, shape ``(NS,)``.
+
+    Returns
+    -------
+    tuple
+        ``(t1, t2a, t2c)`` intermediate gradient arrays used in
+        :meth:`SubspaceBasedOptimizationMethod._get_gradient`.
+    """
     E_s_norm_sq_tile = 0j*np.ones((N-L, E_s_norm_sq.size))
     for n in range(N-L):
         E_s_norm_sq_tile[n, :] = E_s_norm_sq
@@ -452,6 +547,35 @@ def gradient_terms(GS, Gs_V_ne, del_dat, E_s_norm_sq, N, L, del_sta,
 
 @jit(nopython=True)
 def compute_rho(grad, grado, N, L, rhoo):
+    r"""Compute the Polak–Ribière conjugate-gradient search direction.
+
+    Updates the CG search direction :math:`\rho` for the noise-subspace
+    coefficients using the Polak–Ribière formula:
+
+    .. math::
+
+        \rho^{(k)} = g^{(k)} + \beta^{(k)}\rho^{(k-1)},\quad
+        \beta^{(k)} = \frac{\Re\bigl[(g^{(k)}-g^{(k-1)})^* g^{(k)}\bigr]}
+                           {\|g^{(k-1)}\|^2}
+
+    Parameters
+    ----------
+    grad : numpy.ndarray
+        Current gradient, shape ``(N-L, NS)``.
+    grado : numpy.ndarray
+        Previous-step gradient, shape ``(N-L, NS)``.
+    N : int
+        Total number of domain points.
+    L : int
+        Signal-subspace dimension.
+    rhoo : numpy.ndarray
+        Previous-step search direction, shape ``(N-L, NS)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Updated search direction, shape ``(N-L, NS)``.
+    """
     
     aux = np.real(np.sum(np.conj(grad - grado)*grad,axis=0))/np.sum(np.abs(grado)**2, axis=0)
     aux_tile = 0j*np.ones((N-L, aux.size))
@@ -462,6 +586,49 @@ def compute_rho(grad, grado, N, L, rhoo):
 @jit(nopython=True)
 def compute_alpha(GS, Gs_V_ne, rho, del_dat, E_s_norm_sq, Xe, GDGs_V_nerho,
                   del_sta, J_po_norm_sq, alpha_neo, N, L):
+    r"""Update the noise-subspace coefficients via the optimal step size.
+
+    Computes the step size :math:`\mu` that minimizes the SOM cost
+    functional along the search direction :math:`\rho` and returns the
+    updated coefficients:
+
+    .. math::
+
+        \alpha_{\mathrm{ne}}^{(k)} =
+            \alpha_{\mathrm{ne}}^{(k-1)} + \mu\,\rho^{(k)}
+
+    Parameters
+    ----------
+    GS : numpy.ndarray
+        Scattering Green's function matrix, shape ``(NM, N)``.
+    Gs_V_ne : numpy.ndarray
+        Noise-subspace right singular vectors, shape ``(N, N-L)``.
+    rho : numpy.ndarray
+        CG search direction, shape ``(N-L, NS)``.
+    del_dat : numpy.ndarray
+        Data-equation residual, shape ``(NM, NS)``.
+    E_s_norm_sq : numpy.ndarray
+        Scattered-field squared norms, shape ``(NS,)``.
+    Xe : numpy.ndarray
+        Tiled contrast vector, shape ``(N, NS)``.
+    GDGs_V_nerho : numpy.ndarray
+        Domain Green's function applied to ``Gs_V_ne @ rho``, shape ``(N, NS)``.
+    del_sta : numpy.ndarray
+        Domain-equation residual, shape ``(N, NS)``.
+    J_po_norm_sq : numpy.ndarray
+        Signal-subspace contrast-source squared norms, shape ``(NS,)``.
+    alpha_neo : numpy.ndarray
+        Previous-step noise-subspace coefficients, shape ``(N-L, NS)``.
+    N : int
+        Total number of domain points.
+    L : int
+        Signal-subspace dimension.
+
+    Returns
+    -------
+    numpy.ndarray
+        Updated noise-subspace coefficients, shape ``(N-L, NS)``.
+    """
     aux1 = Gs_V_ne@rho
     aux2 = GS@aux1
     aux3 = aux1 - Xe*GDGs_V_nerho
@@ -477,10 +644,55 @@ def compute_alpha(GS, Gs_V_ne, rho, del_dat, E_s_norm_sq, Xe, GDGs_V_nerho,
 
 @jit(nopython=True)
 def compute_J(J_po, Gs_V_ne, alpha_ne):
+    r"""Assemble the total contrast source from signal and noise components.
+
+    .. math::
+
+        J = J_{\mathrm{po}} + G_S V_{\mathrm{ne}}\,\alpha_{\mathrm{ne}}
+
+    Parameters
+    ----------
+    J_po : numpy.ndarray
+        Signal-subspace contrast source, shape ``(N, NS)``.
+    Gs_V_ne : numpy.ndarray
+        Noise-subspace right singular vectors, shape ``(N, N-L)``.
+    alpha_ne : numpy.ndarray
+        Noise-subspace coefficients, shape ``(N-L, NS)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Total contrast source, shape ``(N, NS)``.
+    """
     return J_po + Gs_V_ne @ alpha_ne
 
 @jit(nopython=True)
 def compute_X(Et, J, J_po_norm_sq):
+    r"""Update the contrast profile from total field and contrast source.
+
+    Computes the least-squares update of the contrast vector in closed
+    form:
+
+    .. math::
+
+        \chi_n =
+            \frac{\sum_s E_t^*(z_n,s)\,J(z_n,s)/\|J_{\mathrm{po}}\|_s^2}
+                 {\sum_s |E_t(z_n,s)|^2/\|J_{\mathrm{po}}\|_s^2}
+
+    Parameters
+    ----------
+    Et : numpy.ndarray
+        Total electric field, shape ``(N, NS)``.
+    J : numpy.ndarray
+        Total contrast source, shape ``(N, NS)``.
+    J_po_norm_sq : numpy.ndarray
+        Signal-subspace contrast-source squared norms, shape ``(NS,)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Updated contrast vector, shape ``(N,)``.
+    """
     N = J.shape[0]
     Etconj = Et.conj()
     den = 0j*np.ones((N, J_po_norm_sq.size))
@@ -492,7 +704,34 @@ def compute_X(Et, J, J_po_norm_sq):
 
 @jit(nopython=True)
 def update_last_parameters(Xe, E_po, J_po, GS, Gs_V_nealpha_ne, Es,
-                           GDGs_V_nealpha_ne):   
+                           GDGs_V_nealpha_ne):
+    r"""Recompute residuals and auxiliary variables after updating :math:`\alpha_{\mathrm{ne}}`.
+
+    Parameters
+    ----------
+    Xe : numpy.ndarray
+        Tiled contrast vector, shape ``(N, NS)``.
+    E_po : numpy.ndarray
+        Signal-subspace total field :math:`E_i + G_D J_{\mathrm{po}}`,
+        shape ``(N, NS)``.
+    J_po : numpy.ndarray
+        Signal-subspace contrast source, shape ``(N, NS)``.
+    GS : numpy.ndarray
+        Scattering Green's function matrix, shape ``(NM, N)``.
+    Gs_V_nealpha_ne : numpy.ndarray
+        Product :math:`G_S V_{\mathrm{ne}}\alpha_{\mathrm{ne}}`,
+        shape ``(N, NS)``.
+    Es : numpy.ndarray
+        Measured scattered field, shape ``(NM, NS)``.
+    GDGs_V_nealpha_ne : numpy.ndarray
+        Domain Green's function applied to :math:`G_S V_{\mathrm{ne}}\alpha_{\mathrm{ne}}`,
+        shape ``(N, NS)``.
+
+    Returns
+    -------
+    tuple
+        ``(B, del_dat, del_sta)`` updated auxiliary arrays.
+    """   
     B = Xe*E_po - J_po
     del_dat = GS@Gs_V_nealpha_ne + GS@J_po - Es
     del_sta = Gs_V_nealpha_ne - Xe*GDGs_V_nealpha_ne - B
@@ -500,6 +739,34 @@ def update_last_parameters(Xe, E_po, J_po, GS, Gs_V_nealpha_ne, Es,
 
 @jit(nopython=True)
 def compute_objective_function(del_dat, E_s_norm_sq, del_sta, J_po_norm_sq):
+    r"""Evaluate the SOM normalized cost functional.
+
+    Computes the sum of the normalized data-equation error and the
+    normalized domain-equation error:
+
+    .. math::
+
+        \mathcal{F} =
+            \sum_s \frac{\|\Delta d_s\|^2}{\|E_s\|^2}
+            + \sum_s \frac{\|\Delta \mathrm{sta}_s\|^2}{\|J_{\mathrm{po},s}\|^2}
+
+    Parameters
+    ----------
+    del_dat : numpy.ndarray
+        Data-equation residual, shape ``(NM, NS)``.
+    E_s_norm_sq : numpy.ndarray
+        Column-wise squared norms of the scattered field, shape ``(NS,)``.
+    del_sta : numpy.ndarray
+        Domain-equation residual, shape ``(N, NS)``.
+    J_po_norm_sq : numpy.ndarray
+        Column-wise squared norms of the signal-subspace contrast source,
+        shape ``(NS,)``.
+
+    Returns
+    -------
+    float
+        Current value of the objective functional.
+    """
     objectf1 = np.sum(np.sum((np.abs(del_dat))**2, axis=0)/E_s_norm_sq)
     objectf2 = np.sum(np.sum((np.abs(del_sta))**2, axis=0)/J_po_norm_sq)
     return objectf1 + objectf2
