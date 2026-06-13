@@ -1,6 +1,6 @@
 # tests/test_result.py
 """
-Unit tests for eispy2d.data.result module.
+Unit tests for eispy2d.core.result module.
 """
 
 import sys

@@ -29,7 +29,7 @@ from eispy2d.core.error import (
 # ============================================================================
 from eispy2d.core.inputdata import InputData
 from eispy2d.core.result import Result
-from eispy2d.data.testset import TestSet
+from eispy2d.experiments.testset import TestSet
 
 # ============================================================================
 # Solvers - Base Classes

@@ -23,7 +23,7 @@ from eispy2d.experiments import (
 from eispy2d.solvers.inverse import regularization as reg
 from eispy2d.discretization import richmond as ric
 from eispy2d.core import configuration as cfg, result as rst
-from eispy2d.data import (
+from eispy2d.experiments import (
     testset as tst,
 )
 from eispy2d.solvers.forward import mom_cg_fft as mom

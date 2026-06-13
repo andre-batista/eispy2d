@@ -1,6 +1,6 @@
 # tests/test_inputdata.py
 """
-Unit tests for eispy2d.data.inputdata module.
+Unit tests for eispy2d.core.inputdata module.
 """
 
 import sys

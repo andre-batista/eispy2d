@@ -8,11 +8,9 @@ Subpackages
    :maxdepth: 4
 
    eispy2d.core
-   eispy2d.data
    eispy2d.discretization
    eispy2d.evoalglib
    eispy2d.experiments
-   eispy2d.regularization
    eispy2d.solvers
    eispy2d.utils
 

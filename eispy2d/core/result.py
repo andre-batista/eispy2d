@@ -2450,7 +2450,7 @@ def compute_zeta_rn(es_o, es_a):
     theta = cfg.get_angles(NM)
     phi = cfg.get_angles(NS)
     y = (es_o-es_a)*np.conj(es_o-es_a)
-    return np.real(np.sqrt(np.trapz(np.trapz(y, x=phi), x=theta)))
+    return np.real(np.sqrt(np.trapezoid(np.trapezoid(y, x=phi), x=theta)))
 
 
 def compute_rre(es_o, es_a):
@@ -2706,7 +2706,7 @@ def compute_zeta_tv(chi, x, y):
     """
     grad_chi = np.gradient(chi, y[:, 0], x[0, :])
     X = np.sqrt(np.abs(grad_chi[1])**2 + np.abs(grad_chi[0])**2)
-    return np.trapz(np.trapz(X**2/(X**2+1), x=x[0, :]), x=y[:, 0])
+    return np.trapezoid(np.trapezoid(X**2/(X**2+1), x=x[0, :]), x=y[:, 0])
 
 
 def compute_zeta_ebe(epsilon_ro, epsilon_rr, epsilon_rb):
