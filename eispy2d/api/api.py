@@ -1,10 +1,13 @@
 import numpy as np
+from skimage import data
 
 from eispy2d.discretization import richmond
 from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.core import configuration as cfg
 from eispy2d.core import result as rst
 from eispy2d.core import inputdata as ipt
+from eispy2d.utils import draw
+from scipy.linalg import norm
 
 import numpy as np
 
@@ -12,17 +15,7 @@ import numpy as np
 
 
 def evaluate(algorithim, data=None):
-    
-    if data == None:
-        wavelength = 1.0
-        number_measurements = 16
-        number_sources = 16
-        image_size = [2.0, 2.0]
-        observation_radius = 3.0
-        background_permittivity = 1.0
-        resolution = (60, 60)
-        epslon_r = np.ones(resolution) * 2.0
-    else:
+    if data is not None:
         if "wavelength" in data:
             wavelength = data["wavelength"]
         if "number_measurements" in data:
@@ -40,29 +33,59 @@ def evaluate(algorithim, data=None):
         if "rel_permittivity" in data:
             epslon_r = data["rel_permittivity"]
 
-    config = cfg.Configuration(
-        name='test',
-        wavelength=wavelength,
-        number_measurements=number_measurements,
-        number_sources=number_sources,
-        image_size=image_size,
-        observation_radius=observation_radius,
-        background_permittivity=background_permittivity)
+    f0 = 3e8 # linear frequency [m]
+    Lx, Ly = .8, .8 # D domain size [m]
+    NS, NM = 10, 9 # number of sources and measurements
+    RO = 1. # observation radius [m]
+    epsilon_rb = 4. # background relative permittivity
+    E0 = 1 # incident wave magnitude [V/m]
+    resolution = (60, 60) # ground-truth image resolution [pixels]
+    noise_level = 1. # [%/sample]
+    indicators = [rst.REL_PERMITTIVITY_PAD_ERROR, rst.OBJECTIVE_FUNCTION]
+    contrast_level = 1.
+    object_size = .16 # [m]
 
-    inputdata = ipt.InputData(name='ipt_test',
-                          configuration=config,
-                          resolution=resolution,
-                          noise=1.,
-                          indicators=[rst.RESIDUAL_PAD_ERROR,
-                                      rst.RESIDUAL_NORM_ERROR,
-                                      rst.REL_PERMITTIVITY_PAD_ERROR,
-                                      rst.REL_PERMITTIVITY_OBJECT_ERROR,
-                                      rst.REL_PERMITTIVITY_BACKGROUND_ERROR,
-                                      rst.POSITION_ERROR,
-                                      rst.SHAPE_ERROR,
-                                      rst.EXECUTION_TIME],
-                          rel_permittivity=epslon_r)
+    # Define domain and source parameters
+    config = cfg.Configuration(name='cfg_test',
+                            frequency=f0,
+                            wavelength_unit=False,
+                            number_measurements=NM,
+                            number_sources=NS,
+                            image_size=[Ly, Lx],
+                            observation_radius=RO,
+                            background_permittivity=epsilon_rb,
+                            magnitude=E0,
+                            perfect_dielectric=True)
 
+    # Build test object
+    inputdata = ipt.InputData(name='iptTest',
+                            configuration=config,
+                            resolution=resolution,
+                            noise=noise_level,
+                            indicators=indicators)
+
+    # Draw figure
+    inputdata.rel_permittivity, _ = draw.triangle(
+        object_size*np.sqrt(3),
+        center=[-.14, .09],
+        axis_length_x=config.Lx,
+        axis_length_y=config.Ly,
+        resolution=resolution,
+        background_rel_permittivity=epsilon_rb,
+        object_rel_permittivity=(contrast_level+1)*epsilon_rb
+    )
+
+
+    # Build forward solver object
+    solver = mom.MoM_CG_FFT(tolerance=.001,
+                            maximum_iterations=5000)
+
+    # Solve forward problem
+    _ = solver.solve(inputdata,
+                    PRINT_INFO=True,
+                    COMPUTE_SCATTERED_FIELD=True,
+                    SAVE_INTERN_FIELD=True)
+    # Number of elements (pixels)
 
     GS = richmond.richmond_data(config, resolution)
     GD = richmond.richmond_state(config, resolution)
@@ -73,29 +96,34 @@ def evaluate(algorithim, data=None):
         configuration=config
     )
 
-    discretization = richmond.Richmond(config, resolution)
-    
-    solver = mom.MoM_CG_FFT(tolerance=.001, maximum_iterations=5000)
-
-    solver.solve(inputdata,
-                 PRINT_INFO=True,
-                 COMPUTE_SCATTERED_FIELD=True,
-                 SAVE_INTERN_FIELD=True)
-
     incident_field = inputdata.ei
     scattered_field = inputdata.scattered_field
     
     scattered, chi = algorithim(scattered_field, incident_field, GS, GD)
 
     epsilon_r_recon = config.epsilon_rb * (np.real(chi) + 1)
+    epsilon_r_recon = epsilon_r_recon.reshape(resolution)
+    
+    epad = rst.compute_zeta_epad(inputdata.rel_permittivity, epsilon_r_recon)
+    
+    print(f"Avarage Contrast shape: {np.mean(np.real(chi)):.2f}")
 
-    epad = rst.compute_zeta_epad(epslon_r, epsilon_r_recon)
-    result.zeta_epad = [epad]
+    result = rst.Result(
+        name='evaluated_result',
+        method_name=algorithim.__name__,
+        configuration=config,
+        rel_permittivity=epsilon_r_recon
+    )
 
-    print(f"Contrast shape: {chi}")
-    print(f"Permissivity error: {result.zeta_epad[-1]:.2f}%")
+    objective_function = norm(inputdata.scattered_field - scattered)**2
 
-    result.chi = chi
-    result.epsilon_r_recon = epsilon_r_recon
+    result.update_error(inputdata=inputdata,
+                        scattered_field=scattered,
+                        rel_permittivity=inputdata.rel_permittivity,
+                        contrast=chi,
+                        objective_function=objective_function)
+
+
+    print(f"Permittivity error: {result.zeta_epad}%")
 
     return result
