@@ -18,6 +18,7 @@ from eispy2d.core.error import (
     WrongValueInput,
     EmptyAttribute,
 )
+from eispy2d.core.inputdata import InputData
 
 __all__ = [
     'Configuration',
@@ -28,4 +29,5 @@ __all__ = [
     'WrongTypeInput',
     'WrongValueInput',
     'EmptyAttribute',
+    'InputData',
 ]

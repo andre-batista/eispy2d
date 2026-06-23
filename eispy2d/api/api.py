@@ -98,13 +98,17 @@ def evaluate(algorithim, data=None):
 
     incident_field = inputdata.ei
     scattered_field = inputdata.scattered_field
+    ground_truth_epsilon = inputdata.rel_permittivity
     
-    scattered, chi = algorithim(scattered_field, incident_field, GS, GD)
+    recon_scattered, chi = algorithim(scattered_field, incident_field, GS, GD)
 
     epsilon_r_recon = config.epsilon_rb * (np.real(chi) + 1)
-    epsilon_r_recon = epsilon_r_recon.reshape(resolution)
     
-    epad = rst.compute_zeta_epad(inputdata.rel_permittivity, epsilon_r_recon)
+    if epsilon_r_recon.ndim == 1:
+        epsilon_r_recon = epsilon_r_recon.reshape(resolution)
+
+    epad = rst.compute_zeta_epad(ground_truth_epsilon, epsilon_r_recon)
+    
     
     print(f"Avarage Contrast shape: {np.mean(np.real(chi)):.2f}")
 
@@ -112,18 +116,19 @@ def evaluate(algorithim, data=None):
         name='evaluated_result',
         method_name=algorithim.__name__,
         configuration=config,
-        rel_permittivity=epsilon_r_recon
+        rel_permittivity=epsilon_r_recon,
     )
 
-    objective_function = norm(inputdata.scattered_field - scattered)**2
+    objective_function = norm(inputdata.scattered_field - recon_scattered)**2
 
     result.update_error(inputdata=inputdata,
-                        scattered_field=scattered,
-                        rel_permittivity=inputdata.rel_permittivity,
+                        scattered_field=recon_scattered,
+                        rel_permittivity=epsilon_r_recon,
                         contrast=chi,
                         objective_function=objective_function)
+    
 
 
-    print(f"Permittivity error: {result.zeta_epad}%")
+    print(f"Permittivity error: {epad}%")
 
     return result

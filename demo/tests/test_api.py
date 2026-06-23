@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from eispy2d.api import api
 from eispy2d.discretization import richmond as ric
 from eispy2d.solvers.forward import mom_cg_fft as mom
-from eispy2d.core import configuration as cfg
+from eispy2d.core import configuration as cfg, result
 from eispy2d.core import result as rst
 from eispy2d.core import inputdata as ipt
 from eispy2d.solvers.inverse import regularization as reg
@@ -17,18 +17,80 @@ from eispy2d.solvers.inverse import bim
 from eispy2d.solvers.inverse import backprop
 
 
+def test_evaluate(scattered_field, incident_field, GS, GD):
+    contrast = 0
+    recon_scattered_field = 0
+
+
+    NS = scattered_field.shape[1] #sources
+    NM = scattered_field.shape[0] #measurements
+
+    N = incident_field.shape[0] #pixels
+    resolution = (int(np.sqrt(N)), int(np.sqrt(N)))
+
+    contrast = np.zeros(N, dtype=complex) 
+    recon_scattered_field = scattered_field.copy() 
+
+    for it in range(2):
+        E_tot = np.zeros((N, NM), dtype=complex)
+        for m in range(NM):
+            A_total = np.eye(N) - GD @ np.diag(contrast)
+            E_tot[:, m] = np.linalg.solve(A_total, incident_field[:, m])
+        
+        for m in range(NM):
+            E_tot_col = E_tot[:, m]  # (3600,)
+            fonte = contrast * E_tot_col  # (3600,)
+            
+            recon_scattered_field[:, m] = GS @ fonte  # (9, 3600) @ (3600,) = (9,) 
+        
+        erro = np.linalg.norm(scattered_field - recon_scattered_field) / np.linalg.norm(recon_scattered_field)
+        print(f"Iteração {it}: Erro = {erro:.6f}")
+        
+        
+        
+        delta_contrast = np.zeros(N, dtype=complex)
+        for m in range(NM):
+            A = GS @ np.diag(E_tot[:, m])  # (9, 3600)
+            
+            res = scattered_field[:, m] - recon_scattered_field[:, m]  # (9,)
+            
+            lambda_reg = 0.01  
+            AHA = A.conj().T @ A + lambda_reg * np.eye(N)
+            rhs = A.conj().T @ res
+            
+            delta_contrast += np.linalg.solve(AHA, rhs)
+        
+        contrast = contrast + delta_contrast / NM
+
+    print("TEST contrast first 5:", contrast[:5])
+    print("TEST mean contrast:", np.mean(np.real(contrast)).item())
+
+    print("TEST recon scattered first 5:", recon_scattered_field[:5, 0])
+
+
+    return recon_scattered_field, contrast
+
+
+
+api.evaluate(test_evaluate)
+
+
 def alg(scattered_field, incident_field, GS, GD):
     NM, NS = scattered_field.shape
     N_pixels = GS.shape[1]
     resolution = (int(np.sqrt(N_pixels)), int(np.sqrt(N_pixels)))
+    Lx, Ly = resolution[0] / 75 , resolution[1] / 75 
+    E0 = np.max(np.abs(incident_field)) 
     
     config = cfg.Configuration(
         name='temp_config',
         frequency=3e8,
         number_measurements=NM,
         number_sources=NS,
-        image_size=[0.8, 0.8],
+        image_size=[Ly, Lx],
+        observation_radius=1.0,
         background_permittivity=4.0,
+        magnitude=E0,
         perfect_dielectric=True
     )
     
@@ -66,97 +128,26 @@ def alg(scattered_field, incident_field, GS, GD):
     if chi.ndim == 2:
         chi = chi.flatten()
 
+    chi = (result.rel_permittivity / config.epsilon_rb) - 1
+
     print("CONTRAST", chi)
     print("EPAD", result.zeta_epad)
 
-    scattered_field = result.scattered_field
-    
-    return scattered_field, chi
+    #scattered_field = result.scattered_field
 
-def alg2(scattered_field, incident_field, GS, GD, max_iter=10, tol=1e-6, reg_param=0.1):
-    NM, NS = scattered_field.shape
-    Npix = incident_field.shape[0]
+    print("Scattered field shape: ", scattered_field.shape)
+    print("Incident field shape: ", incident_field.shape)
+    print("GS shape: ", GS.shape)
+    print("GD shape: ", GD.shape)
 
-    A_blocks = []
-    b_blocks = []
+    print("Contrast shape: ", chi.shape)
+    print("Recon scattered field shape: ", result.scattered_field.shape)
 
-    for s in range(NS):
-        Es = incident_field[:, s]          
-        As = GS @ np.diag(Es)              
+    print("ALG contrast first 5:", chi[:5])
+    print("ALG mean contrast:", np.mean(np.real(chi)).item())
 
-        A_blocks.append(As)
-        b_blocks.append(scattered_field[:, s])
+    print("ALG recon scattered first 5:", result.scattered_field[:5, 0])
 
-    A = np.vstack(A_blocks)                 
-    b = np.concatenate(b_blocks)            
-
-    # Estima o contraste
-    chi = np.linalg.pinv(A) @ b
-
-    # Reconstrói o campo espalhado
-    scattered_est = np.zeros_like(scattered_field, dtype=complex)
-
-    for s in range(NS):
-        scattered_est[:, s] = GS @ (chi * incident_field[:, s])
-
-    # EPAD
-    epad_error = (
-        np.linalg.norm(scattered_field - scattered_est)
-        / np.linalg.norm(scattered_field)
-        * 100
-    )
-
-    print(f"EPAD: {epad_error}%")
-
-    return scattered_est, chi
-
-
-def alg3(scattered_field, incident_field, GS, GD):
-    NM, NS = scattered_field.shape
-    N_pixels = GS.shape[1]
-    resolution = (int(np.sqrt(N_pixels)), int(np.sqrt(N_pixels)))
-    
-    config = cfg.Configuration(
-        name='temp_config',
-        frequency=3e8,
-        number_measurements=NM,
-        number_sources=NS,
-        image_size=[0.8, 0.8],
-        background_permittivity=4.0,
-        perfect_dielectric=True
-    )
-    
-    discretization = ric.Richmond(config, resolution, state=False)
-    
-    inputdata = ipt.InputData(
-        name='temp_input',
-        configuration=config,
-        resolution=resolution,
-        noise=1.,
-        scattered_field=scattered_field,
-        incident_field=incident_field,
-        indicators=[rst.REL_PERMITTIVITY_PAD_ERROR]
-    )
-
-    inputdata.rel_permittivity, _ = draw.triangle(
-        .16*np.sqrt(3),
-        center=[-.14, .09],
-        axis_length_x=config.Lx,
-        axis_length_y=config.Ly,
-        resolution=resolution,
-        background_rel_permittivity=4.0,
-        object_rel_permittivity=(1.0+1)*4.0
-    )
-
-    solver = backprop.BackPropagation()
-    result = solver.solve(inputdata, discretization)
-    chi = result.rel_permittivity.flatten()
-
-    print(result.zeta_epad)
-
-    return scattered_field, chi
-
-
-
+    return result.scattered_field, chi
 
 api.evaluate(alg)
