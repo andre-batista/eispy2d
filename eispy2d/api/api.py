@@ -114,7 +114,7 @@ def evaluate(algorithm, params=None):
         configuration=config
     )
 
-    incident_field = inputdata.incident_field
+    incident_field = solver.incident_field(recover_resolution, config)
     scattered_field = inputdata.scattered_field
     ground_truth_epsilon = inputdata.rel_permittivity
     
