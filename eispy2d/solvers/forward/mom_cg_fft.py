@@ -178,7 +178,7 @@ class MoM_CG_FFT(fwr.ForwardSolver):
         x, y = cfg.get_coordinates_ddomain(dx=dx, dy=dy, xmin=xmin, xmax=xmax,
                                            ymin=ymin, ymax=ymax)
         ei = self.incident_field((NY, NX), inputdata.configuration)
-        inputdata.ei = np.copy(ei)
+        inputdata.incident_field = np.copy(ei)
         ei = np.conj(ei)
 
         if isinstance(f, float):
