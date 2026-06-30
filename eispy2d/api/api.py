@@ -9,12 +9,7 @@ from eispy2d.core import inputdata as ipt
 from eispy2d.utils import draw
 from scipy.linalg import norm
 
-import numpy as np
-
-import numpy as np
-
-
-def evaluate(algorithim, data=None):
+def evaluate(algorithm, data=None):
     if data is not None:
         if "wavelength" in data:
             wavelength = data["wavelength"]
@@ -33,46 +28,80 @@ def evaluate(algorithim, data=None):
         if "rel_permittivity" in data:
             epslon_r = data["rel_permittivity"]
 
-    f0 = 3e8 # linear frequency [m]
-    Lx, Ly = .8, .8 # D domain size [m]
-    NS, NM = 10, 9 # number of sources and measurements
-    RO = 1. # observation radius [m]
-    epsilon_rb = 4. # background relative permittivity
-    E0 = 1 # incident wave magnitude [V/m]
-    resolution = (60, 60) # ground-truth image resolution [pixels]
-    noise_level = 1. # [%/sample]
-    indicators = [rst.REL_PERMITTIVITY_PAD_ERROR, rst.OBJECTIVE_FUNCTION]
+    if data is not None and "wavelength" in data:
+        wavelength = data["wavelength"]
+    else:
+        wavelength = 1. # [m]
+    
+    if data is not None and "image_size" in data:
+        image_size = data["image_size"]
+        Lx, Ly = image_size
+    else:
+        Lx, Ly = .8, .8 # D domain size [m]
+
+    if data is not None and "number_measurements" in data:
+        NM = data["number_measurements"]
+    else:
+        NM = 10 # number of measurements
+
+    if data is not None and "number_sources" in data:
+        NS = data["number_sources"]
+    else:
+        NS = 10 # number of sources
+
+    if data is not None and "observation_radius" in data:
+        RO = data["observation_radius"]
+    else:
+        RO = 1. # observation radius [m]
+
+    if data is not None and "background_permittivity" in data:
+        epsilon_rb = data["background_permittivity"]
+    else:
+        epsilon_rb = 1. # background relative permittivity
+
+    if data is not None and "resolution" in data:
+        resolution = data["resolution"]
+    else:
+        resolution = (60, 60) # ground-truth image resolution [pixels]
+    
+    if data is not None and "noise_level" in data:
+        noise_level = data["noise_level"]
+    else:
+        noise_level = 1. # [%/sample]
+
+
+    E0 = 1.0 # incident wave magnitude [V/m]
+    indicators = [rst.REL_PERMITTIVITY_PAD_ERROR, rst.RESIDUAL_NORM_ERROR]
     contrast_level = 1.
-    object_size = .16 # [m]
+    object_size = .2 # [m]
 
     # Define domain and source parameters
     config = cfg.Configuration(name='cfg_test',
-                            frequency=f0,
-                            wavelength_unit=False,
-                            number_measurements=NM,
-                            number_sources=NS,
-                            image_size=[Ly, Lx],
-                            observation_radius=RO,
-                            background_permittivity=epsilon_rb,
-                            magnitude=E0,
-                            perfect_dielectric=True)
+                               wavelength_unit=True,
+                               number_measurements=number_measurements,
+                               number_sources=number_sources,
+                               image_size=[Ly, Lx],
+                               observation_radius=observation_radius,
+                               background_permittivity=background_permittivity,
+                               magnitude=E0,
+                               perfect_dielectric=True)
 
     # Build test object
     inputdata = ipt.InputData(name='iptTest',
-                            configuration=config,
-                            resolution=resolution,
-                            noise=noise_level,
-                            indicators=indicators)
+                              configuration=config,
+                              resolution=resolution,
+                              noise=noise_level,
+                              indicators=indicators)
 
     # Draw figure
     inputdata.rel_permittivity, _ = draw.triangle(
-        object_size*np.sqrt(3),
-        center=[-.14, .09],
+        object_size,
+        center=[0, 0],
         axis_length_x=config.Lx,
         axis_length_y=config.Ly,
         resolution=resolution,
-        background_rel_permittivity=epsilon_rb,
-        object_rel_permittivity=(contrast_level+1)*epsilon_rb
+        background_rel_permittivity=background_permittivity,
+        object_rel_permittivity=(contrast_level+1)*background_permittivity
     )
 
 
@@ -92,7 +121,7 @@ def evaluate(algorithim, data=None):
 
     result = rst.Result(
         name='evaluated_result',
-        method_name=algorithim.__name__,
+        method_name=algorithm.__name__,
         configuration=config
     )
 
@@ -100,7 +129,7 @@ def evaluate(algorithim, data=None):
     scattered_field = inputdata.scattered_field
     ground_truth_epsilon = inputdata.rel_permittivity
     
-    recon_scattered, chi = algorithim(scattered_field, incident_field, GS, GD)
+    recon_scattered, chi = algorithm(scattered_field, incident_field, GS, GD)
 
     epsilon_r_recon = config.epsilon_rb * (np.real(chi) + 1)
     
@@ -114,7 +143,7 @@ def evaluate(algorithim, data=None):
 
     result = rst.Result(
         name='evaluated_result',
-        method_name=algorithim.__name__,
+        method_name=algorithm.__name__,
         configuration=config,
         rel_permittivity=epsilon_r_recon,
     )
