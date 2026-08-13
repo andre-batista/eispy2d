@@ -195,7 +195,6 @@ class TestEvaluateAPI(unittest.TestCase):
         params = self.params.copy()
         params["shape"] = "invalid_shape"
         
-        # O erro deve ser ValueError, não MissingAttributesError
         with self.assertRaises(ValueError):
             api.evaluate(self.test_algorithm, params=params)
         print("✓ evaluate raises error for invalid shape")
