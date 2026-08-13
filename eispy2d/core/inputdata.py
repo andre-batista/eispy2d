@@ -322,7 +322,7 @@ class InputData:
                   ymax/self.configuration.lambda_b]
         clb_epsilon_r = r'$\epsilon_r$'
         clb_sigma = r'$\sigma$ [S/m]'
-        clb_contrast = r'$|\\chi|$'
+        clb_contrast = r'|\chi|'
 
         if title is False:
             tit = ['']

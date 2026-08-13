@@ -154,4 +154,5 @@ def alg(scattered_field, incident_field, GS, GD, resolution):
 
     return recon_scattered_field, chi
 
-api.evaluate(alg)
+params = {"shape":"trapezoid", "disp":True}
+api.evaluate(alg, params)
