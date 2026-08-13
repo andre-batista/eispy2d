@@ -1,0 +1,586 @@
+r"""Multiplicative Regularization Contrast Source Inversion (MRCSI).
+
+This module implements the Multiplicative Regularization Contrast Source
+Inversion method [1]_ as a derivation of the Solver class. The method
+solves the nonlinear electromagnetic inverse scattering problem by
+minimizing a cost functional formed by the product of a data misfit term
+and a regularization factor based on the total variation of the contrast
+profile. A key advantage of this multiplicative approach is that the
+regularization parameter does not need to be determined prior to
+inversion. The implemented class is :class:`MRContrastSourceInversion`.
+
+References
+----------
+.. [1] van den Berg, P. M., Abubakar, A., & Fokkema, J. T. (2003).
+   Multiplicative regularization for contrast profile inversion.
+   Radio Science, 38(2).
+"""
+
+# Standard libraries
+import time as tm
+import numpy as np
+import sys
+import pickle
+from numba import jit
+from scipy.optimize import minimize_scalar
+
+# Developed libraries
+from eispy2d.core import configuration as cfg
+from eispy2d.core import result as rst
+from eispy2d.solvers.base import deterministic as dtm
+from eispy2d.solvers.forward import mom_cg_fft as mom
+from eispy2d.solvers.inverse import regularization as reg
+from eispy2d.solvers.inverse import csi as csi
+from eispy2d.solvers.inverse import ecsi as ecsi
+from eispy2d.solvers.inverse import backprop as bp
+from eispy2d.solvers.forward import fftproduct as fftproduct
+
+FORWARD = 'forward'
+STOP_CRITERIA = 'stop criteria'
+EXPONENT = 'exponent'
+
+
+class MRContrastSourceInversion(dtm.Deterministic):
+    r"""Multiplicative Regularization Contrast Source Inversion (MRCSI).
+
+    This class implements the Multiplicative Regularization Contrast
+    Source Inversion method [1]_. The algorithm minimizes a cost
+    functional defined as the product of a normalized data misfit term
+    and a total-variation-based regularization factor. Because the
+    regularization enters multiplicatively, no regularization parameter
+    needs to be chosen before the inversion starts, and the additional
+    nonlinearity introduced by the regularization factor is kept
+    manageable through an appropriate updating scheme.
+
+    The contrast sources (induced currents) and the contrast profile are
+    updated alternately via conjugate-gradient steps. The total-variation
+    norm used as regularization factor is controlled by the exponent
+    parameter ``p``.
+
+    Attributes
+    ----------
+        forward : :class:`forward.Forward`:
+            An implementation of the abstract Forward class used to
+            compute the incident electric field.
+
+        exponent : float
+            Exponent ``p`` of the weighted L\ :sup:`p`-norm total
+            variation regularization factor. Typical value is ``p = 1``
+            (standard TV) or ``p = 2`` (smooth TV).
+
+        stop_criteria : stop-criterion object
+            Object controlling the termination condition of the
+            iterative loop (e.g., maximum number of iterations or
+            relative change threshold).
+
+    References
+    ----------
+    .. [1] van den Berg, P. M., Abubakar, A., & Fokkema, J. T. (2003).
+       Multiplicative regularization for contrast profile inversion.
+       Radio Science, 38(2).
+    """
+
+    def __init__(self, stop_criteria, exponent=1.,
+                 forward_solver=mom.MoM_CG_FFT(),
+                 alias='mrcsi', import_filename=None, import_filepath=''):
+        r"""Create the object.
+
+        Parameters
+        ----------
+            stop_criteria : stop-criterion object
+                Object that controls the termination of the iterative
+                loop. It must expose a ``stop(evaluations, iteration,
+                objective_function)`` method returning ``True`` when
+                convergence is detected.
+
+            exponent : float, default: 1.0
+                Exponent ``p`` of the weighted L\ :sup:`p`-norm total
+                variation used as the multiplicative regularization
+                factor. Use ``p = 1`` for standard total variation and
+                ``p = 2`` for a smoother (differentiable) variant.
+
+            forward_solver : :class:`forward.Forward`, optional
+                An implementation of the abstract Forward class used to
+                compute the incident electric field. Defaults to
+                :class:`mom_cg_fft.MoM_CG_FFT`.
+
+            alias : str, default: ``'mrcsi'``
+                Short identifier for the solver, used when saving
+                results to disk.
+
+            import_filename : str or None, default: None
+                If provided, the solver state is restored from a
+                previously saved file instead of being initialized
+                from scratch.
+
+            import_filepath : str, default: ``''``
+                Directory path where the import file is located.
+        """
+        if import_filename is not None:
+            self.importdata(import_filename, import_filepath)
+        else:
+            super().__init__(alias=alias, parallelization=None)
+            self.name = ('Multiplicative Regularization '
+                         + 'Contrast Source Inversion')
+            self.forward = forward_solver
+            self.exponent = exponent
+            self.stop_criteria = stop_criteria
+
+    def solve(self, inputdata, discretization, print_info=True,
+              print_file=sys.stdout, initial_guess=None):
+        """Solve the nonlinear inverse scattering problem.
+
+        Executes the MRCSI iterative loop: contrast sources and the
+        contrast profile are updated alternately via conjugate-gradient
+        steps while minimizing the multiplicative cost functional
+        (data misfit term times total-variation regularization factor).
+
+        Parameters
+        ----------
+            inputdata : :class:`inputdata.InputData`
+                Object containing the measured scattered field, the
+                problem configuration, and any target indicators.
+
+            discretization : discretization object
+                Object that describes the spatial discretization of the
+                investigation domain (grid elements, Green's functions,
+                interpolation methods).
+
+            print_info : bool, default: True
+                Whether to print iteration progress to ``print_file``.
+
+            print_file : file-like object, default: ``sys.stdout``
+                Destination for iteration messages.
+
+            initial_guess : array-like or None, default: None
+                Initial contrast profile. If ``None``, the
+                back-propagation method is used to generate a first
+                estimate.
+
+        Returns
+        -------
+        result : :class:`result.Result`
+            Object containing the reconstructed contrast, relative
+            permittivity, conductivity, scattered field, and optional
+            performance indicators (execution time, iteration count).
+        """
+        result = super().solve(inputdata, discretization,
+                               print_info=print_info, print_file=print_file)
+
+        # First-Order Born Approximation
+        tic = tm.time()
+        if initial_guess is None:
+            contrast, chi, current = self._get_initial_guess(inputdata,
+                                                             discretization)
+        else:
+            contrast = discretization.contrast_image(initial_guess,
+                                                     discretization.elements)
+            chi = np.diag(contrast.flatten(), 0)
+            regularization = reg.LeastSquares(cutoff=1e-5)
+            current = discretization.solve(
+                scattered_field=inputdata.scattered_field,
+                linear_solver=regularization
+            )
+        execution_time = tm.time()-tic
+
+        fftp = fftproduct.FFTProduct(discretization=discretization,
+                                     adjoint=False)
+        fftpa = fftproduct.FFTProduct(discretization=discretization,
+                                      adjoint=True)
+
+        # If the same object is used for different resolution instances,
+        # then some parameters may need to be updated within the inverse
+        # solver. So, the next line ensures it:
+        current_evaluations = 0
+        iteration = 0
+        objective_function = np.inf
+        base, power = 1, 0
+
+        N, NS = np.prod(discretization.elements), inputdata.configuration.NS
+        direction_j = np.zeros((N, NS), dtype=complex)
+        direction_x = np.zeros(N, dtype=complex)
+        last_gradient_j = np.ones((N, NS), dtype=complex)
+        last_gradient_x = np.ones(N, dtype=complex)
+        exponent = self.exponent
+        dx = inputdata.configuration.Lx/discretization.elements[1]
+        dy = inputdata.configuration.Ly/discretization.elements[0]
+        incident_field = self.forward.incident_field(discretization.elements,
+                                                     inputdata.configuration)
+        normalization_s = csi.get_normalization_s(inputdata.scattered_field)
+
+        while (not self.stop_criteria.stop(current_evaluations, iteration,
+                                           objective_function)):
+
+            iteration_message = 'Iteration: %d - ' % (iteration+1)
+
+            tic = tm.time()
+            data_error = self._get_data_error(inputdata.scattered_field,
+                                              discretization.GS, current)
+            total_field = incident_field + fftp.compute(current)
+            object_error = self._get_object_error(chi, total_field, current)
+            normalization_d = csi.get_normalization_d(chi, incident_field)
+            objective_function = self._evaluate_objective_function(
+                data_error, normalization_s, object_error, normalization_d
+            )
+            gradient_j = self._get_gradient_j(discretization.GS, data_error,
+                                              normalization_s, object_error,
+                                              fftpa, chi, normalization_d)
+            gamma_j = ecsi.get_gamma(gradient_j, last_gradient_j)
+            direction_j = self._update_direction(gradient_j, gamma_j, direction_j)
+            constant_j = self._get_constant_j(gradient_j, discretization.GS,
+                                              direction_j,normalization_s, chi,
+                                              fftpa, normalization_d)
+            current = csi.update_current(current, constant_j, direction_j)
+            total_field = self._update_total_field(current, incident_field,
+                                                   fftp)
+            
+            delta_square = self._compute_delta_square(chi, incident_field,
+                                                      current, fftp,
+                                                      normalization_d)
+
+            gradient_contrast = np.gradient(
+                np.diag(chi).reshape(discretization.elements), dx, dy
+            )
+            data_error = self._get_data_error(inputdata.scattered_field,
+                                              discretization.GS, current)
+
+            gradient_x = self._get_gradient_x(chi, total_field, current,
+                                              normalization_d,
+                                              gradient_contrast, dx, dy,
+                                              exponent, data_error,
+                                              normalization_s, delta_square)
+
+            gamma_x = ecsi.get_gamma(gradient_x, last_gradient_x)
+            direction_x = self._update_direction(gradient_x, gamma_x,
+                                                 direction_x)
+            constant_x = self._get_constant_x(direction_x, total_field, chi,
+                                              current, incident_field,
+                                              discretization, dx, dy,
+                                              data_error, normalization_s,
+                                              gradient_contrast, delta_square,
+                                              exponent)
+            contrast = self._update_contrast(chi, constant_x, direction_x)
+            chi = np.diag(contrast.flatten(), 0) + 0j
+            last_gradient_j = gradient_j.copy()
+            last_gradient_x = gradient_x.copy()
+            execution_time +=  tm.time()-tic
+            contrast = contrast.reshape(discretization.elements)
+            contrast = discretization.contrast_image(contrast,
+                                                     inputdata.resolution)
+
+            if inputdata.configuration.good_conductor:
+                contrast = 1j*contrast.imag
+            if inputdata.configuration.perfect_dielectric:
+                contrast = contrast.real
+
+            result.update_error(
+                inputdata,
+                scattered_field=data_error-inputdata.scattered_field,
+                total_field=discretization.total_image(total_field,
+                                                       inputdata.resolution),
+                contrast=contrast, objective_function=objective_function
+            )
+
+            if print_info:
+                if iteration+1 >= base*10**power:
+                    if base == 9:
+                        base = 1
+                        power += 1
+                    else:
+                        base += 1
+                    iteration_message = result.last_error_message(
+                        iteration_message
+                    )
+                    print(iteration_message, file=print_file)
+            current_evaluations += 1
+            iteration += 1
+
+        if print_info and iteration != base*10**power:
+            iteration_message = result.last_error_message(iteration_message)
+            print(iteration_message, file=print_file)
+
+        # Remember: results stores the estimated scattered field. Not
+        # the given one.
+        result.scattered_field = data_error-inputdata.scattered_field
+        result.total_field = total_field
+
+        if not inputdata.configuration.good_conductor:
+            result.rel_permittivity = cfg.get_relative_permittivity(
+                contrast, inputdata.configuration.epsilon_rb
+            )
+        if not inputdata.configuration.perfect_dielectric:
+            result.conductivity = cfg.get_conductivity(
+                contrast, 2*np.pi*inputdata.configuration.f,
+                inputdata.configuration.epsilon_rb,
+                inputdata.configuration.sigma_b
+            )
+        if rst.EXECUTION_TIME in inputdata.indicators:
+            result.execution_time = execution_time
+        if rst.NUMBER_ITERATIONS in inputdata.indicators:
+            result.number_iterations = iteration
+        if rst.NUMBER_EVALUATIONS in inputdata.indicators:
+            result.number_evaluations = current_evaluations
+
+        return result
+
+    def _get_initial_guess(self, inputdata, discretization):
+        initial_guess = bp.BackPropagation()
+        temporary = inputdata.copy()
+        temporary.resolution = discretization.elements
+        temporary.indicators = []
+        initial_guess = initial_guess.solve(temporary, discretization,
+                                            print_info=False)
+        contrast = cfg.get_contrast_map(
+            epsilon_r=initial_guess.rel_permittivity,
+            configuration=inputdata.configuration
+        )
+        chi = np.diag(contrast.flatten(), 0) + 0j
+        current = chi @ initial_guess.total_field
+        contrast = discretization.contrast_image(contrast,
+                                                 inputdata.resolution)
+        return contrast, chi, current
+
+    def _get_object_error(self, chi, total_field, current):
+        return csi.get_object_error(chi, total_field, current)
+
+    def _get_data_error(self, scattered_field, green_function_s, current):
+        return csi.get_data_error(scattered_field, green_function_s, current)
+
+    def _get_gradient_j(self, green_function_s, data_error, normalization_s,
+                      object_error, fftpa, chi, normalization_d):
+        GDaXr = fftpa.compute(np.conj(chi) @ object_error)
+        return csi.get_gradient(green_function_s, data_error, normalization_s,
+                                object_error, GDaXr, normalization_d)
+
+    def _get_gradient_x(self, chi, total_field, current, normalization_d,
+                        gradient_contrast, dx, dy, exponent, data_error,
+                        normalization_s, delta_square):
+        return get_gradient_x(chi, total_field, current, normalization_d,
+                              gradient_contrast[0], gradient_contrast[1], dx,
+                              dy, exponent, data_error, normalization_s,
+                              delta_square)
+
+    def _update_direction(self, gradient, gamma, direction):
+        return csi.update_direction(gradient, gamma, direction)
+
+    def _get_constant_j(self, gradient_j, green_function_s, direction,
+                        normalization_s, chi, fftpa, normalization_d):
+        gv = gradient_j * np.conj(direction)
+        GSv = green_function_s @ direction
+        v_XGDva = direction - chi @ fftpa.compute(direction)
+        constant = ecsi.compute_constant_j(gv, GSv, normalization_s,
+                                           v_XGDva, normalization_d)
+        return constant
+    
+    def _get_constant_x(self, direction_x, total_field, chi, current,
+                        incident_field, discretization, dx, dy, data_error,
+                        normalization_s, gradient_contrast, delta_square,
+                        exponent):
+
+        D = np.diag(direction_x.flatten(), 0)
+        gradd = np.gradient(direction_x.reshape(discretization.elements),
+                            dx, dy)
+        norm_res = np.sum(np.abs(data_error)**2)
+        
+        def fun(x):
+            t1 = (norm_res/normalization_s
+                  + np.sum(np.abs((chi + x*D)@total_field-current)**2)
+                  / np.sum(np.abs((chi + x*D)@incident_field)**2))
+            t2 = np.trapz(
+                np.trapz(
+                    np.sqrt((gradient_contrast[0]+x*gradd[0])**2
+                            + (gradient_contrast[1]+x*gradd[1])**2
+                            + delta_square)**exponent, dx=dy
+                ), dx=dx
+            )
+            return t1*t2
+        
+        sol = minimize_scalar(fun, method='brent')
+        return sol.x
+
+    def _update_total_field(self, current, incident_field, fftp):
+        GDJ = fftp.compute(current)
+        return incident_field + GDJ
+
+    def _update_contrast(self, chi, constant_x, direction_x):
+        X = np.diag(chi, 0)
+        return ecsi.update_contrast(X, constant_x, direction_x)
+
+    def _evaluate_objective_function(self, data_error, normalization_s,
+                                     object_error, normalization_d):
+        return csi.evaluate_objective_function(data_error, normalization_s,
+                                               object_error, normalization_d)
+
+    def _compute_delta_square(self, chi, incident_field, current, fftp,
+                              normalization_d):
+        GDJ = fftp.compute(current)
+        return compute_delta_square(chi, incident_field, current, GDJ,
+                                    normalization_d)
+
+    def _print_title(self, inputdata, discretization, print_file=sys.stdout):
+        super()._print_title(inputdata, discretization, print_file=print_file)
+        print(self.forward, file=print_file)
+        print(self.stop_criteria, file=print_file)
+        print('p = {:.2}'.format(self.exponent), file=print_file)
+
+    def save(self, file_path=''):
+        """Save the MRCSI solver state to file.
+
+        Serializes the forward solver, stop criteria, and exponent parameter
+        using pickle.
+
+        Parameters
+        ----------
+        file_path : str, default: ''
+            Directory where the state file is written. The file is named
+            after the solver's alias.
+        """
+        data = super().save(file_path=file_path)
+        data[FORWARD] = self.forward
+        data[STOP_CRITERIA] = self.stop_criteria
+        data[EXPONENT] = self.exponent
+        with open(file_path + self.alias, 'wb') as datafile:
+            pickle.dump(data, datafile)
+
+    def importdata(self, file_name, file_path=''):
+        """Import MRCSI solver state from file.
+
+        Restores the forward solver, stop criteria, and exponent parameter
+        previously saved with :meth:`save`.
+
+        Parameters
+        ----------
+        file_name : str
+            Name of the file containing the saved solver state.
+        file_path : str, default: ''
+            Directory containing the file.
+        """
+        data = super().importdata(file_name, file_path=file_path)
+        self.forward = data[FORWARD]
+        self.stop_criteria= data[STOP_CRITERIA]
+        self.exponent = data[EXPONENT]
+
+    def copy(self, new=None):
+        """Create a copy of this MRCSI instance.
+
+        Parameters
+        ----------
+        new : MRContrastSourceInversion, optional
+            Existing instance to copy attributes into. If ``None``,
+            a new instance is created and returned.
+
+        Returns
+        -------
+        MRContrastSourceInversion or None
+            A new instance when `new` is ``None``; otherwise ``None``
+            (the provided instance is modified in place).
+        """
+        if new is None:
+            return MRContrastSourceInversion(self.stop_criteria,
+                                             forward_solver=self.forward, 
+                                             exponent=self.exponent,
+                                             alias=self.alias)
+        else:
+            super().copy(new)
+            self.forward = new.forward
+            self.stop_criteria = new.stop_criteria
+            self.exponent = new.exponent
+
+    def __str__(self):
+        message = super().__str__()
+        message += str(self.forward)
+        message += str(self.stop_criteria)
+        message += 'p = {:.2}'.format(self.exponent)
+        return message
+
+
+@jit(nopython=True)
+def compute_delta_square(chi, Ei, J, GDJ, eta_d):
+    r"""Compute the :math:`\delta^2` stabilization term for MRCSI.
+
+    Evaluates the normalized squared residual of the domain equation
+    used as the adaptive stabilization term in the total-variation
+    regularization factor:
+
+    .. math::
+
+        \delta^2 = \frac{\|\chi E_i - J + \chi G_D J\|^2}{\eta_d}
+
+    Parameters
+    ----------
+    chi : numpy.ndarray
+        Diagonal contrast matrix, shape ``(N, N)``.
+    Ei : numpy.ndarray
+        Incident electric field, shape ``(N, NS)``.
+    J : numpy.ndarray
+        Current contrast-source vector, shape ``(N, NS)``.
+    GDJ : numpy.ndarray
+        Domain Green's function applied to ``J``, shape ``(N, NS)``.
+    eta_d : float
+        Normalization factor for the domain equation.
+
+    Returns
+    -------
+    float
+        The :math:`\delta^2` value.
+    """
+    return np.sum(np.abs(chi @ Ei - J + chi @ GDJ)**2)/eta_d
+
+@jit(nopython=True)
+def get_gradient_x(chi, E, J, eta_d, gradXx, gradXy, dx, dy, p, rho, eta_s, d2):
+    r"""Compute the contrast gradient for the MRCSI multiplicative update.
+
+    Evaluates the gradient of the multiplicative cost functional with respect
+    to the contrast profile, combining the domain-equation gradient and the
+    total-variation gradient:
+
+    .. math::
+
+        \nabla_x\,\mathcal{F} =
+            \frac{\eta_d\,F_{TV}\,g_d + F\,g_{TV}}{\|E\|^2}
+
+    where :math:`g_d` is the domain-equation gradient contribution,
+    :math:`g_{TV}` is the TV gradient, :math:`F` is the current objective
+    value, and :math:`F_{TV}` is the total-variation value.
+
+    Parameters
+    ----------
+    chi : numpy.ndarray
+        Diagonal contrast matrix, shape ``(N, N)``.
+    E : numpy.ndarray
+        Total electric field, shape ``(N, NS)``.
+    J : numpy.ndarray
+        Current contrast-source vector, shape ``(N, NS)``.
+    eta_d : float
+        Domain-equation normalization factor.
+    gradXx : numpy.ndarray
+        x-component of the contrast gradient, shape matching the
+        investigation domain.
+    gradXy : numpy.ndarray
+        y-component of the contrast gradient.
+    dx : float
+        Grid spacing in the x direction.
+    dy : float
+        Grid spacing in the y direction.
+    p : float
+        Exponent of the total-variation norm (typically 1 or 2).
+    rho : numpy.ndarray
+        Data-equation residual (scattered-field error), shape ``(NM, NS)``.
+    eta_s : float
+        Scattered-field normalization factor.
+    d2 : float
+        :math:`\delta^2` stabilization value from :func:`compute_delta_square`.
+
+    Returns
+    -------
+    numpy.ndarray
+        Contrast gradient vector, shape ``(N,)``.
+    """
+    aux1 = gradXx**2 + gradXy**2 + d2
+    Ftv = np.trapz(np.trapz(np.sqrt(aux1)**p, dx=dy), dx=dx)
+    gd = -np.sum((chi@E - J)*np.conj(E), axis=1)
+    aux2 = np.sqrt(aux1)**(p-2)
+    gtv = p/2*(aux2*gradXx + aux2*gradXy)
+    gtv = gtv.flatten()
+    F = np.sum(np.abs(rho)**2)/eta_s + d2
+    return (eta_d*Ftv*gd + F*gtv)/np.sum(np.abs(E)**2)

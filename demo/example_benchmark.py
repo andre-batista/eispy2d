@@ -8,29 +8,36 @@ analysis.
 """
 
 import sys
-sys.path.insert(1, '../library/')
+sys.path.insert(1, '../../eispy2d')
 
 # Import modules
-import bim
-import benchmark as bmk
-import bornapprox as ba
-import regularization as reg
-import richmond as ric
-import configuration as cfg
-import testset as tst
-import result as rst
-import experiment as exp
-import mom_cg_fft as mom
-import stopcriteria as stp
-import evolutionary as evo
-import stochastic as stc
-from evoalglib import initialization as ini
-from evoalglib import representation as rpt
-from evoalglib import objectivefunction as obj
-from evoalglib import de
-from evoalglib import boundary as bc
-from evoalglib import selection as slc
-from evoalglib import crossover as cross
+from eispy2d.solvers.inverse import (
+    bim,
+    bornapprox as ba,
+    evolutionary as evo,
+)
+from eispy2d.experiments import (
+    benchmark as bmk,
+    experiment as exp,
+)
+from eispy2d.solvers.inverse import regularization as reg
+from eispy2d.discretization import richmond as ric
+from eispy2d.core import configuration as cfg, result as rst
+from eispy2d.experiments import (
+    testset as tst,
+)
+from eispy2d.solvers.forward import mom_cg_fft as mom
+from eispy2d.utils import stopcriteria as stp
+from eispy2d.solvers.base import stochastic as stc
+from eispy2d.evoalglib import (
+    initialization as ini,
+    representation as rpt,
+    objectivefunction as obj,
+    de,
+    boundary as bc,
+    selection as slc,
+    crossover as cross,
+)
 
 # Problem configuration
 f0 = 3e8 # linear frequency [Hz]

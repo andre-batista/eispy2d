@@ -5,10 +5,37 @@ from numpy.random import normal, rand
 
 
 class Mutation(ABC):
+    """Abstract base class for mutation operators.
+
+    Mutation operators introduce random variations to solutions.
+
+    Methods
+    -------
+    run(x, fx, probability=None)
+        Apply mutation to solution vector.
+    copy(new=None)
+        Create a copy of the mutation operator.
+    """
     def __init__(self):
         super().__init__()
     @abstractmethod
     def run(self, x, fx, probability=None):
+        """Apply mutation to solution vector.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            Solution vector to mutate.
+        fx : numpy.ndarray or float
+            Fitness values of solutions.
+        probability : float, optional
+            Mutation probability.
+
+        Returns
+        -------
+        tuple
+            (mutated_x, mutated_fx) where mutated_fx may be NaN for new mutations.
+        """
         pass
     def copy(self, new=None):
         if new is None:
@@ -21,6 +48,15 @@ class Mutation(ABC):
 
 
 class Gaussian(Mutation):
+    """Gaussian mutation operator.
+
+    Adds Gaussian noise to solution vector.
+
+    Parameters
+    ----------
+    std : float, default=0.5
+        Standard deviation of Gaussian noise.
+    """
     def __init__(self, std=.5):
         super().__init__()
         self.sigma = std
@@ -59,6 +95,15 @@ class Gaussian(Mutation):
 
 
 class Polynomial(Mutation):
+    """Polynomial mutation operator.
+
+    Implements polynomial mutation commonly used in real-coded GAs.
+
+    Parameters
+    ----------
+    eta : float
+        Distribution index. Higher values produce mutations closer to parent.
+    """
     def __init__(self, eta):
         super().__init__()
         self.eta = eta

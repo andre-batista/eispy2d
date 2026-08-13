@@ -1,9 +1,37 @@
-import eispy2d.error as error
 import numpy as np
+
+from eispy2d.core import error
 from eispy2d.evoalglib.mechanism import Mechanism, get_indexes
 
 
 class GeneticAlgorithm(Mechanism):
+    """Genetic Algorithm (GA) evolutionary mechanism.
+
+    Implements a standard genetic algorithm with crossover and mutation
+    operators.
+
+    Parameters
+    ----------
+    boundary_condition : BoundaryCondition
+        Boundary handling strategy.
+    crossover : Crossover
+        Crossover operator.
+    pcross : float
+        Crossover probability.
+    mutation : Mutation
+        Mutation operator.
+    pmut : float
+        Mutation probability.
+    selection : Selection
+        Selection operator.
+    pair_selection : {'random', 'permutation'}, default='random'
+        How to select pairs for crossover.
+
+    Methods
+    -------
+    run(population, population_fitness, objective_function, current_nevals)
+        Execute one generation of GA.
+    """
     def __init__(self, boundary_condition, crossover, pcross, mutation, pmut,
                  selection, pair_selection='random'):
         super().__init__(boundary_condition)
@@ -16,9 +44,36 @@ class GeneticAlgorithm(Mechanism):
                                         pair_selection)
         self.pair_selection = pair_selection
     def reset_variables(self, population_size, representation):
+        """Reset internal variables for a new run.
+
+        Parameters
+        ----------
+        population_size : int
+            Size of the population.
+        representation : Representation
+            Solution representation.
+        """
         super().reset_variables(population_size, representation)
     def run(self, population, population_fitness, objective_function,
             current_nevals):
+        """Execute one generation of Genetic Algorithm.
+
+        Parameters
+        ----------
+        population : numpy.ndarray
+            Current population matrix (POP × NVAR).
+        population_fitness : numpy.ndarray
+            Fitness values of current population.
+        objective_function : ObjectiveFunction
+            Objective function to evaluate.
+        current_nevals : int
+            Current number of evaluations.
+
+        Returns
+        -------
+        tuple
+            (population, population_fitness, new_evaluation_count)
+        """
         _, _, nevals = super().run(population, population_fitness,
                                    objective_function, current_nevals)
         P, fx, objfun = population, population_fitness, objective_function

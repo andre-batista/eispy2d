@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.abspath('../../'))
 project = 'eispy2d'
 copyright = '2026, André Costa Batista'
 author = 'André Costa Batista'
-release = '1.0.3'
+release = '1.0.8'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -67,5 +67,7 @@ latex_elements = {
         \usepackage{unicode-math}
         \setmainfont{TeX Gyre Termes}
         \setsansfont{TeX Gyre Heros}
+        \usepackage{mathtools}
+        \DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
     ''',
 }

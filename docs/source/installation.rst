@@ -2,7 +2,7 @@ Installation
 ============
 
 Eispy2d can be installed either directly from the Python Package Index
-(PyPI) or from the source code hosted on GitHub. :contentReference[oaicite:0]{index=0}
+(PyPI) or from the source code hosted on GitHub.
 
 Requirements
 ------------
@@ -22,7 +22,7 @@ The recommended way to install Eispy2d is through PyPI:
    pip install eispy2d
 
 This command installs the library and all required dependencies
-automatically. :contentReference[oaicite:1]{index=1}
+automatically.
 
 Verify the Installation
 -----------------------
@@ -32,10 +32,10 @@ a Python interpreter and importing the package:
 
 .. code-block:: python
 
-   from eispy2d import configuration
-   from eispy2d import bim
+   from eispy2d.core import configuration
+   from eispy2d.solvers.inverse import bim
 
-If these imports run without errors, Eispy2d is installed correctly. :contentReference[oaicite:2]{index=2}
+If these imports run without errors, Eispy2d is installed correctly.
 
 Method 2: Install from Source
 -----------------------------
@@ -48,8 +48,6 @@ clone the repository and install the dependencies manually:
    git clone https://github.com/andre-batista/eispy2d.git
    cd eispy2d
    pip install -r requirements.txt
-
-:contentReference[oaicite:3]{index=3}
 
 Development Installation (Optional)
 -----------------------------------
@@ -80,7 +78,7 @@ directory demonstrating how to:
 - Configure inverse solvers
 - Run case studies
 - Execute benchmarks
-- Analyze reconstruction results :contentReference[oaicite:4]{index=4}
+- Analyze reconstruction results
 
 See the :doc:`examples` section for detailed walkthroughs.
 

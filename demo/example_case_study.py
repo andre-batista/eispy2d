@@ -17,26 +17,27 @@ sys.path.insert(1, '../lib/')
 # Import modules
 import numpy as np
 from numpy import random as rnd
-import casestudy as cst
-import richmond as ric
-import configuration as cfg
-import inputdata as ipt
-import result as rst
-import mom_cg_fft as mom
-import stochastic as stc
-import evolutionary as evo
-import stopcriteria as stp
-import draw
-from evoalglib import initialization as ini
-from evoalglib import objectivefunction as obj
-from evoalglib import representation as rpt
-from evoalglib import boundary as bc
-from evoalglib import selection as slc
-from evoalglib import crossover as cross
-from evoalglib import mutation as mut
-from evoalglib import de
-from evoalglib import pso
-from evoalglib import ga
+
+from eispy2d.experiments import casestudy as cst
+from eispy2d.discretization import richmond as ric
+from eispy2d.core import configuration as cfg, inputdata as ipt
+from eispy2d.core import result as rst
+from eispy2d.solvers.forward import mom_cg_fft as mom
+from eispy2d.solvers.inverse import evolutionary as evo
+from eispy2d.solvers.base import stochastic as stc
+from eispy2d.utils import stopcriteria as stp, draw
+from eispy2d.evoalglib import (
+    initialization as ini,
+    objectivefunction as obj,
+    representation as rpt,
+    boundary as bc,
+    selection as slc,
+    crossover as cross,
+    mutation as mut,
+    de,
+    pso,
+    ga,
+)
 
 # Problem parameters
 f0 = 3e8 # linear frequency [m]

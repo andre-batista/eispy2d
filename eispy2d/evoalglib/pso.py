@@ -1,9 +1,28 @@
 import numpy as np
-from eispy2d.evoalglib.mechanism import Mechanism
 from numpy.random import rand
+
+from eispy2d.evoalglib.mechanism import Mechanism
 
 
 class ParticleSwarmOptimization(Mechanism):
+    """Particle Swarm Optimization (PSO) evolutionary mechanism.
+
+    Implements standard PSO with inertia weight and acceleration coefficients.
+
+    Parameters
+    ----------
+    boundary_condition : BoundaryCondition
+        Boundary handling strategy.
+    acceleration : float or tuple, default=2.0
+        Acceleration coefficients (c1, c2). If float, both are equal.
+    inertia : float, default=0.4
+        Inertia weight (w).
+
+    Methods
+    -------
+    run(population, population_fitness, objective_function, current_nevals)
+        Execute one generation of PSO.
+    """
     def __init__(self, boundary_condition, acceleration=2., inertia=.4):
         super().__init__(boundary_condition)
         self.w = inertia
@@ -15,6 +34,15 @@ class ParticleSwarmOptimization(Mechanism):
         self.pbest, self.gbest = None, None
         self.fp, self.fg = None, None
     def reset_variables(self, population_size, representation):
+        """Reset internal variables for a new run.
+
+        Parameters
+        ----------
+        population_size : int
+            Size of the population.
+        representation : Representation
+            Solution representation.
+        """
         super().reset_variables(population_size, representation)
         self.v = rand(population_size, representation.nvar)
         self.pbest = np.zeros((population_size, representation.nvar),

@@ -1,20 +1,56 @@
-import eispy2d.error as error
 import numpy as np
-import eispy2d.evoalglib.representation as rpt
 from abc import ABC, abstractmethod
 from numpy import pi
 
+from eispy2d.core import error
+from eispy2d.evoalglib import representation as rpt
+
 
 class ObjectiveFunction(ABC):
+    """Abstract base class for objective functions.
+
+    Defines the interface for evaluating solution quality in evolutionary
+    algorithms.
+
+    Methods
+    -------
+    set_parameters(representation, scattered_field, incident_field)
+        Set parameters for objective function evaluation.
+    eval(x)
+        Evaluate objective function for a solution.
+    """
     def __init__(self):
         self.name = None
     def set_parameters(self, representation, scattered_field,
                        incident_field):
+        """Set parameters for objective function evaluation.
+
+        Parameters
+        ----------
+        representation : Representation
+            Solution representation.
+        scattered_field : numpy.ndarray
+            Scattered field data.
+        incident_field : numpy.ndarray
+            Incident field data.
+        """
         self.representation = representation
         self.scattered_field = scattered_field
         self.incident_field = incident_field
     @abstractmethod
     def eval(self, x):
+        """Evaluate objective function for a solution.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            Solution vector.
+
+        Returns
+        -------
+        float
+            Objective function value.
+        """
         pass
     @abstractmethod
     def __str__(self):
@@ -22,12 +58,20 @@ class ObjectiveFunction(ABC):
 
 
 class Rastrigin(ObjectiveFunction):
+    """Rastrigin benchmark function (canonical, nonlinear, multimodal).
+
+    Parameters
+    ----------
+    amplitude : float, default=10
+        Amplitude parameter controlling the function's shape.
+    """
     def __init__(self, amplitude=10):
         super().__init__()
         self.name = 'rastringin'
         self.A = amplitude
         self.xopt = 0.
     def eval(self, x):
+        
         if not isinstance(self.representation, rpt.CanonicalProblems):
             raise error.WrongTypeInput('Rastrigin.eval', 'representation',
                                        'CanonicalProblems',
@@ -45,6 +89,7 @@ class Rastrigin(ObjectiveFunction):
 
 
 class Ackley(ObjectiveFunction):
+    """Ackley benchmark function (canonical, nonlinear, multimodal)."""
     def __init__(self):
         super().__init__()
         self.name = 'ackley'
@@ -67,6 +112,7 @@ class Ackley(ObjectiveFunction):
 
 
 class Rosenbrock(ObjectiveFunction):
+    """Rosenbrock benchmark function (canonical, nonlinear, multimodal)."""
     def __init__(self):
         super().__init__()
         self.name = 'rosenbrock'
@@ -89,6 +135,11 @@ class Rosenbrock(ObjectiveFunction):
 
 
 class WeightedSum(ObjectiveFunction):
+    """Weighted sum of data and state equation residuals.
+
+    Objective function for electromagnetic inverse scattering problems.
+    Combines data misfit and state equation misfit.
+    """
     def __init__(self):
         super().__init__()
         self.name = 'weighted_sum'
