@@ -70,7 +70,7 @@ def test_evaluate(scattered_field, incident_field, GS, GD, recover_resolution):
 
 
 
-api.evaluate(test_evaluate)
+
 
 
 def alg(scattered_field, incident_field, GS, GD, resolution):
@@ -154,5 +154,5 @@ def alg(scattered_field, incident_field, GS, GD, resolution):
 
     return recon_scattered_field, chi
 
-params = {"shape":"trapezoid", "disp":True}
+params = {"shape":"random", "disp":True}
 api.evaluate(alg, params)

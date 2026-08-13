@@ -88,7 +88,7 @@ def evaluate(algorithm, params=None):
     # Draw figure
     if shape == "triangle":
         inputdata.rel_permittivity, _ = draw.triangle(
-            side_length=np.sqrt(object_size),  
+            object_size,  
             center=[0, 0],
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
@@ -273,8 +273,10 @@ def evaluate(algorithm, params=None):
             object_rel_permittivity=(contrast_level+1)*epsilon_rb
             
         )
-    if disp:
-        config.draw(show=True)
+    else:
+        raise ValueError(f"Shape '{shape}' is not supported.")
+        
+        
 
     # Build forward solver object
     solver = mom.MoM_CG_FFT(tolerance=.001,
@@ -328,7 +330,7 @@ def evaluate(algorithm, params=None):
                         contrast=chi)
     
     if disp:
-        config.draw(show=True)
+        inputdata.draw(show=True)
         print(result)
 
     return result
