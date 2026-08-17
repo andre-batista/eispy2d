@@ -4,6 +4,7 @@ from eispy2d.discretization import richmond
 from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.core import configuration as cfg
 from eispy2d.core import result as rst
+from eispy2d.core import error
 from eispy2d.core import inputdata as ipt
 from eispy2d.utils import draw
 from scipy.linalg import norm
@@ -58,6 +59,7 @@ def evaluate(algorithm, params=None):
 
     if params is not None and "shape" in params:
         shape = params["shape"]
+        shape = shape.lower()
     else:
         shape = "triangle"
 
@@ -88,7 +90,7 @@ def evaluate(algorithm, params=None):
     # Draw figure
     if shape == "triangle":
         inputdata.rel_permittivity, _ = draw.triangle(
-            object_size,  
+            side_length=np.sqrt(object_size),  
             center=[0, 0],
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
@@ -274,9 +276,10 @@ def evaluate(algorithm, params=None):
             
         )
     else:
-        raise ValueError(f"Shape '{shape}' is not supported.")
-        
-        
+        raise error.WrongValueInput("evaluate", "shape", "Triangle, square, ellipse, circle, cross, trapezoid, polygon, parallelogram, rhombus, star4, star5, star6, ring, random, random_gaussian", shape)
+    
+    if disp:
+        config.draw(show=True)
 
     # Build forward solver object
     solver = mom.MoM_CG_FFT(tolerance=.001,
@@ -330,7 +333,7 @@ def evaluate(algorithm, params=None):
                         contrast=chi)
     
     if disp:
-        inputdata.draw(show=True)
+        config.draw(show=True)
         print(result)
 
     return result

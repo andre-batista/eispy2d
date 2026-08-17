@@ -13,7 +13,7 @@ from eispy2d.api import api
 from eispy2d.core.configuration import Configuration
 from eispy2d.core.inputdata import InputData
 from eispy2d.core.result import Result
-from eispy2d.core.error import MissingInputError
+from eispy2d.core.error import WrongValueInput
 from eispy2d.discretization import richmond as ric
 from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.solvers.inverse import bim
@@ -195,7 +195,7 @@ class TestEvaluateAPI(unittest.TestCase):
         params = self.params.copy()
         params["shape"] = "invalid_shape"
         
-        with self.assertRaises(ValueError):
+        with self.assertRaises(WrongValueInput):
             api.evaluate(self.test_algorithm, params=params)
         print("✓ evaluate raises error for invalid shape")
     
