@@ -5,24 +5,28 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from eispy2d.api import testset_api as ts
-from eispy2d.api import benchmark_api as bmk
+from eispy2d.api import casestudy_api as cst
 from eispy2d.core import configuration as cfg
 from eispy2d.core import inputdata as ipt
 from eispy2d.discretization import richmond as ric
+from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.solvers.inverse import bornapprox as ba
 from eispy2d.solvers.inverse import bim
 from eispy2d.solvers.inverse import csi
 from eispy2d.solvers.inverse import regularization as reg
-from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.utils import stopcriteria as stp
 
 
-WAVELENGTH = 1.0  
-Lx, Ly = 0.8, 0.8  
-OBSERVATION_RADIUS = 1.0 
-RESOLUTION = (60, 60)  
-NOISE_LEVEL = 1.0 
-SAMPLE_SIZE = 30  
+WAVELENGTH = 1.0
+Lx, Ly = 0.8, 0.8
+OBSERVATION_RADIUS = 1.0
+RESOLUTION = (60, 60)
+NOISE_LEVEL = 1.0
+BACKGROUND_PERMITTIVITY = 4.0
+CONTRAST_LEVEL = 1.0
+OBJECT_SIZE = 0.16
+STOCHASTIC_RUNS = 30
+MAX_ITERATIONS = 100
 
 
 def born_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
@@ -34,7 +38,7 @@ def born_approximation(scattered_field, incident_field, GS, GD, recover_resoluti
         number_sources=NS,
         image_size=[0.8, 0.8],
         observation_radius=1.0,
-        background_permittivity=4.0,
+        background_permittivity=BACKGROUND_PERMITTIVITY,
         perfect_dielectric=True
     )
     discretization = ric.Richmond(config, recover_resolution, state=False)
@@ -61,7 +65,7 @@ def born_iterative_method(scattered_field, incident_field, GS, GD, recover_resol
         number_sources=NS,
         image_size=[0.8, 0.8],
         observation_radius=1.0,
-        background_permittivity=4.0,
+        background_permittivity=BACKGROUND_PERMITTIVITY,
         perfect_dielectric=True
     )
     discretization = ric.Richmond(config, recover_resolution, state=False)
@@ -92,7 +96,7 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
         number_sources=NS,
         image_size=[0.8, 0.8],
         observation_radius=1.0,
-        background_permittivity=4.0,
+        background_permittivity=BACKGROUND_PERMITTIVITY,
         perfect_dielectric=True
     )
     discretization = ric.Richmond(config, recover_resolution, state=False)
@@ -105,7 +109,7 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
         indicators=[]
     )
     solver = csi.ContrastSourceInversion(
-        stp.StopCriteria(max_iterations=100)
+        stp.StopCriteria(max_iterations=MAX_ITERATIONS)
     )
     result = solver.solve(inputdata, discretization, print_info=False)
     chi = (result.rel_permittivity / config.epsilon_rb) - 1
@@ -115,62 +119,60 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
 algorithms = [
     born_approximation,
     born_iterative_method,
+    contrast_source_inversion
 ]
 
-algorithm_names = ['Born Approximation', 'Born Iterative Method']
 
+print('Creating test case...')
 
-print('Creating tests...')
+test_params = {
+    "wavelength": WAVELENGTH,
+    "image_size": (Lx, Ly),
+    "observation_radius": OBSERVATION_RADIUS,
+    "resolution": RESOLUTION,
+    "noise_level": NOISE_LEVEL,
+    "shape": "triangle",
+    "background_permittivity": BACKGROUND_PERMITTIVITY
+}
 
-mytestset = ts.TestSet(
-    name="benchmark_tests",
-    wavelength=WAVELENGTH,
-    image_size=(Lx, Ly),
-    observation_radius=OBSERVATION_RADIUS,
-    resolution=RESOLUTION,
-    noise_level=NOISE_LEVEL,
-    sample_size=SAMPLE_SIZE
-)
+print(f'Test parameters: {test_params}')
 
-mytestset.randomize_tests(parallelization=True)
+print('\nCreating case study...')
 
-print(f'Tests created: {mytestset.sample_size} cases.')
-print(f'Condition: {mytestset._testset_condition}')
-
-
-print('\nCreating benchmark...')
-
-mybenchmark = bmk.Benchmark(
-    name="api_benchmark",
+mycasestudy = cst.CaseStudy(
+    name="api_casestudy",
     algorithm=algorithms,
-    testset=mytestset
+    test=test_params,
+    stochastic_runs=STOCHASTIC_RUNS,
+    save_stochastic_runs=True
 )
 
-print(f'Benchmark created: {mybenchmark.name}')
+print(f'Case study created: {mycasestudy.name}')
 print(f'Algorithms: {len(algorithms)}')
-print(f'Test set: {mytestset.name}')
+print(f'Stochastic runs: {STOCHASTIC_RUNS}')
 
-print('\nExecuting benchmark...')
-mybenchmark.run(parallelization=bmk.PARALLELIZE_TESTS)
+print('\nExecuting case study...')
+mycasestudy.run(parallelization=True)
 
-print('Benchmark completed!')
+print('Case study completed!')
 
 
 print('\nResults:')
-print(f'Dimension of results: {mybenchmark.results.shape if hasattr(mybenchmark.results, "shape") else "N/A"}')
-print(f'Number of results: {len(mybenchmark.results) if hasattr(mybenchmark.results, "__len__") else "N/A"}')
-
-if mybenchmark.results is not None:
-    if isinstance(mybenchmark.results, np.ndarray):
-        print(f'Format of results: {mybenchmark.results.shape}')
-        if mybenchmark.results.size > 0:
-            first_result = mybenchmark.results.flat[0]
-            if hasattr(first_result, 'indicators'):
-                print(f'Available indicators: {list(first_result.indicators.keys())}')
+if mycasestudy.results is not None:
+    if isinstance(mycasestudy.results, list):
+        print(f'Number of algorithm results: {len(mycasestudy.results)}')
+        for i, algo_result in enumerate(mycasestudy.results):
+            if isinstance(algo_result, list):
+                print(f'  Algorithm {i+1}: {len(algo_result)} stochastic executions')
+                if len(algo_result) > 0:
+                    first = algo_result[0]
+                    if hasattr(first, 'indicators'):
+                        print(f'    Available indicators: {list(first.indicators.keys())}')
+            else:
+                print(f'  Algorithm {i+1}: single execution')
     else:
-        print(f'Type of results: {type(mybenchmark.results)}')
-
+        print(f'Type of results: {type(mycasestudy.results)}')
 
 print('\nSaving results...')
-mybenchmark.save(save_testset=True)
-print(f'Results saved to: {mybenchmark.name}')
+mycasestudy.save(save_test=True)
+print(f'Results saved to: {mycasestudy.name}')
