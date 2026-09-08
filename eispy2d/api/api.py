@@ -324,7 +324,7 @@ def evaluate(algorithm, params=None):
         name='evaluated_result',
         method_name=algorithm.__name__,
         configuration=config,
-        # rel_permittivity=epsilon_r_recon,
+        rel_permittivity=epsilon_r_recon,
     )
 
     result.update_error(inputdata=inputdata,
@@ -333,7 +333,7 @@ def evaluate(algorithm, params=None):
                         contrast=chi)
     
     if disp:
-        config.draw(show=True)
+        result.plot_map(show=True, fontsize=15, groundtruth=inputdata)
         print(result)
 
     return result

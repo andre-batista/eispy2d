@@ -1,6 +1,8 @@
 import sys
 import os
 import numpy as np
+import scipy.sparse as sps
+from numpy.linalg import inv
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -17,12 +19,13 @@ from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.utils import stopcriteria as stp
 
 
-WAVELENGTH = 1.0  
-Lx, Ly = 0.8, 0.8  
-OBSERVATION_RADIUS = 1.0 
-RESOLUTION = (60, 60)  
-NOISE_LEVEL = 1.0 
-SAMPLE_SIZE = 30  
+WAVELENGTH = 1.0
+Lx, Ly = 0.8, 0.8
+OBSERVATION_RADIUS = 1.0
+RESOLUTION = (60, 60)
+NOISE_LEVEL = 1.0
+SAMPLE_SIZE = 120
+BACKGROUND_PERMITTIVITY = 4.0
 
 
 def born_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
@@ -34,7 +37,7 @@ def born_approximation(scattered_field, incident_field, GS, GD, recover_resoluti
         number_sources=NS,
         image_size=[0.8, 0.8],
         observation_radius=1.0,
-        background_permittivity=4.0,
+        background_permittivity=BACKGROUND_PERMITTIVITY,
         perfect_dielectric=True
     )
     discretization = ric.Richmond(config, recover_resolution, state=False)
@@ -61,7 +64,7 @@ def born_iterative_method(scattered_field, incident_field, GS, GD, recover_resol
         number_sources=NS,
         image_size=[0.8, 0.8],
         observation_radius=1.0,
-        background_permittivity=4.0,
+        background_permittivity=BACKGROUND_PERMITTIVITY,
         perfect_dielectric=True
     )
     discretization = ric.Richmond(config, recover_resolution, state=False)
@@ -92,7 +95,7 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
         number_sources=NS,
         image_size=[0.8, 0.8],
         observation_radius=1.0,
-        background_permittivity=4.0,
+        background_permittivity=BACKGROUND_PERMITTIVITY,
         perfect_dielectric=True
     )
     discretization = ric.Richmond(config, recover_resolution, state=False)
@@ -112,15 +115,133 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
     return result.scattered_field, chi
 
 
+def zero_contrast_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
+    chi = np.zeros(recover_resolution, dtype=complex)
+    N = recover_resolution[0] * recover_resolution[1]
+    C = sps.spdiags(chi.reshape(-1), 0, N, N)
+    I = np.eye(N, dtype=complex)
+    L = inv(I - GD @ C)
+    recon_scattered_field = GS @ C @ L @ incident_field
+    return recon_scattered_field, chi
+
+
 algorithms = [
     born_approximation,
     born_iterative_method,
+    contrast_source_inversion,
+    zero_contrast_approximation,
 ]
 
-algorithm_names = ['Born Approximation', 'Born Iterative Method']
+algorithm_names = [
+    'Born Approximation',
+    'Born Iterative Method',
+    'Contrast Source Inversion',
+    'Zero Contrast'
+]
 
 
-print('Creating tests...')
+
+N_SHAPES = 13
+N_NOISE_LEVELS = 100
+N_PERMITTIVITIES = 100
+N_SOURCE_PAIRS = 100
+
+DEFAULT_SHAPE = "circle"
+DEFAULT_NOISE = 1.0
+DEFAULT_PERMITTIVITY = 4.0
+DEFAULT_NM = 16
+DEFAULT_NS = 16
+
+
+def get_shapes():
+    return [
+        "triangle", "square", "circle", "ellipse", "cross",
+        "star5", "star6", "rhombus", "trapezoid", "polygon",
+        "random", "ring", "parallelogram"
+    ]
+
+
+def get_noise_levels():
+    l = []
+    for i in range(N_NOISE_LEVELS):
+        l.append(i * (10.0 / (N_NOISE_LEVELS - 1)))
+    return l
+
+
+def get_permittivities():
+    l = []
+    for i in range(N_PERMITTIVITIES):
+        l.append(1.0 + i * (10.0 / (N_PERMITTIVITIES - 1)))
+    return l
+
+
+def get_source_pairs():
+    l = []
+    for i in range(N_SOURCE_PAIRS):
+        l.append((8 * (i % 3) + 8, 8 * (i // 3) + 8))
+    return l
+
+
+def generate_configurations():
+    shapes = get_shapes()
+    noise_levels = get_noise_levels()
+    permittivities = get_permittivities()
+    source_pairs = get_source_pairs()
+    
+    configs = []
+    
+    for shape in shapes:
+        configs.append({
+            "shape": shape,
+            "background_permittivity": DEFAULT_PERMITTIVITY,
+            "number_measurements": DEFAULT_NM,
+            "number_sources": DEFAULT_NS,
+            "noise_level": DEFAULT_NOISE
+        })
+    
+    for noise in noise_levels:
+        if noise == DEFAULT_NOISE:
+            continue
+        configs.append({
+            "shape": DEFAULT_SHAPE,
+            "background_permittivity": DEFAULT_PERMITTIVITY,
+            "number_measurements": DEFAULT_NM,
+            "number_sources": DEFAULT_NS,
+            "noise_level": noise
+        })
+    
+    for eps in permittivities:
+        if eps == DEFAULT_PERMITTIVITY:
+            continue
+        configs.append({
+            "shape": DEFAULT_SHAPE,
+            "background_permittivity": eps,
+            "number_measurements": DEFAULT_NM,
+            "number_sources": DEFAULT_NS,
+            "noise_level": DEFAULT_NOISE
+        })
+    
+    for nm, ns in source_pairs:
+        if nm == DEFAULT_NM and ns == DEFAULT_NS:
+            continue
+        configs.append({
+            "shape": DEFAULT_SHAPE,
+            "background_permittivity": DEFAULT_PERMITTIVITY,
+            "number_measurements": nm,
+            "number_sources": ns,
+            "noise_level": DEFAULT_NOISE
+        })
+    
+    return configs
+
+
+configurations = generate_configurations()
+
+print('=' * 70)
+print('BENCHMARK GENERATOR - API EVALUATE')
+print('=' * 70)
+
+print('\nCreating test set...')
 
 mytestset = ts.TestSet(
     name="benchmark_tests",
@@ -134,43 +255,84 @@ mytestset = ts.TestSet(
 
 mytestset.randomize_tests(parallelization=True)
 
-print(f'Tests created: {mytestset.sample_size} cases.')
+print(f'Test set created: {mytestset.sample_size} test cases.')
 print(f'Condition: {mytestset._testset_condition}')
-
 
 print('\nCreating benchmark...')
 
 mybenchmark = bmk.Benchmark(
     name="api_benchmark",
     algorithm=algorithms,
-    testset=mytestset
+    testset=mytestset,
+    configurations=configurations
 )
 
-print(f'Benchmark created: {mybenchmark.name}')
+print(f'Benchmark: {mybenchmark.name}')
 print(f'Algorithms: {len(algorithms)}')
 print(f'Test set: {mytestset.name}')
+print(f'Configurations: {len(configurations)}')
+
+print('\n' + '-' * 70)
+print('Configuration summary:')
+print('-' * 70)
+
+shape_count = 0
+noise_count = 0
+perm_count = 0
+src_count = 0
+
+for c in configurations:
+    shape = c.get('shape')
+    nm = c.get('number_measurements', 16)
+    ns = c.get('number_sources', 16)
+    noise = c.get('noise_level', 1.0)
+    eps = c.get('background_permittivity', 4.0)
+
+    if shape != 'circle' and nm == 16 and ns == 16 and noise == 1.0 and eps == 4.0:
+        shape_count += 1
+    elif shape == 'circle' and eps == 4.0 and nm == 16 and ns == 16 and noise != 1.0:
+        noise_count += 1
+    elif shape == 'circle' and nm == 16 and ns == 16 and noise == 1.0 and eps != 4.0:
+        perm_count += 1
+    elif shape == 'circle' and eps == 4.0 and noise == 1.0 and (nm != 16 or ns != 16):
+        src_count += 1
+
+print(f'Shapes: {shape_count} configurations')
+print(f'Noise levels: {noise_count} configurations')
+print(f'Permittivity: {perm_count} configurations')
+print(f'Sources/Measurements: {src_count} configurations')
+print('-' * 70)
 
 print('\nExecuting benchmark...')
-mybenchmark.run(parallelization=bmk.PARALLELIZE_TESTS)
+print('This may take a while. Please wait...')
 
-print('Benchmark completed!')
-
+try:
+    mybenchmark.run(parallelization=bmk.PARALLELIZE_TESTS)
+    print('Benchmark completed successfully!')
+except Exception as e:
+    print(f'Error during benchmark execution: {e}')
+    print('Saving partial results...')
 
 print('\nResults:')
-print(f'Dimension of results: {mybenchmark.results.shape if hasattr(mybenchmark.results, "shape") else "N/A"}')
-print(f'Number of results: {len(mybenchmark.results) if hasattr(mybenchmark.results, "__len__") else "N/A"}')
+if hasattr(mybenchmark.results, 'shape'):
+    print(f'Results shape: {mybenchmark.results.shape}')
+else:
+    print('Results shape: N/A')
 
 if mybenchmark.results is not None:
     if isinstance(mybenchmark.results, np.ndarray):
-        print(f'Format of results: {mybenchmark.results.shape}')
+        print(f'Format: {mybenchmark.results.shape}')
         if mybenchmark.results.size > 0:
             first_result = mybenchmark.results.flat[0]
             if hasattr(first_result, 'indicators'):
                 print(f'Available indicators: {list(first_result.indicators.keys())}')
     else:
-        print(f'Type of results: {type(mybenchmark.results)}')
-
+        print(f'Type: {type(mybenchmark.results)}')
 
 print('\nSaving results...')
 mybenchmark.save(save_testset=True)
 print(f'Results saved to: {mybenchmark.name}')
+
+print('\n' + '=' * 70)
+print('Done!')
+print('=' * 70)

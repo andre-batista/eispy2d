@@ -12,7 +12,9 @@ be executed.
 """
 
 import sys
-sys.path.insert(1, '../lib/')
+import os 
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import modules
 import numpy as np

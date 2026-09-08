@@ -645,7 +645,7 @@ class Result:
                   ymax/self.configuration.lambda_b]
         clb_epsilon_r = r'$\epsilon_r$'
         clb_sigma = r'$\sigma$ [S/m]'
-        clb_contrast = r'$|\\chi|$'
+        clb_contrast = r'|\\chi|'
         clb_total = r'$|E_z|$ [V/m]'
 
         if image == TOTAL_FIELD:

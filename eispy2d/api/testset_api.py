@@ -37,6 +37,8 @@ BACKGROUND_PERMITTIVITIES = [1.0, 2.0, 4.0, 8.0]
 
 NUMBER_VALUES = [8, 16, 32]
 
+NOISE_LEVELS = [0.0, 0.5, 1.0, 2.0, 5.0]
+
 
 class TestSet:
     @property
@@ -90,12 +92,13 @@ class TestSet:
             "wavelength": wavelength,
             "image_size": image_size,
             "observation_radius": observation_radius,
-            "resolution": resolution
+            "resolution": resolution,
+            "noise_level": noise_level
         }
         self._test = None
         self._testset_condition = _MISSING_SHAPE_DATA
 
-    def randomize_tests(self, parallelization=True):
+    def randomize_tests(self, parallelization=True, vary_noise=False):
         self._test = []
         N = self.sample_size
 
@@ -108,7 +111,8 @@ class TestSet:
                     self.image_size,
                     self.observation_radius,
                     self.resolution,
-                    self.noise_level
+                    self.noise_level,
+                    vary_noise
                 ) for n in range(N)
             )
         else:
@@ -119,7 +123,8 @@ class TestSet:
                     self.image_size,
                     self.observation_radius,
                     self.resolution,
-                    self.noise_level
+                    self.noise_level,
+                    vary_noise
                 ) for n in range(N)
             ]
 
@@ -209,18 +214,36 @@ class TestSet:
 
 
 def _create_input_params(control_variation, wavelength, image_size,
-                         observation_radius, resolution, noise_level):
-    shape_id = (control_variation // 24) % len(SHAPES)
-    bg_per_id = (control_variation // 6) % len(BACKGROUND_PERMITTIVITIES)
-    measurements_id = (control_variation // 2) % len(NUMBER_VALUES)
-    sources_id = control_variation % len(NUMBER_VALUES)
+                         observation_radius, resolution, noise_level,
+                         vary_noise=False):
+    n_shapes = len(SHAPES)
+    n_bg = len(BACKGROUND_PERMITTIVITIES)
+    n_noise = len(NOISE_LEVELS)
+    n_numbers = len(NUMBER_VALUES)
+    
+    step_shape = n_bg * n_numbers * n_numbers
+    step_bg = n_numbers * n_numbers
+    step_numbers = n_numbers
+    
+    shape_id = (control_variation // step_shape) % n_shapes
+    bg_per_id = (control_variation // step_bg) % n_bg
+    
+    if vary_noise:
+        step_noise = n_numbers * n_numbers
+        noise_id = (control_variation // step_noise) % n_noise
+        actual_noise = NOISE_LEVELS[noise_id]
+    else:
+        actual_noise = noise_level
+    
+    measurements_id = (control_variation // step_numbers) % n_numbers
+    sources_id = control_variation % n_numbers
 
     params = {}
     params["shape"] = SHAPES[shape_id]
     params["background_permittivity"] = BACKGROUND_PERMITTIVITIES[bg_per_id]
     params["number_measurements"] = NUMBER_VALUES[measurements_id]
     params["number_sources"] = NUMBER_VALUES[sources_id]
-    params["noise_level"] = noise_level
+    params["noise_level"] = actual_noise
     params["wavelength"] = wavelength
     params["image_size"] = image_size
     params["observation_radius"] = observation_radius

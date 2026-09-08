@@ -154,5 +154,6 @@ def alg(scattered_field, incident_field, GS, GD, resolution):
 
     return recon_scattered_field, chi
 
-params = {"shape":"random", "disp":True}
-api.evaluate(alg, params)
+
+params = {"shape":"star4", "disp":True}
+api.evaluate(test_evaluate, params)
