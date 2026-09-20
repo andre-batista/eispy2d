@@ -1,148 +1,114 @@
 import sys
 import os
-import unittest
 import numpy as np
 from numpy.linalg import inv
 from scipy import sparse as sps
+from scipy.linalg import solve
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from eispy2d.api import api
 from eispy2d.discretization import richmond as ric
 from eispy2d.solvers.forward import mom_cg_fft as mom
-from eispy2d.core import configuration as cfg, result
-from eispy2d.core import result as rst
+from eispy2d.core import configuration as cfg
 from eispy2d.core import inputdata as ipt
 from eispy2d.solvers.inverse import regularization as reg
-from eispy2d.utils import stopcriteria as stp, draw
+from eispy2d.utils import stopcriteria as stp
 from eispy2d.solvers.inverse import bim
-from eispy2d.solvers.inverse import backprop
+from eispy2d.solvers.inverse import bornapprox as ba
+from eispy2d.solvers.inverse import csi
 
 
-def test_evaluate(scattered_field, incident_field, GS, GD, recover_resolution):
-    contrast = 0
-    recon_scattered_field = 0
+BACKGROUND_PERMITTIVITY = 4.0
 
-    NS = scattered_field.shape[1] #sources
-    NM = scattered_field.shape[0] #measurements    resolution = (int(np.sqrt(N)), int(np.sqrt(N)))
-
-    contrast = np.zeros(recover_resolution, dtype=complex) 
-    recon_scattered_field = scattered_field.copy() 
-
-    # for it in range(2):
-    #     E_tot = np.zeros((N, NM), dtype=complex)
-    #     for m in range(NM):
-    #         A_total = np.eye(N) - GD @ np.diag(contrast)
-    #         E_tot[:, m] = np.linalg.solve(A_total, incident_field[:, m])
-        
-    #     for m in range(NM):
-    #         E_tot_col = E_tot[:, m]  # (3600,)
-    #         fonte = contrast * E_tot_col  # (3600,)
-            
-    #         recon_scattered_field[:, m] = GS @ fonte  # (9, 3600) @ (3600,) = (9,) 
-        
-    #     erro = np.linalg.norm(scattered_field - recon_scattered_field) / np.linalg.norm(recon_scattered_field)
-    #     print(f"Iteração {it}: Erro = {erro:.6f}")
-        
-        
-        
-    #     delta_contrast = np.zeros(N, dtype=complex)
-    #     for m in range(NM):
-    #         A = GS @ np.diag(E_tot[:, m])  # (9, 3600)
-            
-    #         res = scattered_field[:, m] - recon_scattered_field[:, m]  # (9,)
-            
-    #         lambda_reg = 0.01  
-    #         AHA = A.conj().T @ A + lambda_reg * np.eye(N)
-    #         rhs = A.conj().T @ res
-            
-    #         delta_contrast += np.linalg.solve(AHA, rhs)
-        
-    #     contrast = contrast + delta_contrast / NM
-
-    print("TEST contrast first 5:", contrast[:5])
-    print("TEST mean contrast:", np.mean(np.real(contrast)).item())
-
-    print("TEST recon scattered first 5:", recon_scattered_field[:5, 0])
+def born_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
+    NM, NS = scattered_field.shape
+    config = cfg.Configuration(
+        name='temp',
+        wavelength=1.0,
+        number_measurements=NM,
+        number_sources=NS,
+        image_size=[0.8, 0.8],
+        observation_radius=1.0,
+        background_permittivity=BACKGROUND_PERMITTIVITY,
+        perfect_dielectric=True
+    )
+    discretization = ric.Richmond(config, recover_resolution, state=False)
+    inputdata = ipt.InputData(
+        name='temp',
+        configuration=config,
+        resolution=recover_resolution,
+        scattered_field=scattered_field,
+        incident_field=incident_field,
+        indicators=[]
+    )
+    solver = ba.FirstOrderBornApproximation(reg.Tikhonov(1e-3))
+    result = solver.solve(inputdata, discretization, print_info=False)
+    chi = (result.rel_permittivity / config.epsilon_rb) - 1
+    return result.scattered_field, chi
 
 
-    return recon_scattered_field, contrast
+def born_iterative_method(scattered_field, incident_field, GS, GD, recover_resolution):
+    NM, NS = scattered_field.shape
+    config = cfg.Configuration(
+        name='temp',
+        wavelength=1.0,
+        number_measurements=NM,
+        number_sources=NS,
+        image_size=[0.8, 0.8],
+        observation_radius=1.0,
+        background_permittivity=BACKGROUND_PERMITTIVITY,
+        perfect_dielectric=True
+    )
+    discretization = ric.Richmond(config, recover_resolution, state=False)
+    inputdata = ipt.InputData(
+        name='temp',
+        configuration=config,
+        resolution=recover_resolution,
+        scattered_field=scattered_field,
+        incident_field=incident_field,
+        indicators=[]
+    )
+    solver = bim.BornIterativeMethod(
+        mom.MoM_CG_FFT(),
+        reg.Tikhonov(1e-3),
+        stp.StopCriteria(max_iterations=5)
+    )
+    result = solver.solve(inputdata, discretization, print_info=False)
+    chi = (result.rel_permittivity / config.epsilon_rb) - 1
+    return result.scattered_field, chi
 
 
-
-
+def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_resolution):
+    NM, NS = scattered_field.shape
+    config = cfg.Configuration(
+        name='temp',
+        wavelength=1.0,
+        number_measurements=NM,
+        number_sources=NS,
+        image_size=[0.8, 0.8],
+        observation_radius=1.0,
+        background_permittivity=BACKGROUND_PERMITTIVITY,
+        perfect_dielectric=True
+    )
+    discretization = ric.Richmond(config, recover_resolution, state=False)
+    inputdata = ipt.InputData(
+        name='temp',
+        configuration=config,
+        resolution=recover_resolution,
+        scattered_field=scattered_field,
+        incident_field=incident_field,
+        indicators=[]
+    )
+    solver = csi.ContrastSourceInversion(
+        stp.StopCriteria(max_iterations=100)
+    )
+    result = solver.solve(inputdata, discretization, print_info=False)
+    chi = (result.rel_permittivity / config.epsilon_rb) - 1
+    return result.scattered_field, chi
 
 
 def alg(scattered_field, incident_field, GS, GD, resolution):
-    # NM, NS = scattered_field.shape
-    # Lx, Ly = resolution[0] / 75 , resolution[1] / 75 
-    # E0 = np.max(np.abs(incident_field)) 
-    
-    # config = cfg.Configuration(
-    #     name='temp_config',
-    #     frequency=3e8,
-    #     number_measurements=NM,
-    #     number_sources=NS,
-    #     image_size=[Ly, Lx],
-    #     observation_radius=1.0,
-    #     background_permittivity=4.0,
-    #     magnitude=E0,
-    #     perfect_dielectric=True
-    # )
-    
-    # discretization = ric.Richmond(config, resolution, state=False)
-    
-    # inputdata = ipt.InputData(
-    #     name='temp_input',
-    #     configuration=config,
-    #     resolution=resolution,
-    #     noise=1.,
-    #     scattered_field=scattered_field,
-    #     incident_field=incident_field,
-    #     indicators=[rst.REL_PERMITTIVITY_PAD_ERROR, rst.OBJECTIVE_FUNCTION]
-    # )
-
-    # inputdata.rel_permittivity, _ = draw.triangle(
-    #     .16*np.sqrt(3),
-    #     center=[-.14, .09],
-    #     axis_length_x=config.Lx,
-    #     axis_length_y=config.Ly,
-    #     resolution=resolution,
-    #     background_rel_permittivity=4.0,
-    #     object_rel_permittivity=(1.0+1)*4.0
-    # )
-    
-    # method = bim.BornIterativeMethod(
-    #     forward_solver=mom.MoM_CG_FFT(tolerance=0.01, maximum_iterations=2500),
-    #     regularization=reg.Tikhonov(reg.TIK_FIXED, parameter=0.1),
-    #     stop_criteria=stp.StopCriteria(max_iterations=5)
-    # )
-    
-    # result = method.solve(inputdata, discretization)
-    
-    # chi = result.rel_permittivity
-    # if chi.ndim == 2:
-    #     chi = chi.flatten()
-
-    # chi = (result.rel_permittivity / config.epsilon_rb) - 1
-
-    # print("CONTRAST", chi)
-    # print("EPAD", result.zeta_epad)
-
-    # #scattered_field = result.scattered_field
-
-    # print("Scattered field shape: ", scattered_field.shape)
-    # print("Incident field shape: ", incident_field.shape)
-    # print("GS shape: ", GS.shape)
-    # print("GD shape: ", GD.shape)
-
-    # print("Contrast shape: ", chi.shape)
-    # print("Recon scattered field shape: ", result.scattered_field.shape)
-
-    # print("ALG contrast first 5:", chi[:5])
-    # print("ALG mean contrast:", np.mean(np.real(chi)).item())
-
-    # print("ALG recon scattered first 5:", result.scattered_field[:5, 0])
 
     chi = np.zeros(resolution, dtype=complex)
     N = resolution[0] * resolution[1]
@@ -154,6 +120,87 @@ def alg(scattered_field, incident_field, GS, GD, resolution):
 
     return recon_scattered_field, chi
 
+def solver(scattered_field, incident_field, GS, GD, recover_resolution):
+  NM, NS = scattered_field.shape
+  N_pixels = incident_field.shape[0]
 
-params = {"shape":"star4", "disp":True}
-api.evaluate(test_evaluate, params)
+
+  A = np.zeros((NM * NS, N_pixels), dtype=complex)
+
+  b = scattered_field.reshape(-1, 1, order='F')
+
+  for s in range(NS):
+      E_inc_s = incident_field[:, s:s+1]  
+
+
+      A_s = GS * E_inc_s.T
+
+      A[s * NM : (s + 1) * NM, :] = A_s
+
+  gamma = 1e-3  
+  A_reg = A.conj().T @ A + (gamma ** 2) * np.eye(N_pixels)
+  b_reg = A.conj().T @ b
+
+  chi_flat = np.linalg.solve(A_reg, b_reg)
+
+  E_recover = (A @ chi_flat).reshape(NM, NS, order='F')
+
+  return E_recover, chi_flat.reshape(recover_resolution)
+
+def solver2(scattered_field, incident_field, GS, GD, recover_resolution, max_iter=20, gamma=5e-2):
+    NM, NS = scattered_field.shape
+    N_pixels = incident_field.shape[0]
+    b = scattered_field.reshape(-1, 1, order='F')
+
+    E_tot = incident_field.copy()
+    chi_flat = np.zeros((N_pixels, 1), dtype=complex)
+
+    for it in range(max_iter):
+        A = np.zeros((NM * NS, N_pixels), dtype=complex)
+        for s in range(NS):
+            E_tot_s = E_tot[:, s:s+1]
+            A[s * NM : (s + 1) * NM, :] = GS * E_tot_s.T
+
+        A_reg = A.conj().T @ A + (gamma ** 2) * np.eye(N_pixels)
+        b_reg = A.conj().T @ b
+        chi_flat = np.linalg.solve(A_reg, b_reg)
+
+        
+
+        C = np.diag(chi_flat.reshape(-1))
+        I = np.eye(N_pixels, dtype=complex)
+
+        A_int = I - GD @ C
+        for s in range(NS):
+            E_tot[:, s:s+1] = solve(A_int, incident_field[:, s:s+1])
+
+    E_recover = (A @ chi_flat).reshape(NM, NS, order='F')
+
+    return E_recover, chi_flat.reshape(recover_resolution)
+
+def media(scattered_field, incident_field, GS, GD, recover_resolution):
+
+    e1 = born_approximation(scattered_field, incident_field, GS, GD, recover_resolution)[0]
+    e2 = born_iterative_method(scattered_field, incident_field, GS, GD, recover_resolution)[0]
+    e3 = contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_resolution)[0]
+    e4 = solver(scattered_field, incident_field, GS, GD, recover_resolution)[0]
+    e5 = solver2(scattered_field, incident_field, GS, GD, recover_resolution)[0]
+
+    x1 = born_approximation(scattered_field, incident_field, GS, GD, recover_resolution)[1]
+    x2 = born_iterative_method(scattered_field, incident_field, GS, GD, recover_resolution)[1]
+    x3 = contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_resolution)[1]
+    x4 = solver(scattered_field, incident_field, GS, GD, recover_resolution)[1]
+    x5 = solver2(scattered_field, incident_field, GS, GD, recover_resolution)[1]
+
+    media_x = np.stack([x1, x2, x3, x4, x5], axis=0)
+
+    media_x = media_x.mean(axis=0)
+
+    media_e = np.stack([e1, e2, e3, e4, e5], axis=0)
+    media_e = media_e.mean(axis=0)
+
+    return media_e, media_x
+
+
+params = {"shape":"star4", "disp":True, 'BACKGROUND_PERMITTIVITY':BACKGROUND_PERMITTIVITY}
+api.evaluate(media, params)

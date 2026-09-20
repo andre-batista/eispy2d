@@ -115,28 +115,46 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
     return result.scattered_field, chi
 
 
-def zero_contrast_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
-    chi = np.zeros(recover_resolution, dtype=complex)
-    N = recover_resolution[0] * recover_resolution[1]
-    C = sps.spdiags(chi.reshape(-1), 0, N, N)
-    I = np.eye(N, dtype=complex)
-    L = inv(I - GD @ C)
-    recon_scattered_field = GS @ C @ L @ incident_field
-    return recon_scattered_field, chi
+def sum_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
+    NM, NS = scattered_field.shape
+    N_pixels = incident_field.shape[0]
+
+
+    A = np.zeros((NM * NS, N_pixels), dtype=complex)
+
+    b = scattered_field.reshape(-1, 1, order='F')
+
+    for s in range(NS):
+        E_inc_s = incident_field[:, s:s+1]  
+
+
+        A_s = GS * E_inc_s.T
+
+        A[s * NM : (s + 1) * NM, :] = A_s
+
+    gamma = 1e-3  
+    A_reg = A.conj().T @ A + (gamma ** 2) * np.eye(N_pixels)
+    b_reg = A.conj().T @ b
+
+    chi_flat = np.linalg.solve(A_reg, b_reg)
+
+    E_recover = (A @ chi_flat).reshape(NM, NS, order='F')
+
+    return E_recover, chi_flat.reshape(recover_resolution)
 
 
 algorithms = [
     born_approximation,
     born_iterative_method,
     contrast_source_inversion,
-    zero_contrast_approximation,
+    sum_approximation,
 ]
 
 algorithm_names = [
     'Born Approximation',
     'Born Iterative Method',
     'Contrast Source Inversion',
-    'Zero Contrast'
+    'Sum Approximation'
 ]
 
 
@@ -288,13 +306,13 @@ for c in configurations:
     noise = c.get('noise_level', 1.0)
     eps = c.get('background_permittivity', 4.0)
 
-    if shape != 'circle' and nm == 16 and ns == 16 and noise == 1.0 and eps == 4.0:
+    if shape != DEFAULT_SHAPE and nm == DEFAULT_NM and ns == DEFAULT_NS and noise == DEFAULT_NOISE and eps == DEFAULT_PERMITTIVITY:
         shape_count += 1
-    elif shape == 'circle' and eps == 4.0 and nm == 16 and ns == 16 and noise != 1.0:
+    elif shape == DEFAULT_SHAPE and eps == DEFAULT_PERMITTIVITY and nm == DEFAULT_NM and ns == DEFAULT_NS and noise != DEFAULT_NOISE:
         noise_count += 1
-    elif shape == 'circle' and nm == 16 and ns == 16 and noise == 1.0 and eps != 4.0:
+    elif shape == DEFAULT_SHAPE and nm == DEFAULT_NM and ns == DEFAULT_NS and noise == DEFAULT_NOISE and eps != DEFAULT_PERMITTIVITY:
         perm_count += 1
-    elif shape == 'circle' and eps == 4.0 and noise == 1.0 and (nm != 16 or ns != 16):
+    elif shape == DEFAULT_SHAPE and eps == DEFAULT_PERMITTIVITY and noise == DEFAULT_NOISE and (nm != DEFAULT_NM or ns != DEFAULT_NS):
         src_count += 1
 
 print(f'Shapes: {shape_count} configurations')
