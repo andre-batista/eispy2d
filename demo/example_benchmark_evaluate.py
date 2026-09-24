@@ -22,7 +22,6 @@ Lx, Ly = 0.8, 0.8
 OBSERVATION_RADIUS = 1.0
 RESOLUTION = (30, 30)
 NOISE_LEVEL = 1.0
-SAMPLE_SIZE = 15
 BACKGROUND_PERMITTIVITY = 4.0
 
 
@@ -156,101 +155,13 @@ algorithm_names = [
 ]
 
 
-N_SHAPES = 13
-N_NOISE_LEVELS = 15
-N_PERMITTIVITIES = 15
-N_SOURCE_PAIRS = 15
+# ============================================================================
+# CONFIGURAÇÃO DOS TESTES
+# ============================================================================
+# A variação dos cenários é feita pelo próprio TestSet.
+# Não são criadas configurações manuais de shape, noise, fontes, medições etc.
+SAMPLE_SIZE = 60
 
-DEFAULT_SHAPE = "circle"
-DEFAULT_NOISE = 1.0
-DEFAULT_PERMITTIVITY = 4.0
-DEFAULT_NM = 16
-DEFAULT_NS = 16
-
-
-def get_shapes():
-    return [
-        "triangle", "square", "circle", "ellipse", "cross",
-        "star5", "star6", "rhombus", "trapezoid", "polygon",
-        "random", "ring", "parallelogram"
-    ]
-
-
-def get_noise_levels():
-    l = []
-    for i in range(N_NOISE_LEVELS):
-        l.append(i * (10.0 / (N_NOISE_LEVELS - 1)))
-    return l
-
-
-def get_permittivities():
-    l = []
-    for i in range(N_PERMITTIVITIES):
-        l.append(1.0 + i * (10.0 / (N_PERMITTIVITIES - 1)))
-    return l
-
-
-def get_source_pairs():
-    l = []
-    for i in range(N_SOURCE_PAIRS+1):
-        l.append((8 * (i % 3) + 8, 8 * (i // 3) + 8))
-    return l
-
-
-def generate_configurations():
-    shapes = get_shapes()
-    noise_levels = get_noise_levels()
-    permittivities = get_permittivities()
-    source_pairs = get_source_pairs()
-
-    configs = []
-
-    for shape in shapes:
-        configs.append({
-            "shape": shape,
-            "background_permittivity": DEFAULT_PERMITTIVITY,
-            "number_measurements": DEFAULT_NM,
-            "number_sources": DEFAULT_NS,
-            "noise_level": DEFAULT_NOISE
-        })
-
-    for noise in noise_levels:
-        if noise == DEFAULT_NOISE:
-            continue
-        configs.append({
-            "shape": DEFAULT_SHAPE,
-            "background_permittivity": DEFAULT_PERMITTIVITY,
-            "number_measurements": DEFAULT_NM,
-            "number_sources": DEFAULT_NS,
-            "noise_level": noise
-        })
-
-    for eps in permittivities:
-        if eps == DEFAULT_PERMITTIVITY:
-            continue
-        configs.append({
-            "shape": DEFAULT_SHAPE,
-            "background_permittivity": eps,
-            "number_measurements": DEFAULT_NM,
-            "number_sources": DEFAULT_NS,
-            "noise_level": DEFAULT_NOISE
-        })
-
-    for nm, ns in source_pairs:
-        if nm == DEFAULT_NM and ns == DEFAULT_NS:
-            continue
-        configs.append({
-            "shape": DEFAULT_SHAPE,
-            "background_permittivity": DEFAULT_PERMITTIVITY,
-            "number_measurements": nm,
-            "number_sources": ns,
-            "noise_level": DEFAULT_NOISE
-        })
-
-    return configs
-
-
-configurations = generate_configurations()
 
 print('=' * 70)
 print('BENCHMARK GENERATOR - API EVALUATE')
@@ -268,7 +179,10 @@ mytestset = ts.TestSet(
     sample_size=SAMPLE_SIZE
 )
 
-mytestset.randomize_tests(parallelization=True)
+mytestset.randomize_tests(
+    parallelization=True,
+    vary_noise=True
+)
 
 print(f'Test set created: {mytestset.sample_size} test cases.')
 print(f'Condition: {mytestset._testset_condition}')
@@ -278,45 +192,12 @@ print('\nCreating benchmark...')
 mybenchmark = bmk.Benchmark(
     name="api_benchmark",
     algorithm=algorithms,
-    testset=mytestset,
-    configurations=configurations
+    testset=mytestset
 )
 
 print(f'Benchmark: {mybenchmark.name}')
 print(f'Algorithms: {len(algorithms)}')
 print(f'Test set: {mytestset.name}')
-print(f'Configurations: {len(configurations)}')
-
-print('\n' + '-' * 70)
-print('Configuration summary:')
-print('-' * 70)
-
-shape_count = 0
-noise_count = 0
-perm_count = 0
-src_count = 0
-
-for c in configurations:
-    shape = c.get('shape')
-    nm = c.get('number_measurements', 16)
-    ns = c.get('number_sources', 16)
-    noise = c.get('noise_level', 1.0)
-    eps = c.get('background_permittivity', 4.0)
-
-    if nm == DEFAULT_NM and ns == DEFAULT_NS and noise == DEFAULT_NOISE and eps == DEFAULT_PERMITTIVITY:
-        shape_count += 1
-    elif shape == DEFAULT_SHAPE and eps == DEFAULT_PERMITTIVITY and nm == DEFAULT_NM and ns == DEFAULT_NS and noise != DEFAULT_NOISE:
-        noise_count += 1
-    elif shape == DEFAULT_SHAPE and nm == DEFAULT_NM and ns == DEFAULT_NS and noise == DEFAULT_NOISE and eps != DEFAULT_PERMITTIVITY:
-        perm_count += 1
-    elif shape == DEFAULT_SHAPE and eps == DEFAULT_PERMITTIVITY and noise == DEFAULT_NOISE and (nm != DEFAULT_NM or ns != DEFAULT_NS):
-        src_count += 1
-
-print(f'Shapes: {shape_count} configurations')
-print(f'Noise levels: {noise_count} configurations')
-print(f'Permittivity: {perm_count} configurations')
-print(f'Sources/Measurements: {src_count} configurations')
-print('-' * 70)
 
 print('\nExecuting benchmark...')
 print('This may take a while. Please wait...')
