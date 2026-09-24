@@ -4,8 +4,6 @@ import numpy as np
 import scipy.sparse as sps
 from numpy.linalg import inv
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from eispy2d.api import testset_api as ts
 from eispy2d.api import benchmark_api as bmk
 from eispy2d.core import configuration as cfg
@@ -22,9 +20,9 @@ from eispy2d.utils import stopcriteria as stp
 WAVELENGTH = 1.0
 Lx, Ly = 0.8, 0.8
 OBSERVATION_RADIUS = 1.0
-RESOLUTION = (60, 60)
+RESOLUTION = (30, 30)
 NOISE_LEVEL = 1.0
-SAMPLE_SIZE = 120
+SAMPLE_SIZE = 15
 BACKGROUND_PERMITTIVITY = 4.0
 
 
@@ -77,10 +75,10 @@ def born_iterative_method(scattered_field, incident_field, GS, GD, recover_resol
         indicators=[]
     )
     solver = bim.BornIterativeMethod(
-        mom.MoM_CG_FFT(),
-        reg.Tikhonov(1e-1),
-        stp.StopCriteria(max_iterations=5)
-    )
+        mom.MoM_CG_FFT(tolerance=0.01, maximum_iterations=2500),
+        reg.Tikhonov(reg.TIK_FIXED, parameter=0.1),
+        stp.StopCriteria(max_iterations=5))
+
     result = solver.solve(inputdata, discretization, print_info=False)
     chi = (result.rel_permittivity / config.epsilon_rb) - 1
     return result.scattered_field, chi
@@ -125,14 +123,14 @@ def sum_approximation(scattered_field, incident_field, GS, GD, recover_resolutio
     b = scattered_field.reshape(-1, 1, order='F')
 
     for s in range(NS):
-        E_inc_s = incident_field[:, s:s+1]  
+        E_inc_s = incident_field[:, s:s+1]
 
 
         A_s = GS * E_inc_s.T
 
         A[s * NM : (s + 1) * NM, :] = A_s
 
-    gamma = 1e-3  
+    gamma = 1e-2
     A_reg = A.conj().T @ A + (gamma ** 2) * np.eye(N_pixels)
     b_reg = A.conj().T @ b
 
@@ -158,11 +156,10 @@ algorithm_names = [
 ]
 
 
-
 N_SHAPES = 13
-N_NOISE_LEVELS = 100
-N_PERMITTIVITIES = 100
-N_SOURCE_PAIRS = 100
+N_NOISE_LEVELS = 15
+N_PERMITTIVITIES = 15
+N_SOURCE_PAIRS = 15
 
 DEFAULT_SHAPE = "circle"
 DEFAULT_NOISE = 1.0
@@ -195,7 +192,7 @@ def get_permittivities():
 
 def get_source_pairs():
     l = []
-    for i in range(N_SOURCE_PAIRS):
+    for i in range(N_SOURCE_PAIRS+1):
         l.append((8 * (i % 3) + 8, 8 * (i // 3) + 8))
     return l
 
@@ -205,9 +202,9 @@ def generate_configurations():
     noise_levels = get_noise_levels()
     permittivities = get_permittivities()
     source_pairs = get_source_pairs()
-    
+
     configs = []
-    
+
     for shape in shapes:
         configs.append({
             "shape": shape,
@@ -216,7 +213,7 @@ def generate_configurations():
             "number_sources": DEFAULT_NS,
             "noise_level": DEFAULT_NOISE
         })
-    
+
     for noise in noise_levels:
         if noise == DEFAULT_NOISE:
             continue
@@ -227,7 +224,7 @@ def generate_configurations():
             "number_sources": DEFAULT_NS,
             "noise_level": noise
         })
-    
+
     for eps in permittivities:
         if eps == DEFAULT_PERMITTIVITY:
             continue
@@ -238,7 +235,7 @@ def generate_configurations():
             "number_sources": DEFAULT_NS,
             "noise_level": DEFAULT_NOISE
         })
-    
+
     for nm, ns in source_pairs:
         if nm == DEFAULT_NM and ns == DEFAULT_NS:
             continue
@@ -249,7 +246,7 @@ def generate_configurations():
             "number_sources": ns,
             "noise_level": DEFAULT_NOISE
         })
-    
+
     return configs
 
 
@@ -306,7 +303,7 @@ for c in configurations:
     noise = c.get('noise_level', 1.0)
     eps = c.get('background_permittivity', 4.0)
 
-    if shape != DEFAULT_SHAPE and nm == DEFAULT_NM and ns == DEFAULT_NS and noise == DEFAULT_NOISE and eps == DEFAULT_PERMITTIVITY:
+    if nm == DEFAULT_NM and ns == DEFAULT_NS and noise == DEFAULT_NOISE and eps == DEFAULT_PERMITTIVITY:
         shape_count += 1
     elif shape == DEFAULT_SHAPE and eps == DEFAULT_PERMITTIVITY and nm == DEFAULT_NM and ns == DEFAULT_NS and noise != DEFAULT_NOISE:
         noise_count += 1

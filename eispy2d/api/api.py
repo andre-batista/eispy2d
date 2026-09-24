@@ -63,6 +63,16 @@ def evaluate(algorithm, params=None):
     else:
         shape = "triangle"
 
+    if params is not None and "center" in params:
+        center = params["center"]
+    else:
+        center = [0, 0]
+
+    if params is not None and "rotate" in params:
+        rotate = params["rotate"]
+    else:
+        rotate = [0, 0]
+
     E0 = 1.0 # incident wave magnitude [V/m]
     indicators = [rst.REL_PERMITTIVITY_PAD_ERROR, rst.RESIDUAL_NORM_ERROR]
     contrast_level = 1.
@@ -91,32 +101,35 @@ def evaluate(algorithm, params=None):
     if shape == "triangle":
         inputdata.rel_permittivity, _ = draw.triangle(
             side_length=np.sqrt(object_size),  
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb
+            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            rotate=rotate
         )
     elif shape == "square":
         inputdata.rel_permittivity, _ = draw.square(
             side_length=np.sqrt(object_size),  
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb
+            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            rotate=rotate
         )
     elif shape == "circle":
         inputdata.rel_permittivity, _ = draw.circle(
             radius=np.sqrt(object_size / np.pi),
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb
+            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            rotate=rotate
         )
     elif shape == "cross":
         cross_size = np.sqrt(object_size)
@@ -124,24 +137,26 @@ def evaluate(algorithm, params=None):
             height=cross_size,
             width=cross_size,
             thickness=cross_size * 0.2,  
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb
+            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            rotate=rotate
         )
     elif shape == "ellipse":
         radius = np.sqrt(object_size / np.pi)
         inputdata.rel_permittivity, _ = draw.ellipse(
             x_radius=radius * 1.2, 
             y_radius=radius * 0.8,  
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb
+            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            rotate=rotate
         )
     elif shape == "parallelogram":
         size = np.sqrt(object_size)
@@ -149,24 +164,26 @@ def evaluate(algorithm, params=None):
             length=size,
             height=size * 0.7,
             inclination=30.0,
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb
+            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            rotate=rotate
         )
     elif shape == "polygon":
         radius = np.sqrt(object_size / (5 * np.sin(2*np.pi/5) / 2)) 
         inputdata.rel_permittivity, _ = draw.polygon(
             number_sides=5,
             radius=radius,
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb
+            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            rotate=rotate
         )
     elif shape == "random":
         
@@ -175,12 +192,13 @@ def evaluate(algorithm, params=None):
             number_sides=8, 
             maximum_radius=radius,
             minimum_radius=radius * 0.5, 
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb
+            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            rotate=rotate
         )
     elif shape == "random_gaussians":
         inputdata.rel_permittivity, _ = draw.random_gaussians(
@@ -195,58 +213,58 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             background_rel_permittivity=epsilon_rb,
             background_conductivity=0.0,
-            center=[0, 0],
-            rotate=0.0,
+            center=center,
+            rotate=rotate,
             edge_smoothing=0.03
         )
     elif shape == "star4":
         radius = np.sqrt(object_size / np.pi) * 1.2 
         inputdata.rel_permittivity, _ = draw.star4(
             radius=radius,
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
             object_rel_permittivity=(contrast_level+1)*epsilon_rb,
-            rotate=0.0
+            rotate=rotate
         )
     elif shape == "star5":
         radius = np.sqrt(object_size / np.pi) * 1.2
         inputdata.rel_permittivity, _ = draw.star5(
             radius=radius,
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
             object_rel_permittivity=(contrast_level+1)*epsilon_rb,
-            rotate=0.0
+            rotate=rotate
         )
     elif shape == "star6":
         radius = np.sqrt(object_size / np.pi) * 1.2
         inputdata.rel_permittivity, _ = draw.star6(
             radius=radius,
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
             object_rel_permittivity=(contrast_level+1)*epsilon_rb,
-            rotate=0.0
+            rotate=rotate
         )
     elif shape == "rhombus":
         size = np.sqrt(object_size)
         inputdata.rel_permittivity, _ = draw.rhombus(
             x_radius=size * 0.6,
             y_radius=size * 0.6,
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
             object_rel_permittivity=(contrast_level+1)*epsilon_rb,
-            rotate=45.0 
+            rotate=rotate
         )
     elif shape == "trapezoid":
         size = np.sqrt(object_size)
@@ -254,20 +272,20 @@ def evaluate(algorithm, params=None):
             upper_length=size * 0.6,
             lower_length=size,
             height=size * 0.7,
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
             object_rel_permittivity=(contrast_level+1)*epsilon_rb,
-            rotate=0.0
+            rotate=rotate
         )
     elif shape == "ring":
         outer_radius = np.sqrt(object_size / np.pi)
         inputdata.rel_permittivity, _ = draw.ring(
             inner_radius=outer_radius * 0.4, 
             outer_radius=outer_radius,
-            center=[0, 0],
+            center=center,
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             resolution=resolution,
