@@ -71,7 +71,7 @@ def evaluate(algorithm, params=None):
     if params is not None and "rotate" in params:
         rotate = params["rotate"]
     else:
-        rotate = [0, 0]
+        rotate = 0.0
 
     E0 = 1.0 # incident wave magnitude [V/m]
     indicators = [rst.REL_PERMITTIVITY_PAD_ERROR, rst.RESIDUAL_NORM_ERROR]
@@ -128,8 +128,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
-            rotate=rotate
+            object_rel_permittivity=(contrast_level+1)*epsilon_rb        
         )
     elif shape == "cross":
         cross_size = np.sqrt(object_size)

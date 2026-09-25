@@ -4,6 +4,8 @@ import numpy as np
 import scipy.sparse as sps
 from numpy.linalg import inv
 
+sys.path.insert(0, os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
+
 from eispy2d.api import testset_api as ts
 from eispy2d.api import benchmark_api as bmk
 from eispy2d.core import configuration as cfg
@@ -129,7 +131,7 @@ def sum_approximation(scattered_field, incident_field, GS, GD, recover_resolutio
 
         A[s * NM : (s + 1) * NM, :] = A_s
 
-    gamma = 1e-2
+    gamma = 1e-1
     A_reg = A.conj().T @ A + (gamma ** 2) * np.eye(N_pixels)
     b_reg = A.conj().T @ b
 
@@ -155,12 +157,7 @@ algorithm_names = [
 ]
 
 
-# ============================================================================
-# CONFIGURAÇÃO DOS TESTES
-# ============================================================================
-# A variação dos cenários é feita pelo próprio TestSet.
-# Não são criadas configurações manuais de shape, noise, fontes, medições etc.
-SAMPLE_SIZE = 60
+SAMPLE_SIZE = 300
 
 
 print('=' * 70)
