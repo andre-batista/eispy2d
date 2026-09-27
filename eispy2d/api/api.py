@@ -196,8 +196,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
-            rotate=rotate
+            object_rel_permittivity=(contrast_level+1)*epsilon_rb
         )
     elif shape == "random_gaussians":
         inputdata.rel_permittivity, _ = draw.random_gaussians(

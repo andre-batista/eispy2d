@@ -14,6 +14,8 @@ RESOLUTION = "resolution"
 BACKGROUND_PERMITTIVITY = "background_permittivity"
 NOISE_LEVEL = "noise_level"
 SHAPE = "shape"
+CENTER = "center"
+ROTATE = "rotate"
 SAMPLE_SIZE = "sample_size"
 RESULTS = "results"
 
@@ -37,6 +39,8 @@ class Experiment(ABC):
         self.background_permittivity = None
         self.noise_level = None
         self.shape = None
+        self.center = None
+        self.rotate = None
         self.sample_size = None
         self.results = None
 
@@ -53,6 +57,8 @@ class Experiment(ABC):
             BACKGROUND_PERMITTIVITY: self.background_permittivity,
             NOISE_LEVEL: self.noise_level,
             SHAPE: self.shape,
+            CENTER: self.center,
+            ROTATE: self.rotate,
             SAMPLE_SIZE: self.sample_size,
             RESULTS: self.results
         }
@@ -70,6 +76,8 @@ class Experiment(ABC):
         self.background_permittivity = data[BACKGROUND_PERMITTIVITY]
         self.noise_level = data[NOISE_LEVEL]
         self.shape = data[SHAPE]
+        self.center = data.get(CENTER)
+        self.rotate = data.get(ROTATE)
         self.sample_size = data[SAMPLE_SIZE]
         self.results = data[RESULTS]
         return data
@@ -301,6 +309,8 @@ class Experiment(ABC):
         message += 'Background permittivity: ' + str(self.background_permittivity) + '\n'
         message += 'Noise level: ' + str(self.noise_level) + '\n'
         message += 'Shape: ' + str(self.shape) + '\n'
+        message += 'Center: ' + str(self.center) + '\n'
+        message += 'Rotate: ' + str(self.rotate) + '\n'
         message += 'Sample size: ' + str(self.sample_size) + '\n'
         message += 'Results: ' + ('done' if self.results is not None else 'None') + '\n'
         return message

@@ -1,8 +1,6 @@
 import sys
 import os
 import numpy as np
-import scipy.sparse as sps
-from numpy.linalg import inv
 
 sys.path.insert(0, os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
 
@@ -25,6 +23,34 @@ OBSERVATION_RADIUS = 1.0
 RESOLUTION = (30, 30)
 NOISE_LEVEL = 1.0
 BACKGROUND_PERMITTIVITY = 4.0
+
+SHAPES = [
+    "triangle",
+    "square",
+    "circle",
+    "ellipse",
+    "cross",
+    "star4",
+    "star5",
+    "star6",
+    "rhombus",
+    "trapezoid",
+    "polygon",
+    "random",
+    "random_gaussians",
+    "ring",
+    "parallelogram"
+]
+
+BACKGROUND_PERMITTIVITIES = [1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0]
+NOISE_LEVELS = [0.0, 0.5, 1.0, 2.0, 5.0]
+NUMBER_VALUES = [8, 16, 24, 32, 40]
+CENTERS = [(0.0, 0.0), (-0.1, 0.0), (0.1, 0.0), (0.0, -0.1), (0.0, 0.1)]
+ROTATIONS = [0.0, 30.0, 60.0, 90.0]
+OBSERVATION_RADII = [0.8, 1.0, 1.2, 1.5]
+WAVELENGTHS = [0.75, 1.0, 1.25, 1.5]
+
+SAMPLE_SIZE = 300
 
 
 def born_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
@@ -78,8 +104,8 @@ def born_iterative_method(scattered_field, incident_field, GS, GD, recover_resol
     solver = bim.BornIterativeMethod(
         mom.MoM_CG_FFT(tolerance=0.01, maximum_iterations=2500),
         reg.Tikhonov(reg.TIK_FIXED, parameter=0.1),
-        stp.StopCriteria(max_iterations=5))
-
+        stp.StopCriteria(max_iterations=5)
+    )
     result = solver.solve(inputdata, discretization, print_info=False)
     chi = (result.rel_permittivity / config.epsilon_rb) - 1
     return result.scattered_field, chi
@@ -117,26 +143,18 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
 def sum_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
     NM, NS = scattered_field.shape
     N_pixels = incident_field.shape[0]
-
-
     A = np.zeros((NM * NS, N_pixels), dtype=complex)
-
     b = scattered_field.reshape(-1, 1, order='F')
 
     for s in range(NS):
         E_inc_s = incident_field[:, s:s+1]
-
-
         A_s = GS * E_inc_s.T
-
-        A[s * NM : (s + 1) * NM, :] = A_s
+        A[s * NM:(s + 1) * NM, :] = A_s
 
     gamma = 1e-1
     A_reg = A.conj().T @ A + (gamma ** 2) * np.eye(N_pixels)
     b_reg = A.conj().T @ b
-
     chi_flat = np.linalg.solve(A_reg, b_reg)
-
     E_recover = (A @ chi_flat).reshape(NM, NS, order='F')
 
     return E_recover, chi_flat.reshape(recover_resolution)
@@ -157,7 +175,32 @@ algorithm_names = [
 ]
 
 
-SAMPLE_SIZE = 300
+def build_configurations():
+    configurations = []
+
+    configurations.extend({"shape": value} for value in SHAPES)
+    configurations.extend(
+        {"background_permittivity": value}
+        for value in BACKGROUND_PERMITTIVITIES
+    )
+    configurations.extend({"noise_level": value} for value in NOISE_LEVELS)
+    configurations.extend(
+        {
+            "number_measurements": number_measurements,
+            "number_sources": number_sources
+        }
+        for number_measurements in NUMBER_VALUES
+        for number_sources in NUMBER_VALUES
+    )
+    configurations.extend({"center": list(value)} for value in CENTERS)
+    configurations.extend({"rotate": value} for value in ROTATIONS)
+    configurations.extend(
+        {"observation_radius": value}
+        for value in OBSERVATION_RADII
+    )
+    configurations.extend({"wavelength": value} for value in WAVELENGTHS)
+
+    return configurations
 
 
 print('=' * 70)
@@ -173,28 +216,34 @@ mytestset = ts.TestSet(
     observation_radius=OBSERVATION_RADIUS,
     resolution=RESOLUTION,
     noise_level=NOISE_LEVEL,
+    center=[0.0, 0.0],
+    rotate=0.0,
     sample_size=SAMPLE_SIZE
 )
 
 mytestset.randomize_tests(
     parallelization=True,
-    vary_noise=True
+    vary_noise=False
 )
 
 print(f'Test set created: {mytestset.sample_size} test cases.')
 print(f'Condition: {mytestset._testset_condition}')
+
+configurations = build_configurations()
 
 print('\nCreating benchmark...')
 
 mybenchmark = bmk.Benchmark(
     name="api_benchmark",
     algorithm=algorithms,
-    testset=mytestset
+    testset=mytestset,
+    configurations=configurations
 )
 
 print(f'Benchmark: {mybenchmark.name}')
 print(f'Algorithms: {len(algorithms)}')
 print(f'Test set: {mytestset.name}')
+print(f'Configurations: {len(configurations)}')
 
 print('\nExecuting benchmark...')
 print('This may take a while. Please wait...')

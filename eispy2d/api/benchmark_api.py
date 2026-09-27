@@ -294,7 +294,6 @@ class Benchmark(exp.Experiment):
                     )
 
             else:
-                # No configuration list: preserve the original behavior.
                 if parallelization is None or parallelization == False:
                     for a in range(len(self._algorithm)):
                         self.results.append([])
@@ -401,16 +400,12 @@ class Benchmark(exp.Experiment):
         has_testsets = not self._single_testset
 
         if has_configs and has_algorithms:
-            # Resultados: (configs, algorithms, tests)
             pass
         elif has_configs:
-            # Resultados: (configs, tests)
             pass
         elif has_algorithms:
-            # Resultados: (algorithms, tests)
             pass
         else:
-            # Resultados: (tests,)
             pass
 
         plt.tight_layout()
@@ -434,6 +429,14 @@ class Benchmark(exp.Experiment):
             label_parts.append(f"NS={config['number_sources']}")
         if 'noise_level' in config:
             label_parts.append(f"noise={config['noise_level']}")
+        if 'center' in config:
+            label_parts.append(f"center={config['center']}")
+        if 'rotate' in config:
+            label_parts.append(f"rotate={config['rotate']}")
+        if 'observation_radius' in config:
+            label_parts.append(f"radius={config['observation_radius']}")
+        if 'wavelength' in config:
+            label_parts.append(f"wavelength={config['wavelength']}")
         return ", ".join(label_parts)
 
     def save(self, file_path='', save_testset=False):
