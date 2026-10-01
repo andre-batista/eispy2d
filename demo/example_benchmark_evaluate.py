@@ -20,7 +20,7 @@ from eispy2d.utils import stopcriteria as stp
 WAVELENGTH = 1.0
 Lx, Ly = 0.8, 0.8
 OBSERVATION_RADIUS = 1.0
-RESOLUTION = (30, 30)
+RESOLUTION = (60, 60)
 NOISE_LEVEL = 1.0
 BACKGROUND_PERMITTIVITY = 4.0
 
@@ -42,15 +42,15 @@ SHAPES = [
     "parallelogram"
 ]
 
-BACKGROUND_PERMITTIVITIES = [1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0]
-NOISE_LEVELS = [0.0, 0.5, 1.0, 2.0, 5.0]
-NUMBER_VALUES = [8, 16, 24, 32, 40]
+BACKGROUND_PERMITTIVITIES = [1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0]
+NOISE_LEVELS = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
+NUMBER_VALUES = [4, 8, 16, 24, 32, 40, 48]
 CENTERS = [(0.0, 0.0), (-0.1, 0.0), (0.1, 0.0), (0.0, -0.1), (0.0, 0.1)]
 ROTATIONS = [0.0, 30.0, 60.0, 90.0]
-OBSERVATION_RADII = [0.8, 1.0, 1.2, 1.5]
-WAVELENGTHS = [0.75, 1.0, 1.25, 1.5]
+OBSERVATION_RADII = [0.8, 1.0, 1.2, 1.5, 1.8]
+WAVELENGTHS = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
 
-SAMPLE_SIZE = 300
+SAMPLE_SIZE = 30
 
 
 def born_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
