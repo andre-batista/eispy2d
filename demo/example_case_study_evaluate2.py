@@ -71,7 +71,7 @@ def best_error_method(scattered, incident, GS, GD, resolucao, cand_n=30, quant_r
 
     b_full = (A @ chi[:, 0]) 
 
-    def erro_linear(chi_vec):
+    def linear_error(chi_vec):
         b_hat = A @ chi_vec[:, 0]
         pred_mat = b_hat.reshape(NM, NS, order='F')
         diff_mat = scattered - pred_mat
@@ -80,15 +80,15 @@ def best_error_method(scattered, incident, GS, GD, resolucao, cand_n=30, quant_r
         it = np.trapezoid(ip, x=theta)
         return np.real(np.sqrt(it))
 
-    erro_atual = erro_linear(chi)
+    erro_atual = linear_error(chi)
 
 
 
     for rep in range(QUANT_REP):
 
 
-        print(f"\n--- PASSADA {rep+1}/{QUANT_REP} --- "
-              f"(Erro: {erro_atual:.6e}")
+        print(f"\n--- Iteration {rep+1}/{QUANT_REP} --- "
+              f"(Error: {erro_atual:.6e}")
 
         re_min, re_max = chi.real.min(), chi.real.max()
         im_min, im_max = chi.imag.min(), chi.imag.max()
@@ -252,24 +252,30 @@ def run_case_study():
 
     study = build_case_study()
 
-    print('\n[START] Executing case study...')
-    print('[INFO] This may take a while. Please wait...')
+    print('\nExecuting case study...')
+    print('This may take a while. Please wait...')
 
     try:
         study.run(
             parallelization=cst.PARALLELIZE_EXECUTIONS
         )
-        print('[OK] Case study completed successfully!')
+        print('Case study completed successfully!')
     except Exception as e:
-        print(f'[ERROR] Error during case study execution: {e}')
-        print('[WARN] Saving partial results...')
+        print(f'Error during case study execution: {e}')
+        print('Saving partial results...')
 
-    print('\n[START] Saving results...')
+    print('\nResults:')
+    if hasattr(study.results, 'shape'):
+        print(f'Results shape: {study.results.shape}')
+    else:
+        print('Results shape: N/A')
+
+    print('\nSaving results...')
     study.save(save_test=True)
-    print(f'[OK] Results saved to: {study.name}')
+    print(f'Results saved to: {study.name}')
 
     print('\n' + '=' * 70)
-    print('[DONE] Case study execution finished!')
+    print('Done!')
     print('=' * 70)
 
     return study
