@@ -140,7 +140,7 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
     return result.scattered_field, chi
 
 
-def sum_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
+def manual_born_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
     NM, NS = scattered_field.shape
     N_pixels = incident_field.shape[0]
     A = np.zeros((NM * NS, N_pixels), dtype=complex)
@@ -164,14 +164,14 @@ algorithms = [
     born_approximation,
     born_iterative_method,
     contrast_source_inversion,
-    sum_approximation,
+    manual_born_approximation,
 ]
 
 algorithm_names = [
     'Born Approximation',
     'Born Iterative Method',
     'Contrast Source Inversion',
-    'Sum Approximation'
+    'Manual Born Approximation'
 ]
 
 

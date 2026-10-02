@@ -74,7 +74,7 @@ def evaluate(algorithm, params=None):
         rotate = 0.0
 
     E0 = 1.0 # incident wave magnitude [V/m]
-    indicators = [rst.REL_PERMITTIVITY_PAD_ERROR, rst.RESIDUAL_NORM_ERROR]
+    indicators = [rst.REL_PERMITTIVITY_PAD_ERROR, rst.RESIDUAL_NORM_ERROR, rst.EXECUTION_TIME]
     contrast_level = 1.
     object_size = .2 # [m]
 
