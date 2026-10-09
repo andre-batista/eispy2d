@@ -24,7 +24,7 @@ NUMBER_MEASUREMENTS = 10
 NUMBER_SOURCES = 10
 BACKGROUND_PERMITTIVITY = 4.0
 SHAPE = "triangle"
-STOCHASTIC_RUNS = 30
+STOCHASTIC_RUNS = 1
 
 WAVELENGTH_VALUES = [i * 0.2 for i in range(1, 16)]
 NOISE_VALUES = [i * 0.5 for i in range(1, 21)]
@@ -40,7 +40,7 @@ REG_TIK_VALUES = [
 
 CASE_STUDY_NAME = "api_casestudy2"
 
-def best_error_method(scattered, incident, GS, GD, resolucao, cand_n=30, quant_rep=18):
+def best_error_method(scattered, incident, GS, GD, resolucao, cand_n=60, quant_rep=30):
     N = GD.shape[0]
     NM, NS = scattered.shape
     theta = cfg.get_angles(NM)
@@ -71,7 +71,7 @@ def best_error_method(scattered, incident, GS, GD, resolucao, cand_n=30, quant_r
 
     b_full = (A @ chi[:, 0]) 
 
-    def linear_error(chi_vec):
+    def erro_linear(chi_vec):
         b_hat = A @ chi_vec[:, 0]
         pred_mat = b_hat.reshape(NM, NS, order='F')
         diff_mat = scattered - pred_mat
@@ -80,15 +80,15 @@ def best_error_method(scattered, incident, GS, GD, resolucao, cand_n=30, quant_r
         it = np.trapezoid(ip, x=theta)
         return np.real(np.sqrt(it))
 
-    erro_atual = linear_error(chi)
+    erro_atual = erro_linear(chi)
 
 
 
     for rep in range(QUANT_REP):
 
 
-        print(f"\n--- Iteration {rep+1}/{QUANT_REP} --- "
-              f"(Error: {erro_atual:.6e}")
+        print(f"\n--- PASSADA {rep+1}/{QUANT_REP} --- "
+              f"(Erro: {erro_atual:.6e}")
 
         re_min, re_max = chi.real.min(), chi.real.max()
         im_min, im_max = chi.imag.min(), chi.imag.max()
@@ -252,30 +252,24 @@ def run_case_study():
 
     study = build_case_study()
 
-    print('\nExecuting case study...')
-    print('This may take a while. Please wait...')
+    print('\n[START] Executing case study...')
+    print('[INFO] This may take a while. Please wait...')
 
     try:
         study.run(
             parallelization=cst.PARALLELIZE_EXECUTIONS
         )
-        print('Case study completed successfully!')
+        print('[OK] Case study completed successfully!')
     except Exception as e:
-        print(f'Error during case study execution: {e}')
-        print('Saving partial results...')
+        print(f'[ERROR] Error during case study execution: {e}')
+        print('[WARN] Saving partial results...')
 
-    print('\nResults:')
-    if hasattr(study.results, 'shape'):
-        print(f'Results shape: {study.results.shape}')
-    else:
-        print('Results shape: N/A')
-
-    print('\nSaving results...')
+    print('\n[START] Saving results...')
     study.save(save_test=True)
-    print(f'Results saved to: {study.name}')
+    print(f'[OK] Results saved to: {study.name}')
 
     print('\n' + '=' * 70)
-    print('Done!')
+    print('[DONE] Case study execution finished!')
     print('=' * 70)
 
     return study

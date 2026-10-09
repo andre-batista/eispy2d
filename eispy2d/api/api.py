@@ -20,7 +20,7 @@ def evaluate(algorithm, params=None):
         image_size = params["image_size"]
         Lx, Ly = image_size
     else:
-        Lx, Ly = .8, .8 # D domain size [m]
+        Lx, Ly = 4., 4. # D domain size [m]
 
     if params is not None and "number_measurements" in params:
         NM = params["number_measurements"]
@@ -35,7 +35,7 @@ def evaluate(algorithm, params=None):
     if params is not None and "observation_radius" in params:
         RO = params["observation_radius"]
     else:
-        RO = 1. # observation radius [m]
+        RO = 6. # observation radius [m]
 
     if params is not None and "background_permittivity" in params:
         epsilon_rb = params["background_permittivity"]
@@ -73,10 +73,18 @@ def evaluate(algorithm, params=None):
     else:
         rotate = 0.0
 
+    if params is not None and "contrast" in params:
+        contrast = params["contrast"]
+    else:
+        contrast = 0.5
+
+    if params is not None and "object_size" in params:
+        object_size = params["object_size"]
+    else:
+        object_size = 1.0
+
     E0 = 1.0 # incident wave magnitude [V/m]
     indicators = [rst.REL_PERMITTIVITY_PAD_ERROR, rst.RESIDUAL_NORM_ERROR, rst.EXECUTION_TIME]
-    contrast_level = 1.
-    object_size = .2 # [m]
 
     # Define domain and source parameters
     config = cfg.Configuration(name='cfg_test',
@@ -106,7 +114,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            object_rel_permittivity=epsilon_rb + contrast,
             rotate=rotate
         )
     elif shape == "square":
@@ -117,7 +125,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            object_rel_permittivity=epsilon_rb + contrast,
             rotate=rotate
         )
     elif shape == "circle":
@@ -128,7 +136,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb        
+            object_rel_permittivity=epsilon_rb + contrast        
         )
     elif shape == "cross":
         cross_size = np.sqrt(object_size)
@@ -141,7 +149,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            object_rel_permittivity=epsilon_rb + contrast,
             rotate=rotate
         )
     elif shape == "ellipse":
@@ -154,7 +162,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            object_rel_permittivity=epsilon_rb + contrast,
             rotate=rotate
         )
     elif shape == "parallelogram":
@@ -168,7 +176,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            object_rel_permittivity=epsilon_rb + contrast,
             rotate=rotate
         )
     elif shape == "polygon":
@@ -181,7 +189,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            object_rel_permittivity=epsilon_rb + contrast,
             rotate=rotate
         )
     elif shape == "random":
@@ -196,7 +204,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb
+            object_rel_permittivity=epsilon_rb + contrast
         )
     elif shape == "random_gaussians":
         inputdata.rel_permittivity, _ = draw.random_gaussians(
@@ -206,7 +214,7 @@ def evaluate(algorithm, params=None):
             distance_from_border=0.1,
             resolution=resolution,
             surface_area=(1.0, 1.0),
-            rel_permittivity_amplitude=(contrast_level)*epsilon_rb,  # variation amplitude
+            rel_permittivity_amplitude=(contrast) + epsilon_rb,  # variation amplitude
             axis_length_x=config.Lx,
             axis_length_y=config.Ly,
             background_rel_permittivity=epsilon_rb,
@@ -224,7 +232,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            object_rel_permittivity=epsilon_rb + contrast,
             rotate=rotate
         )
     elif shape == "star5":
@@ -236,7 +244,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            object_rel_permittivity=epsilon_rb + contrast,
             rotate=rotate
         )
     elif shape == "star6":
@@ -248,7 +256,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            object_rel_permittivity=epsilon_rb + contrast,
             rotate=rotate
         )
     elif shape == "rhombus":
@@ -261,7 +269,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            object_rel_permittivity=epsilon_rb + contrast,
             rotate=rotate
         )
     elif shape == "trapezoid":
@@ -275,7 +283,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb,
+            object_rel_permittivity=epsilon_rb + contrast,
             rotate=rotate
         )
     elif shape == "ring":
@@ -288,7 +296,7 @@ def evaluate(algorithm, params=None):
             axis_length_y=config.Ly,
             resolution=resolution,
             background_rel_permittivity=epsilon_rb,
-            object_rel_permittivity=(contrast_level+1)*epsilon_rb
+            object_rel_permittivity=epsilon_rb + contrast
             
         )
     else:

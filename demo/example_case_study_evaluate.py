@@ -140,7 +140,7 @@ def build_algorithm_parameter_tests(algorithm_param, values, study_name):
 
 
 def build_case_study():
-    print('Building case study...')
+    print('\n[START] Building case study...')
 
     tests = []
     algorithm_params = []
@@ -152,6 +152,7 @@ def build_case_study():
         ("number_measurements", NM_VALUES, "measurements")
     ]
 
+    print('[INFO] Adding input parameter studies...')
     for variable_param, values, study_name in input_studies:
         tests.extend(
             build_input_parameter_tests(
@@ -163,7 +164,7 @@ def build_case_study():
         algorithm_params.extend(
             [None] * len(values)
         )
-        print(f'  - Study "{study_name}": {len(values)} test(s) added.')
+        print(f'[INFO]   - Study "{study_name}": {len(values)} test(s) added.')
 
     algorithm_studies = [
         ("mom_max_iter", MOM_MAX_ITER_VALUES, "mom_max_iter"),
@@ -171,6 +172,7 @@ def build_case_study():
         ("reg_tik", REG_TIK_VALUES, "reg_tik")
     ]
 
+    print('[INFO] Adding algorithm parameter studies...')
     for algorithm_param, values, study_name in algorithm_studies:
         current_tests, current_algorithm_params = (
             build_algorithm_parameter_tests(
@@ -181,7 +183,7 @@ def build_case_study():
         )
         tests.extend(current_tests)
         algorithm_params.extend(current_algorithm_params)
-        print(f'  - Study "{study_name}": {len(values)} test(s) added.')
+        print(f'[INFO]   - Study "{study_name}": {len(values)} test(s) added.')
 
     case_study = cst.CaseStudy(
         name=CASE_STUDY_NAME,
@@ -192,9 +194,9 @@ def build_case_study():
         algorithm_params=algorithm_params
     )
 
-    print(f'Case study built: {case_study.name}')
-    print(f'Total tests: {len(tests)}')
-    print(f'Stochastic runs per test: {STOCHASTIC_RUNS}')
+    print(f'[OK] Case study built: {case_study.name}')
+    print(f'[INFO] Total tests: {len(tests)}')
+    print(f'[INFO] Stochastic runs per test: {STOCHASTIC_RUNS}')
 
     return case_study
 
@@ -206,30 +208,24 @@ def run_case_study():
 
     study = build_case_study()
 
-    print('\nExecuting case study...')
-    print('This may take a while. Please wait...')
+    print('\n[START] Executing case study...')
+    print('[INFO] This may take a while. Please wait...')
 
     try:
         study.run(
             parallelization=cst.PARALLELIZE_EXECUTIONS
         )
-        print('Case study completed successfully!')
+        print('[OK] Case study completed successfully!')
     except Exception as e:
-        print(f'Error during case study execution: {e}')
-        print('Saving partial results...')
+        print(f'[ERROR] Error during case study execution: {e}')
+        print('[WARN] Saving partial results...')
 
-    print('\nResults:')
-    if hasattr(study.results, 'shape'):
-        print(f'Results shape: {study.results.shape}')
-    else:
-        print('Results shape: N/A')
-
-    print('\nSaving results...')
+    print('\n[START] Saving results...')
     study.save(save_test=True)
-    print(f'Results saved to: {study.name}')
+    print(f'[OK] Results saved to: {study.name}')
 
     print('\n' + '=' * 70)
-    print('Done!')
+    print('[DONE] Case study execution finished!')
     print('=' * 70)
 
     return study
