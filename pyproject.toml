@@ -27,7 +27,8 @@ dependencies = [
     "joblib",
     "scikit-image",
     "pingouin",
-    "ipykernel"
+    "ipykernel",
+    "pyqt6>=6.7.1",
 ]
 
 [project.optional-dependencies]

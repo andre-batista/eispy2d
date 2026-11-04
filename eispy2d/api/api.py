@@ -9,105 +9,44 @@ from eispy2d.core import inputdata as ipt
 from eispy2d.utils import draw
 from scipy.linalg import norm
 
-def evaluate(algorithm, params=None):
 
-    if params is not None and "wavelength" in params:
-        wavelength = params["wavelength"]
-    else:
-        wavelength = 1. # [m]
-    
-    if params is not None and "image_size" in params:
-        image_size = params["image_size"]
-        Lx, Ly = image_size
-    else:
-        Lx, Ly = 4., 4. # D domain size [m]
 
-    if params is not None and "number_measurements" in params:
-        NM = params["number_measurements"]
-    else:
-        NM = 10 # number of measurements
+def _build_params(params):
+    """Extrai os parâmetros com defaults. (Idêntico ao evaluate atual.)"""
+    p = params or {}
+    return dict(
+        wavelength            = p.get("wavelength", 1.0),
+        image_size            = tuple(p.get("image_size", (4.0, 4.0))),
+        number_measurements   = p.get("number_measurements", 10),
+        number_sources        = p.get("number_sources", 10),
+        observation_radius    = p.get("observation_radius", 6.0),
+        background_permittivity = p.get("background_permittivity", 1.0),
+        resolution            = tuple(p.get("resolution", (60, 60))),
+        noise_level           = p.get("noise_level", 1.0),
+        disp                  = p.get("disp", False),
+        shape                 = p.get("shape", "triangle").lower(),
+        center                = p.get("center", [0, 0]),
+        rotate                = p.get("rotate", 0.0),
+        contrast              = p.get("contrast", 0.5),
+        object_size           = p.get("object_size", 1.0),
+    )
 
-    if params is not None and "number_sources" in params:
-        NS = params["number_sources"]
-    else:
-        NS = 10 # number of sources
 
-    if params is not None and "observation_radius" in params:
-        RO = params["observation_radius"]
-    else:
-        RO = 6. # observation radius [m]
+def _draw_ground_truth(p, config, resolution):
+    """Desenha o ground truth. (Idêntico ao evaluate atual.)"""
+    Lx, Ly = p["image_size"]
+    rb = p["background_permittivity"]
+    contrast = p["contrast"]
+    center = p["center"]
+    rotate = p["rotate"]
+    object_size = p["object_size"]
 
-    if params is not None and "background_permittivity" in params:
-        epsilon_rb = params["background_permittivity"]
-    else:
-        epsilon_rb = 1. # background relative permittivity
+    epsilon_rb = rb
 
-    if params is not None and "resolution" in params:
-        resolution = params["resolution"]
-    else:
-        resolution = (60, 60) # ground-truth image resolution [pixels]
-    
-    if params is not None and "noise_level" in params:
-        noise_level = params["noise_level"]
-    else:
-        noise_level = 1. # [%/sample]
-
-    if params is not None and "disp" in params:
-        disp = params["disp"]
-    else:
-        disp = False
-
-    if params is not None and "shape" in params:
-        shape = params["shape"]
-        shape = shape.lower()
-    else:
-        shape = "triangle"
-
-    if params is not None and "center" in params:
-        center = params["center"]
-    else:
-        center = [0, 0]
-
-    if params is not None and "rotate" in params:
-        rotate = params["rotate"]
-    else:
-        rotate = 0.0
-
-    if params is not None and "contrast" in params:
-        contrast = params["contrast"]
-    else:
-        contrast = 0.5
-
-    if params is not None and "object_size" in params:
-        object_size = params["object_size"]
-    else:
-        object_size = 1.0
-
-    E0 = 1.0 # incident wave magnitude [V/m]
-    indicators = [rst.REL_PERMITTIVITY_PAD_ERROR, rst.RESIDUAL_NORM_ERROR, rst.EXECUTION_TIME]
-
-    # Define domain and source parameters
-    config = cfg.Configuration(name='cfg_test',
-                               wavelength_unit=True,
-                               wavelength=wavelength,
-                               number_measurements=NM,
-                               number_sources=NS,
-                               image_size=[Ly, Lx],
-                               observation_radius=RO,
-                               background_permittivity=epsilon_rb,
-                               magnitude=E0,
-                               perfect_dielectric=True)
-
-    # Build test object
-    inputdata = ipt.InputData(name='iptTest',
-                              configuration=config,
-                              resolution=resolution,
-                              noise=noise_level,
-                              indicators=indicators)
-
+    shape = p["shape"]
     # Draw figure
     if shape == "triangle":
-        inputdata.rel_permittivity, _ = draw.triangle(
+        return draw.triangle(
             side_length=np.sqrt(object_size),  
             center=center,
             axis_length_x=config.Lx,
@@ -118,7 +57,7 @@ def evaluate(algorithm, params=None):
             rotate=rotate
         )
     elif shape == "square":
-        inputdata.rel_permittivity, _ = draw.square(
+        return draw.square(
             side_length=np.sqrt(object_size),  
             center=center,
             axis_length_x=config.Lx,
@@ -129,7 +68,7 @@ def evaluate(algorithm, params=None):
             rotate=rotate
         )
     elif shape == "circle":
-        inputdata.rel_permittivity, _ = draw.circle(
+        return draw.circle(
             radius=np.sqrt(object_size / np.pi),
             center=center,
             axis_length_x=config.Lx,
@@ -140,7 +79,7 @@ def evaluate(algorithm, params=None):
         )
     elif shape == "cross":
         cross_size = np.sqrt(object_size)
-        inputdata.rel_permittivity, _ = draw.cross(
+        return draw.cross(
             height=cross_size,
             width=cross_size,
             thickness=cross_size * 0.2,  
@@ -154,7 +93,7 @@ def evaluate(algorithm, params=None):
         )
     elif shape == "ellipse":
         radius = np.sqrt(object_size / np.pi)
-        inputdata.rel_permittivity, _ = draw.ellipse(
+        return draw.ellipse(
             x_radius=radius * 1.2, 
             y_radius=radius * 0.8,  
             center=center,
@@ -167,7 +106,7 @@ def evaluate(algorithm, params=None):
         )
     elif shape == "parallelogram":
         size = np.sqrt(object_size)
-        inputdata.rel_permittivity, _ = draw.parallelogram(
+        return draw.parallelogram(
             length=size,
             height=size * 0.7,
             inclination=30.0,
@@ -181,7 +120,7 @@ def evaluate(algorithm, params=None):
         )
     elif shape == "polygon":
         radius = np.sqrt(object_size / (5 * np.sin(2*np.pi/5) / 2)) 
-        inputdata.rel_permittivity, _ = draw.polygon(
+        return draw.polygon(
             number_sides=5,
             radius=radius,
             center=center,
@@ -195,7 +134,7 @@ def evaluate(algorithm, params=None):
     elif shape == "random":
         
         radius = np.sqrt(object_size / np.pi)  
-        inputdata.rel_permittivity, _ = draw.random(
+        return draw.random(
             number_sides=8, 
             maximum_radius=radius,
             minimum_radius=radius * 0.5, 
@@ -207,7 +146,7 @@ def evaluate(algorithm, params=None):
             object_rel_permittivity=epsilon_rb + contrast
         )
     elif shape == "random_gaussians":
-        inputdata.rel_permittivity, _ = draw.random_gaussians(
+        return draw.random_gaussians(
             number_distributions=5,
             maximum_spread=0.5,
             minimum_spread=0.2,
@@ -225,7 +164,7 @@ def evaluate(algorithm, params=None):
         )
     elif shape == "star4":
         radius = np.sqrt(object_size / np.pi) * 1.2 
-        inputdata.rel_permittivity, _ = draw.star4(
+        return draw.star4(
             radius=radius,
             center=center,
             axis_length_x=config.Lx,
@@ -237,7 +176,7 @@ def evaluate(algorithm, params=None):
         )
     elif shape == "star5":
         radius = np.sqrt(object_size / np.pi) * 1.2
-        inputdata.rel_permittivity, _ = draw.star5(
+        return draw.star5(
             radius=radius,
             center=center,
             axis_length_x=config.Lx,
@@ -249,7 +188,7 @@ def evaluate(algorithm, params=None):
         )
     elif shape == "star6":
         radius = np.sqrt(object_size / np.pi) * 1.2
-        inputdata.rel_permittivity, _ = draw.star6(
+        return draw.star6(
             radius=radius,
             center=center,
             axis_length_x=config.Lx,
@@ -261,7 +200,7 @@ def evaluate(algorithm, params=None):
         )
     elif shape == "rhombus":
         size = np.sqrt(object_size)
-        inputdata.rel_permittivity, _ = draw.rhombus(
+        return draw.rhombus(
             x_radius=size * 0.6,
             y_radius=size * 0.6,
             center=center,
@@ -274,7 +213,7 @@ def evaluate(algorithm, params=None):
         )
     elif shape == "trapezoid":
         size = np.sqrt(object_size)
-        inputdata.rel_permittivity, _ = draw.trapezoid(
+        return draw.trapezoid(
             upper_length=size * 0.6,
             lower_length=size,
             height=size * 0.7,
@@ -288,7 +227,7 @@ def evaluate(algorithm, params=None):
         )
     elif shape == "ring":
         outer_radius = np.sqrt(object_size / np.pi)
-        inputdata.rel_permittivity, _ = draw.ring(
+        return draw.ring(
             inner_radius=outer_radius * 0.4, 
             outer_radius=outer_radius,
             center=center,
@@ -300,64 +239,114 @@ def evaluate(algorithm, params=None):
             
         )
     else:
-        raise error.WrongValueInput("evaluate", "shape", "Triangle, square, ellipse, circle, cross, trapezoid, polygon, parallelogram, rhombus, star4, star5, star6, ring, random, random_gaussian", shape)
-    
-    if disp:
-        config.draw(show=True)
+        raise error.WrongValueInput(
+            "evaluate", "shape",
+            "triangle, square, ellipse, circle, cross, trapezoid, polygon, "
+            "parallelogram, rhombus, star4, star5, star6, ring, random, "
+            "random_gaussian", shape)
 
-    # Build forward solver object
-    solver = mom.MoM_CG_FFT(tolerance=.001,
-                            maximum_iterations=5000)
 
-    # Solve forward problem
-    _ = solver.solve(inputdata,
-                    PRINT_INFO=disp,
-                    COMPUTE_SCATTERED_FIELD=True,
-                    SAVE_INTERN_FIELD=True)
-    
-    # Reduce resolution for reconstruction (inverse crime)
-    recover_resolution = (int(resolution[0]/1.5), int(resolution[1]/1.5))
-    discretization = richmond.Richmond(config, recover_resolution, state=False)
+def prepare_problem(params=None, forward_kwargs=None):
+    """Constrói config + inputdata + roda forward. Retorna tudo."""
+    p = _build_params(params)
+    Lx, Ly = p["image_size"]
+
+    config = cfg.Configuration(
+        name='cfg_test',
+        wavelength_unit=True,
+        wavelength=p["wavelength"],
+        number_measurements=p["number_measurements"],
+        number_sources=p["number_sources"],
+        image_size=[Ly, Lx],
+        observation_radius=p["observation_radius"],
+        background_permittivity=p["background_permittivity"],
+        magnitude=1.0,
+        perfect_dielectric=True,
+    )
+
+    inputdata = ipt.InputData(
+        name='iptTest',
+        configuration=config,
+        resolution=p["resolution"],
+        noise=p["noise_level"],
+        indicators=[rst.REL_PERMITTIVITY_PAD_ERROR,
+                    rst.RESIDUAL_NORM_ERROR,
+                    rst.EXECUTION_TIME],
+    )
+    inputdata.rel_permittivity, _ = _draw_ground_truth(p, config, p["resolution"])
+
+    solver = mom.MoM_CG_FFT(**(forward_kwargs or
+                                {"tolerance": .001, "maximum_iterations": 5000}))
+    solver.solve(inputdata, PRINT_INFO=p["disp"],
+                 COMPUTE_SCATTERED_FIELD=True,
+                 SAVE_INTERN_FIELD=True)
+
+    discretization = richmond.Richmond(config, p["resolution"], state=False)
+    return config, inputdata, solver, discretization
+
+
+def run_algorithm(algorithm, inputdata, solver, config,
+                  discretization, recover_resolution):
+    """Parte de inversão + cálculo de erro. Usa o `inputdata` recebido."""
     GS = richmond.richmond_data(config, recover_resolution)
     GD = richmond.richmond_state(config, recover_resolution)
 
-    result = rst.Result(
-        name='evaluated_result',
-        method_name=algorithm.__name__,
-        configuration=config
+    incident_field  = solver.incident_field(recover_resolution, config)
+    scattered_field = inputdata.scattered_field
+
+    recon_scattered, chi = algorithm(
+        scattered_field, incident_field, GS, GD, recover_resolution
     )
 
-    incident_field = solver.incident_field(recover_resolution, config)
-    scattered_field = inputdata.scattered_field
-    ground_truth_epsilon = inputdata.rel_permittivity
-    
-    recon_scattered, chi = algorithm(scattered_field, incident_field, GS, GD,
-                                     recover_resolution)
-
     epsilon_r_recon = config.epsilon_rb * (np.real(chi) + 1)
-    
     if epsilon_r_recon.ndim == 1:
-        epsilon_r_recon = epsilon_r_recon.reshape(resolution)
-        epsilon_r_recon=discretization.contrast_image(epsilon_r_recon,
-        inputdata.resolution)
-    else:
-        epsilon_r_recon=discretization.contrast_image(epsilon_r_recon,
-        inputdata.resolution)
-  
+        epsilon_r_recon = epsilon_r_recon.reshape(recover_resolution)
+    epsilon_r_recon = discretization.contrast_image(
+        epsilon_r_recon, inputdata.resolution
+    )
+
     result = rst.Result(
         name='evaluated_result',
-        method_name=algorithm.__name__,
+        method_name=getattr(algorithm, '__name__', type(algorithm).__name__),
         configuration=config,
         rel_permittivity=epsilon_r_recon,
     )
-
-    result.update_error(inputdata=inputdata,
-                        scattered_field=recon_scattered,
-                        rel_permittivity=epsilon_r_recon,
-                        contrast=chi)
-    
-    if disp:
-        result.plot_map(show=True, fontsize=15, groundtruth=inputdata)
-        print(result)
-
+    result.update_error(
+        inputdata=inputdata,
+        scattered_field=recon_scattered,
+        rel_permittivity=epsilon_r_recon,
+        contrast=chi,
+    )
     return result
+
+
+def evaluate(algorithm, params=None):
+    """API pública — idêntica à anterior, agora só orquestra."""
+    config, inputdata, solver, discretization = prepare_problem(params)
+    p = _build_params(params)
+    return run_algorithm(algorithm, inputdata, solver, config,
+                         discretization, p["resolution"])
+
+class EvaluateS:
+
+    def __init__(self, algorithm, forward_kwargs=None):
+        self.algorithm = algorithm
+        self.name = getattr(algorithm, "__name__", type(algorithm).__name__)
+        self.forward_kwargs = forward_kwargs or {
+            "tolerance": .001, "maximum_iterations": 5000,
+        }
+
+    def solve(self, inputdata, discretization, print_info=False, **kwargs):
+        config = inputdata.configuration
+
+        solver = kwargs.get("solver")
+        if solver is None:
+            solver = mom.MoM_CG_FFT(**self.forward_kwargs)
+            if inputdata.scattered_field is None:
+                solver.solve(inputdata, PRINT_INFO=print_info,
+                             COMPUTE_SCATTERED_FIELD=True,
+                             SAVE_INTERN_FIELD=True)
+
+        recover_resolution = tuple(inputdata.resolution)
+        return run_algorithm(self.algorithm, inputdata, solver, config,
+                             discretization, recover_resolution)

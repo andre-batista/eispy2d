@@ -1,14 +1,12 @@
-import sys
-import os
+import sys, os
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.path.dirname((os.path.abspath(__file__)))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from eispy2d.api import testset_api as ts
-from eispy2d.api import benchmark_api as bmk
-from eispy2d.core import configuration as cfg
-from eispy2d.core import inputdata as ipt
-from eispy2d.discretization import richmond as ric
+from eispy2d.api.api import EvaluateS
+from eispy2d.experiments import testset as ts
+from eispy2d.experiments import benchmark as bmk
+
 from eispy2d.solvers.inverse import bornapprox as ba
 from eispy2d.solvers.inverse import bim
 from eispy2d.solvers.inverse import csi
@@ -23,35 +21,18 @@ OBSERVATION_RADIUS = 1.0
 RESOLUTION = (60, 60)
 NOISE_LEVEL = 1.0
 BACKGROUND_PERMITTIVITY = 4.0
-
-SHAPES = [
-    "triangle",
-    "square",
-    "circle",
-    "ellipse",
-    "cross",
-    "star4",
-    "star5",
-    "star6",
-    "rhombus",
-    "trapezoid",
-    "polygon",
-    "random",
-    "random_gaussians",
-    "ring",
-    "parallelogram"
-]
-
-BACKGROUND_PERMITTIVITIES = [1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0]
-NOISE_LEVELS = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
-NUMBER_VALUES = [4, 8, 16, 24, 32, 40, 48]
-CENTERS = [(0.0, 0.0), (-0.1, 0.0), (0.1, 0.0), (0.0, -0.1), (0.0, 0.1)]
-ROTATIONS = [0.0, 30.0, 60.0, 90.0]
-OBSERVATION_RADII = [0.8, 1.0, 1.2, 1.5, 1.8]
-WAVELENGTHS = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
-
 SAMPLE_SIZE = 30
 
+SHAPES = ["triangle","square","circle","ellipse","cross","star4","star5",
+          "star6","rhombus","trapezoid","polygon","random","random_gaussians",
+          "ring","parallelogram"]
+BACKGROUND_PERMITTIVITIES = [1.,2.,4.,6.,8.,10.,12.,14.]
+NOISE_LEVELS = [0.,0.5,1.,1.5,2.,2.5,3.,4.,5.]
+NUMBER_VALUES = [4,8,16,24,32,40,48]
+CENTERS = [(0.,0.),(-0.1,0.),(0.1,0.),(0.,-0.1),(0.,0.1)]
+ROTATIONS = [0.,30.,60.,90.]
+OBSERVATION_RADII = [0.8,1.,1.2,1.5,1.8]
+WAVELENGTHS = [0.75,1.,1.25,1.5,1.75,2.]
 
 def born_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
     NM, NS = scattered_field.shape
@@ -159,55 +140,34 @@ def manual_born_approximation(scattered_field, incident_field, GS, GD, recover_r
 
     return E_recover, chi_flat.reshape(recover_resolution)
 
+raw_algorithms = [born_approximation, born_iterative_method,
+                  contrast_source_inversion, manual_born_approximation]
 
-algorithms = [
-    born_approximation,
-    born_iterative_method,
-    contrast_source_inversion,
-    manual_born_approximation,
-]
+algorithm_names = ['Born Approximation', 'Born Iterative Method',
+                   'Contrast Source Inversion', 'Manual Born Approximation']
 
-algorithm_names = [
-    'Born Approximation',
-    'Born Iterative Method',
-    'Contrast Source Inversion',
-    'Manual Born Approximation'
-]
+algorithms = [EvaluateS(fn) for fn in raw_algorithms]
 
 
 def build_configurations():
-    configurations = []
-
-    configurations.extend({"shape": value} for value in SHAPES)
-    configurations.extend(
-        {"background_permittivity": value}
-        for value in BACKGROUND_PERMITTIVITIES
+    configs = []
+    configs.extend({"shape": v} for v in SHAPES)
+    configs.extend({"background_permittivity": v} for v in BACKGROUND_PERMITTIVITIES)
+    configs.extend({"noise_level": v} for v in NOISE_LEVELS)
+    configs.extend(
+        {"number_measurements": nm, "number_sources": ns}
+        for nm in NUMBER_VALUES for ns in NUMBER_VALUES
     )
-    configurations.extend({"noise_level": value} for value in NOISE_LEVELS)
-    configurations.extend(
-        {
-            "number_measurements": number_measurements,
-            "number_sources": number_sources
-        }
-        for number_measurements in NUMBER_VALUES
-        for number_sources in NUMBER_VALUES
-    )
-    configurations.extend({"center": list(value)} for value in CENTERS)
-    configurations.extend({"rotate": value} for value in ROTATIONS)
-    configurations.extend(
-        {"observation_radius": value}
-        for value in OBSERVATION_RADII
-    )
-    configurations.extend({"wavelength": value} for value in WAVELENGTHS)
-
-    return configurations
+    configs.extend({"center": list(v)} for v in CENTERS)
+    configs.extend({"rotate": v} for v in ROTATIONS)
+    configs.extend({"observation_radius": v} for v in OBSERVATION_RADII)
+    configs.extend({"wavelength": v} for v in WAVELENGTHS)
+    return configs
 
 
 print('=' * 70)
-print('BENCHMARK GENERATOR - API EVALUATE')
+print('BENCHMARK GENERATOR - GENERIC BENCHMARK')
 print('=' * 70)
-
-print('\nCreating test set...')
 
 mytestset = ts.TestSet(
     name="benchmark_tests",
@@ -216,37 +176,26 @@ mytestset = ts.TestSet(
     observation_radius=OBSERVATION_RADIUS,
     resolution=RESOLUTION,
     noise_level=NOISE_LEVEL,
+    shape="triangle",
     center=[0.0, 0.0],
     rotate=0.0,
-    sample_size=SAMPLE_SIZE
+    sample_size=SAMPLE_SIZE,
 )
-
-mytestset.randomize_tests(
-    parallelization=True,
-    vary_noise=False
-)
-
-print(f'Test set created: {mytestset.sample_size} test cases.')
-print(f'Condition: {mytestset._testset_condition}')
+mytestset.randomize_tests(parallelization=True, vary_noise=False)
 
 configurations = build_configurations()
-
-print('\nCreating benchmark...')
 
 mybenchmark = bmk.Benchmark(
     name="api_benchmark",
     algorithm=algorithms,
     testset=mytestset,
-    configurations=configurations
+    configurations=configurations,
 )
 
 print(f'Benchmark: {mybenchmark.name}')
 print(f'Algorithms: {len(algorithms)}')
 print(f'Test set: {mytestset.name}')
 print(f'Configurations: {len(configurations)}')
-
-print('\nExecuting benchmark...')
-print('This may take a while. Please wait...')
 
 try:
     mybenchmark.run(parallelization=bmk.PARALLELIZE_TESTS)
@@ -256,25 +205,7 @@ except Exception as e:
     print('Saving partial results...')
 
 print('\nResults:')
-if hasattr(mybenchmark.results, 'shape'):
-    print(f'Results shape: {mybenchmark.results.shape}')
-else:
-    print('Results shape: N/A')
-
-if mybenchmark.results is not None:
-    if isinstance(mybenchmark.results, np.ndarray):
-        print(f'Format: {mybenchmark.results.shape}')
-        if mybenchmark.results.size > 0:
-            first_result = mybenchmark.results.flat[0]
-            if hasattr(first_result, 'indicators'):
-                print(f'Available indicators: {list(first_result.indicators.keys())}')
-    else:
-        print(f'Type: {type(mybenchmark.results)}')
-
-print('\nSaving results...')
+results = np.asarray(mybenchmark.results, dtype=object)
+print(f'Results shape: {results.shape}')
 mybenchmark.save(save_testset=True)
 print(f'Results saved to: {mybenchmark.name}')
-
-print('\n' + '=' * 70)
-print('Done!')
-print('=' * 70)
