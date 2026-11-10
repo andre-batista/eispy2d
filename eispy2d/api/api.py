@@ -12,7 +12,6 @@ from scipy.linalg import norm
 
 
 def _build_params(params):
-    """Extrai os parâmetros com defaults. (Idêntico ao evaluate atual.)"""
     p = params or {}
     return dict(
         wavelength            = p.get("wavelength", 1.0),
@@ -33,7 +32,6 @@ def _build_params(params):
 
 
 def _draw_ground_truth(p, config, resolution):
-    """Desenha o ground truth. (Idêntico ao evaluate atual.)"""
     Lx, Ly = p["image_size"]
     rb = p["background_permittivity"]
     contrast = p["contrast"]
@@ -247,7 +245,6 @@ def _draw_ground_truth(p, config, resolution):
 
 
 def prepare_problem(params=None, forward_kwargs=None):
-    """Constrói config + inputdata + roda forward. Retorna tudo."""
     p = _build_params(params)
     Lx, Ly = p["image_size"]
 
@@ -263,6 +260,9 @@ def prepare_problem(params=None, forward_kwargs=None):
         magnitude=1.0,
         perfect_dielectric=True,
     )
+    
+    if p["disp"]:
+        config.draw(show=True)
 
     inputdata = ipt.InputData(
         name='iptTest',
@@ -286,8 +286,7 @@ def prepare_problem(params=None, forward_kwargs=None):
 
 
 def run_algorithm(algorithm, inputdata, solver, config,
-                  discretization, recover_resolution):
-    """Parte de inversão + cálculo de erro. Usa o `inputdata` recebido."""
+                  discretization, recover_resolution, disp=False):
     GS = richmond.richmond_data(config, recover_resolution)
     GD = richmond.richmond_state(config, recover_resolution)
 
@@ -317,22 +316,25 @@ def run_algorithm(algorithm, inputdata, solver, config,
         rel_permittivity=epsilon_r_recon,
         contrast=chi,
     )
+
+    if disp:
+        result.plot_map(show=True, fontsize=15, groundtruth=inputdata)
+        print(result)
+
     return result
 
-
 def evaluate(algorithm, params=None):
-    """API pública — idêntica à anterior, agora só orquestra."""
     config, inputdata, solver, discretization = prepare_problem(params)
     p = _build_params(params)
     return run_algorithm(algorithm, inputdata, solver, config,
-                         discretization, p["resolution"])
-
+                         discretization, p["resolution"], p["disp"])
 class EvaluateS:
 
-    def __init__(self, algorithm, forward_kwargs=None, alias=None):
+    def __init__(self, algorithm, forward_kwargs=None, alias=None, disp=False):
         self.algorithm = algorithm
         self.name = getattr(algorithm, "__name__", type(algorithm).__name__)
         self.alias = alias or self.name
+        self.disp = disp
         self.forward_kwargs = forward_kwargs or {
             "tolerance": .001, "maximum_iterations": 5000,
         }
@@ -342,14 +344,17 @@ class EvaluateS:
             algorithm=self.algorithm,
             forward_kwargs=dict(self.forward_kwargs),
             alias=self.alias,
+            disp=self.disp,
         )
 
     def solve(self, inputdata, discretization=None, print_info=False, **kwargs):
+        disp = kwargs.get("disp", self.disp)
         config = inputdata.configuration
         recover_resolution = tuple(inputdata.resolution)
 
-        # O Benchmark chama solve() sem discretização quando
-        # discretization=None; nesse caso criamos a de Richmond aqui.
+        if disp:
+            config.draw(show=True)
+
         if discretization is None:
             discretization = richmond.Richmond(
                 config, recover_resolution, state=False
@@ -359,9 +364,9 @@ class EvaluateS:
         if solver is None:
             solver = mom.MoM_CG_FFT(**self.forward_kwargs)
             if inputdata.scattered_field is None:
-                solver.solve(inputdata, PRINT_INFO=print_info,
+                solver.solve(inputdata, PRINT_INFO=(print_info or disp),
                              COMPUTE_SCATTERED_FIELD=True,
                              SAVE_INTERN_FIELD=True)
 
         return run_algorithm(self.algorithm, inputdata, solver, config,
-                             discretization, recover_resolution)
+                             discretization, recover_resolution, disp=disp)
