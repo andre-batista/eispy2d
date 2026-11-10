@@ -329,15 +329,31 @@ def evaluate(algorithm, params=None):
 
 class EvaluateS:
 
-    def __init__(self, algorithm, forward_kwargs=None):
+    def __init__(self, algorithm, forward_kwargs=None, alias=None):
         self.algorithm = algorithm
         self.name = getattr(algorithm, "__name__", type(algorithm).__name__)
+        self.alias = alias or self.name
         self.forward_kwargs = forward_kwargs or {
             "tolerance": .001, "maximum_iterations": 5000,
         }
 
-    def solve(self, inputdata, discretization, print_info=False, **kwargs):
+    def copy(self):
+        return EvaluateS(
+            algorithm=self.algorithm,
+            forward_kwargs=dict(self.forward_kwargs),
+            alias=self.alias,
+        )
+
+    def solve(self, inputdata, discretization=None, print_info=False, **kwargs):
         config = inputdata.configuration
+        recover_resolution = tuple(inputdata.resolution)
+
+        # O Benchmark chama solve() sem discretização quando
+        # discretization=None; nesse caso criamos a de Richmond aqui.
+        if discretization is None:
+            discretization = richmond.Richmond(
+                config, recover_resolution, state=False
+            )
 
         solver = kwargs.get("solver")
         if solver is None:
@@ -347,6 +363,5 @@ class EvaluateS:
                              COMPUTE_SCATTERED_FIELD=True,
                              SAVE_INTERN_FIELD=True)
 
-        recover_resolution = tuple(inputdata.resolution)
         return run_algorithm(self.algorithm, inputdata, solver, config,
                              discretization, recover_resolution)

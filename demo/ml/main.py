@@ -145,24 +145,16 @@ class Train:
         return scf, chi
 
     def get_pchi(self, s_p, i_p):
-        pchi = 0 + 0j
-        dtotal = 0
-        for key in self.chain.keys():
-            di = self.distance(i_p, key[0])
-            ds = self.distance(s_p, key[1])
-
-            d = di * ds
-            
+        num = 0 + 0j
+        den = 0.0
+        for key, value in self.chain.items():
+            d = self.distance(i_p, key[0]) * self.distance(s_p, key[1])
             if d == 0:
-                return self.chain[key]
-
-            dtotal += d 
-
-            pchi += self.chain[key] / d
-
-        pchi /= dtotal
-
-        return pchi
+                return value
+            w = 1.0 / d
+            num += w * value
+            den += w
+        return num / den
 
     
     def solve(self, scf, icf, gs, gd, res):
