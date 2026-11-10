@@ -168,11 +168,6 @@ class Train:
         
         chi = np.zeros((nx, ny), dtype=complex)
 
-        print(icf)
-        print(scf)
-        print(icf_means)
-        print(scf_means)
-
 
         for px in range(0, nx):
             
@@ -184,7 +179,7 @@ class Train:
                     scf_mp += scf_means[ps]
 
                 scf_mp /= ns
-                pchi = self.get_pchi(icf_m, scf_mp)
+                pchi = self.get_pchi(scf_mp, icf_m)
 
                 chi[px, py] = pchi
                 
@@ -206,48 +201,3 @@ class Train:
         return np.sqrt(rd ** 2 + imd ** 2)
 
 
-# Exemplo de uso:
-
-# Criando uma instância
-trainer = Train()
-
-# Exemplo de dados (substitua pelos seus dados reais)
-
-params = {"resolution":(5, 5),
-          "number_measurements":2,
-          "number_sources":2,
-          "disp":True}
-
-scf, idf, gs, gd, res, chi = instance(params)
-
-
-# chi.shape -> resolution * 2/3
-
-# Treinando
-trainer.train(scf, idf, gs, gd, chi)
-
-print("Real chi")
-print(chi)
-print("===")
-
-c_r = trainer.solve(scf, idf, gs, gd, res)
-print("Chi recon")
-print(c_r)
-
-# Salvando
-#trainer.save("dados_treino.pkl")
-
-# Lendo em uma nova instância
-#trainer2 = Train()
-#trainer2.read("dados_treino.pkl")
-
-api.evaluate(trainer.solve, params)
-
-"""
-params = {"resolution":(15, 14),
-          "number_measurements":12,
-          "number_sources":13}
-
-api.evaluate(t, params)
-
-"""
