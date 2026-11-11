@@ -15,7 +15,7 @@ def _build_params(params):
     p = params or {}
     return dict(
         wavelength            = p.get("wavelength", 1.0),
-        image_size            = tuple(p.get("image_size", (4.0, 4.0))),
+        image_size            = tuple(p.get("image_size", (2.0, 2.0))),
         number_measurements   = p.get("number_measurements", 10),
         number_sources        = p.get("number_sources", 10),
         observation_radius    = p.get("observation_radius", 6.0),
@@ -26,7 +26,7 @@ def _build_params(params):
         shape                 = p.get("shape", "triangle").lower(),
         center                = p.get("center", [0, 0]),
         rotate                = p.get("rotate", 0.0),
-        contrast              = p.get("contrast", 0.5),
+        contrast              = p.get("contrast", 0.25),
         object_size           = p.get("object_size", 1.0),
     )
 

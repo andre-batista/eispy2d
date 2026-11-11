@@ -19,20 +19,20 @@ from chain import Train
 # ----------------------------------------------------------------------
 RESOLUTION = (30, 30)
 MODE = "random"          # "random" (amostragem) ou "grid" (produto cartesiano)
-N_SAMPLES = 100          # usado só no modo "random"
+N_SAMPLES = 1000          # usado só no modo "random"
 SEED = 0
 
 FORWARD_KWARGS = {"tolerance": 0.001, "maximum_iterations": 5000}
 
 BASE_PARAMS = {
     "wavelength": 1.0,
-    "image_size": (4.0, 4.0),
+    "image_size": (2.0, 2.0),
     "observation_radius": 6.0,
     "background_permittivity": 1.0,
     "resolution": RESOLUTION,
-    "noise_level": 1.0,          # use 0.0 para um teste sem ruído
+    "noise_level": 1.0,          
     "disp": False,
-    "contrast": 0.5,
+    "contrast": 0.25,
     "object_size": 1.0,
 }
 
@@ -132,5 +132,5 @@ if __name__ == "__main__":
     # Teste em uma instância nova (fora do treino)
     test_params = BASE_PARAMS.copy()
     test_params.update(number_sources=10, number_measurements=10,
-                       shape="square", center=[0.2, -0.3], rotate=15.0, disp=True)
+                       shape="star4", center=[0.2, -0.3], rotate=15.0, disp=True)
     result = api.evaluate(trainer.solve, test_params)
