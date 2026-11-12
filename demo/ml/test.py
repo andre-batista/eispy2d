@@ -1,4 +1,8 @@
-from chain import Train  
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 from eispy2d.api import api
 from eispy2d.experiments import benchmark as bmk
 from eispy2d.experiments import experiment as exp
@@ -17,21 +21,22 @@ from eispy2d.discretization import richmond as ric
 
 import numpy as np
 
-from bn import BayesNet
+from bayesnetwork import BayesNetwork
 
 params = {
     "wavelength": 1.0,
     "image_size": (2.0, 2.0),
     "observation_radius": 6.0,
     "background_permittivity": 1.0,
-    "resolution": (100, 100),
+    "resolution": (30, 30),
     "noise_level": 1.0,    
     "disp": True,
     "contrast": 0.25,
     "object_size": 1.0,
     "number_sources": 25,
     "number_measurements": 25,
-    "shape": "circle"
+    "shape": "star5",
+    "center": [0.0, 0.0],
 }
 
 WAVELENGTH = params["wavelength"]
@@ -112,17 +117,9 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
     chi = (result.rel_permittivity / config.epsilon_rb) - 1
     return result.scattered_field, chi
 
-#inputdata = api.prepare_problem(params)[1]
-#inputdata.compute_dnl()
-#print(inputdata.dnl)
 
-#trainer = Train()
-
-#trainer.read("chain_data.pkl")
-
-#api.evaluate(trainer.solve, params)
-
-net = BayesNet.load("bayes_data.pkl")
+net = BayesNetwork.load("data/bayes_data_6.pkl")
+#net = BayesNetwork.load("bayes_data.pkl")
 
 api.evaluate(net.solve, params)
 

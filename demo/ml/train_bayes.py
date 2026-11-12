@@ -10,7 +10,7 @@ import numpy as np
 from eispy2d.api import api
 from eispy2d.discretization import richmond
 
-from bn import BayesNet
+from bayesnetwork import BayesNetwork
 
 
 
@@ -19,9 +19,9 @@ MODE = "random"
 N_SAMPLES = 1000
 SEED = 0
 
-N_IF_BINS = 250
-N_SF_BINS = 250
-N_CHI_BINS = 250
+N_IF_BINS = 100
+N_SF_BINS = 100
+N_CHI_BINS = 100
 
 N_CALIB = 100
 CALIB_SEED = 12345
@@ -46,29 +46,63 @@ SHAPES = ["triangle", "square", "circle", "cross", "ellipse",
           "parallelogram", "polygon", "star4", "star5", "star6",
           "rhombus", "trapezoid", "ring", "random"]
 
+WAVELENGTH_RANGE = (0.8, 1.2)
+OBJECT_SIZE_RANGE = (0.5, 1.5)
+CONTRAST_RANGE = (0.1, 0.5)
+
+# Grid mode parameters
 CENTER_RANGE = 1.0
 CENTERS = [[0.0, 0.0], [0.5, 0.5], [-0.5, 0.5], [0.5, -0.5], [-0.5, -0.5]]
 ROTATIONS = [0.0, 30.0, 60.0, 90.0] 
 
+WAVELENGTHS = [0.8, 1.0, 1.2]
+OBJECT_SIZES = [0.5, 1.0, 1.5]
+CONTRASTS = [0.1, 0.3, 0.5]
 
 def grid_params():
-    for ns, nm, shape, center, rot in itertools.product(
-            SOURCES, MEASUREMENTS, SHAPES, CENTERS, ROTATIONS):
+    for (wavelength, object_size, contrast,
+         ns, nm, shape, center, rot) in itertools.product(
+            WAVELENGTHS,
+            OBJECT_SIZES,
+            CONTRASTS,
+            SOURCES,
+            MEASUREMENTS,
+            SHAPES,
+            CENTERS,
+            ROTATIONS
+    ):
         p = BASE_PARAMS.copy()
-        p.update(number_sources=ns, number_measurements=nm, shape=shape,
-                 center=list(center), rotate=rot)
+        p.update(
+            wavelength=wavelength,
+            object_size=object_size,
+            contrast=contrast,
+            number_sources=ns,
+            number_measurements=nm,
+            shape=shape,
+            center=list(center),
+            rotate=rot
+        )
         yield p
 
 
 def random_params(n, seed=SEED):
     rng = np.random.default_rng(seed)
+
     for _ in range(n):
         p = BASE_PARAMS.copy()
+
+        p["wavelength"] = float(rng.uniform(*WAVELENGTH_RANGE))
+        p["object_size"] = float(rng.uniform(*OBJECT_SIZE_RANGE))
+        p["contrast"] = float(rng.uniform(*CONTRAST_RANGE))
+
         p["number_sources"] = int(rng.choice(SOURCES))
         p["number_measurements"] = int(rng.choice(MEASUREMENTS))
         p["shape"] = str(rng.choice(SHAPES))
-        p["center"] = rng.uniform(-CENTER_RANGE, CENTER_RANGE, 2).tolist()
+        p["center"] = rng.uniform(
+            -CENTER_RANGE, CENTER_RANGE, 2
+        ).tolist()
         p["rotate"] = float(rng.uniform(0.0, 180.0))
+
         yield p
 
 
@@ -112,9 +146,17 @@ def run_training(trainer, params_iter):
     trained, failed = 0, []
 
     for i, p in enumerate(params_iter):
-        label = (f"#{i:04d} shape={p['shape']} NS={p['number_sources']} "
-                 f"NM={p['number_measurements']} center={p['center']} "
-                 f"rot={p['rotate']:.0f}")
+        label = (
+            f"#{i:04d} "
+            f"wavelength={p['wavelength']:.3f} "
+            f"object_size={p['object_size']:.3f} "
+            f"contrast={p['contrast']:.3f} "
+            f"shape={p['shape']} "
+            f"NS={p['number_sources']} "
+            f"NM={p['number_measurements']} "
+            f"center={p['center']} "
+            f"rot={p['rotate']:.0f}"
+        )
         try:
             scf, idf, gs, gd, res, chi = make_instance(p)
             trainer.train(scf, idf, gs, gd, chi)
@@ -132,7 +174,7 @@ def run_training(trainer, params_iter):
 
 
 if __name__ == "__main__":
-    trainer = BayesNet(n_if_bins=N_IF_BINS, n_sf_bins=N_SF_BINS,
+    trainer = BayesNetwork(n_if_bins=N_IF_BINS, n_sf_bins=N_SF_BINS,
                        n_chi_bins=N_CHI_BINS)
 
     calibrate(trainer)
@@ -149,9 +191,17 @@ if __name__ == "__main__":
     print(f"Células (IF,SF) ocupadas: {trainer.occupied_cells()}"
           f"/{trainer.N_IF_BINS * trainer.N_SF_BINS}")
 
-    trainer.save("bayes_data.pkl")
+    trainer.save("./data/bayes_data_4.pkl")
 
-    test_params = BASE_PARAMS.copy()
-    test_params.update(number_sources=10, number_measurements=10,
-                       shape="star4", center=[0.2, -0.3], rotate=15.0, disp=True)
+    test_params = next(random_params(1, seed=999))
+
+    test_params.update(
+        number_sources=10,
+        number_measurements=10,
+        shape="star4",
+        center=[0.2, -0.3],
+        rotate=15.0,
+        disp=True
+    )
+
     result = api.evaluate(trainer.solve, test_params)

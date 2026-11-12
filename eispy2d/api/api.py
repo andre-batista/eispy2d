@@ -241,7 +241,7 @@ def _draw_ground_truth(p, config, resolution):
             "evaluate", "shape",
             "triangle, square, ellipse, circle, cross, trapezoid, polygon, "
             "parallelogram, rhombus, star4, star5, star6, ring, random, "
-            "random_gaussian", shape)
+            "random_gaussians", shape)
 
 
 def prepare_problem(params=None, forward_kwargs=None):

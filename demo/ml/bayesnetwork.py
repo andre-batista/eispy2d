@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 
 
-class BayesNet:
+class BayesNetwork:
 
     N_IF_BINS = 80
     N_SF_BINS = 80
