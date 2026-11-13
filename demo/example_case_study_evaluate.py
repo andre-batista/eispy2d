@@ -1,59 +1,80 @@
 import sys
 import os
+import time
+import pickle
+import multiprocessing
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from eispy2d.api import casestudy_api as cst
-from eispy2d.core import configuration as cfg
-from eispy2d.core import inputdata as ipt
+import numpy as np
+from joblib import Parallel, delayed
+
+from eispy2d import api
+from eispy2d.core import configuration as cfg, inputdata as ipt
+from eispy2d.core import result as rst
 from eispy2d.discretization import richmond as ric
 from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.solvers.inverse import bim
-from eispy2d.solvers.inverse import regularization as reg
+from eispy2d.regularization import regularization as reg
 from eispy2d.utils import stopcriteria as stp
 
-
 WAVELENGTH = 1.0
-Lx, Ly = 0.8, 0.8
+IMAGE_SIZE = (0.8, 0.8)
 OBSERVATION_RADIUS = 1.0
 RESOLUTION = (30, 30)
 NOISE_LEVEL = 1.0
 NUMBER_MEASUREMENTS = 10
 NUMBER_SOURCES = 10
 BACKGROUND_PERMITTIVITY = 4.0
-SHAPE = "triangle"
+SHAPE = 'triangle'
+CONTRAST = 1.0
+OBJECT_SIZE = 0.16
+
+Lx, Ly = IMAGE_SIZE
+
+MOM_MAX_ITERATIONS = 2500
+BIM_MAX_ITERATIONS = 5
+
 STOCHASTIC_RUNS = 30
+SAVE_RESULTS = True
+OUTPUT_NAME = 'cst_bim_sensitivity'
+OUTPUT_PATH = ''
 
-WAVELENGTH_VALUES = [i * 0.2 for i in range(1, 16)]
-NOISE_VALUES = [i * 0.5 for i in range(1, 21)]
-NS_VALUES = [i for i in range(4, 65, 4)]
-NM_VALUES = [i for i in range(4, 65, 4)]
+PROBLEM = 'problem'
+ALGORITHM = 'algorithm'
 
-MOM_MAX_ITER_VALUES = [i for i in range(100, 10001, 100)]
-STOP_MAX_ITER_VALUES = [i for i in range(1, 10, 1)]
-REG_TIK_VALUES = [
-    1e-4, 5e-4, 1e-3, 5e-3,
-    1e-2, 5e-2, 1e-1, 5e-1
+WAVELENGTH_VALUES = np.round(np.arange(0.2, 3.0 + 1e-9, 0.2), 1)
+NOISE_VALUES = np.round(np.arange(0.5, 10.0 + 1e-9, 0.5), 1)
+SOURCE_VALUES = np.arange(4, 64 + 1, 4)
+MEASUREMENT_VALUES = np.arange(4, 64 + 1, 4)
+MOM_MAX_ITER_VALUES = np.arange(100, 10000 + 1, 100)
+STOP_MAX_ITER_VALUES = np.arange(1, 9 + 1, 1)
+TIKHONOV_VALUES = np.array([1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1])
+
+GROUPS = [
+    ('wavelength', PROBLEM, 'wavelength', WAVELENGTH_VALUES),
+    ('noise', PROBLEM, 'noise_level', NOISE_VALUES),
+    ('sources', PROBLEM, 'number_sources', SOURCE_VALUES),
+    ('measurements', PROBLEM, 'number_measurements', MEASUREMENT_VALUES),
+    ('mom_max_iterations', ALGORITHM, 'mom_max_iter', MOM_MAX_ITER_VALUES),
+    ('bim_max_iterations', ALGORITHM, 'stop_max_iter', STOP_MAX_ITER_VALUES),
+    ('tikhonov', ALGORITHM, 'reg_tik', TIKHONOV_VALUES),
 ]
 
-CASE_STUDY_NAME = "api_casestudy"
+EPAD = 'epad'
+RESIDUAL_NORM = 'residual_norm'
+TIME = 'time'
+RESULTS = 'results'
+ERRORS = 'errors'
 
 
 def born_iterative_method(
-    scattered_field,
-    incident_field,
-    GS,
-    GD,
-    recover_resolution,
-    mom_max_iter=2500,
-    stop_max_iter=5,
-    reg_tik=None
+    scattered_field, incident_field, GS, GD, recover_resolution,
+    mom_max_iter=2500, stop_max_iter=5, reg_tik=None
 ):
     if reg_tik is None:
         reg_tik = reg.TIK_FIXED
-
     NM, NS = scattered_field.shape
-
     config = cfg.Configuration(
         name="temp",
         wavelength=1.0,
@@ -64,13 +85,9 @@ def born_iterative_method(
         background_permittivity=BACKGROUND_PERMITTIVITY,
         perfect_dielectric=True
     )
-
     discretization = ric.Richmond(
-        config,
-        recover_resolution,
-        state=False
+        config, recover_resolution, state=False
     )
-
     inputdata = ipt.InputData(
         name="temp",
         configuration=config,
@@ -79,156 +96,144 @@ def born_iterative_method(
         incident_field=incident_field,
         indicators=[]
     )
-
     solver = bim.BornIterativeMethod(
         mom.MoM_CG_FFT(tolerance=0.01, maximum_iterations=mom_max_iter),
         reg.Tikhonov(reg_tik, parameter=0.1),
         stp.StopCriteria(max_iterations=stop_max_iter)
     )
-
     result = solver.solve(
-        inputdata,
-        discretization,
-        print_info=False
+        inputdata, discretization, print_info=False
     )
-
     chi = (result.rel_permittivity / config.epsilon_rb) - 1
-
     return result.scattered_field, chi
 
 
-def fixed_params():
+class TimedAlgorithm:
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.elapsed = None
+        self.__name__ = 'born_iterative_method'
+
+    def __call__(self, scattered_field, incident_field, GS, GD,
+                 recover_resolution):
+        start = time.perf_counter()
+        output = born_iterative_method(
+            scattered_field, incident_field, GS, GD, recover_resolution,
+            **self.kwargs
+        )
+        self.elapsed = time.perf_counter() - start
+        return output
+
+
+def build_params(overrides=None):
+    params = dict(
+        wavelength=WAVELENGTH,
+        image_size=IMAGE_SIZE,
+        number_measurements=NUMBER_MEASUREMENTS,
+        number_sources=NUMBER_SOURCES,
+        observation_radius=OBSERVATION_RADIUS,
+        background_permittivity=BACKGROUND_PERMITTIVITY,
+        resolution=RESOLUTION,
+        noise_level=NOISE_LEVEL,
+        shape=SHAPE,
+        contrast=CONTRAST,
+        object_size=OBJECT_SIZE,
+        center=[0.0, 0.0],
+        rotate=0.0,
+        disp=False,
+    )
+    params.update(overrides or {})
+    return params
+
+
+def build_algorithm_kwargs(overrides=None):
+    kwargs = dict(
+        mom_max_iter=MOM_MAX_ITERATIONS,
+        stop_max_iter=BIM_MAX_ITERATIONS,
+    )
+    kwargs.update(overrides or {})
+    return kwargs
+
+
+def run_single(params, algorithm_kwargs):
+    algorithm = TimedAlgorithm(**algorithm_kwargs)
+    try:
+        result = api.evaluate(algorithm, params)
+    except Exception as exception:
+        return dict(epad=np.nan, residual_norm=np.nan,
+                    time=np.nan, result=None, error=repr(exception))
+    return dict(
+        epad=result.final_value(rst.REL_PERMITTIVITY_PAD_ERROR),
+        residual_norm=result.final_value(rst.RESIDUAL_NORM_ERROR),
+        time=algorithm.elapsed,
+        result=result if SAVE_RESULTS else None,
+        error=None,
+    )
+
+
+def run_test(params, algorithm_kwargs, runs, number_jobs):
+    outputs = Parallel(n_jobs=number_jobs)(
+        delayed(run_single)(params, algorithm_kwargs) for _ in range(runs)
+    )
     return {
-        "wavelength": WAVELENGTH,
-        "image_size": (Lx, Ly),
-        "observation_radius": OBSERVATION_RADIUS,
-        "resolution": RESOLUTION,
-        "noise_level": NOISE_LEVEL,
-        "number_measurements": NUMBER_MEASUREMENTS,
-        "number_sources": NUMBER_SOURCES,
-        "shape": SHAPE,
-        "background_permittivity": BACKGROUND_PERMITTIVITY
+        EPAD: np.array([o['epad'] for o in outputs], dtype=float),
+        RESIDUAL_NORM: np.array([o['residual_norm'] for o in outputs],
+                                dtype=float),
+        TIME: np.array([o['time'] for o in outputs], dtype=float),
+        RESULTS: [o['result'] for o in outputs],
+        ERRORS: [o['error'] for o in outputs],
     }
 
 
-def build_input_parameter_tests(variable_param, values, study_name):
-    tests = []
-
-    for value in values:
-        params = fixed_params()
-        params[variable_param] = value
-        params["_study"] = study_name
-        tests.append(params)
-
-    return tests
-
-
-def build_algorithm_parameter_tests(algorithm_param, values, study_name):
-    tests = []
-    algorithm_params = []
-
-    for value in values:
-        tests.append({
-            **fixed_params(),
-            "_study": study_name
-        })
-        algorithm_params.append({
-            algorithm_param: value
-        })
-
-    return tests, algorithm_params
+def run_group(name, target, key, values, runs, number_jobs):
+    group_output = {}
+    for index, value in enumerate(values):
+        value = value.item() if hasattr(value, 'item') else value
+        if target == PROBLEM:
+            params = build_params({key: value})
+            algorithm_kwargs = build_algorithm_kwargs()
+        else:
+            params = build_params()
+            algorithm_kwargs = build_algorithm_kwargs({key: value})
+        group_output[value] = run_test(params, algorithm_kwargs, runs,
+                                       number_jobs)
+        failures = sum(e is not None for e in group_output[value][ERRORS])
+        print('%s: test %d/%d (%s=%s) | mean EPAD: %.3f | mean time: %.2fs'
+              ' | failures: %d'
+              % (name, index + 1, len(values), key, value,
+                 np.nanmean(group_output[value][EPAD]),
+                 np.nanmean(group_output[value][TIME]), failures),
+              flush=True)
+    return group_output
 
 
-def build_case_study():
-    print('\n[START] Building case study...')
+def main():
+    number_jobs = multiprocessing.cpu_count()
+    number_tests = sum(len(values) for _, _, _, values in GROUPS)
+    print('Tests: %d | Runs per test: %d | Total runs: %d'
+          % (number_tests, STOCHASTIC_RUNS, number_tests * STOCHASTIC_RUNS))
 
-    tests = []
-    algorithm_params = []
+    study = {
+        'name': OUTPUT_NAME,
+        'reference_params': build_params(),
+        'reference_algorithm': build_algorithm_kwargs(),
+        'stochastic_runs': STOCHASTIC_RUNS,
+        'groups': {},
+    }
 
-    input_studies = [
-        ("wavelength", WAVELENGTH_VALUES, "wavelength"),
-        ("noise_level", NOISE_VALUES, "noise"),
-        ("number_sources", NS_VALUES, "sources"),
-        ("number_measurements", NM_VALUES, "measurements")
-    ]
-
-    print('[INFO] Adding input parameter studies...')
-    for variable_param, values, study_name in input_studies:
-        tests.extend(
-            build_input_parameter_tests(
-                variable_param,
-                values,
-                study_name
-            )
+    for name, target, key, values in GROUPS:
+        study['groups'][name] = dict(
+            target=target,
+            key=key,
+            values=[v.item() if hasattr(v, 'item') else v for v in values],
+            output=run_group(name, target, key, values, STOCHASTIC_RUNS,
+                             number_jobs),
         )
-        algorithm_params.extend(
-            [None] * len(values)
-        )
-        print(f'[INFO]   - Study "{study_name}": {len(values)} test(s) added.')
 
-    algorithm_studies = [
-        ("mom_max_iter", MOM_MAX_ITER_VALUES, "mom_max_iter"),
-        ("stop_max_iter", STOP_MAX_ITER_VALUES, "stop_max_iter"),
-        ("reg_tik", REG_TIK_VALUES, "reg_tik")
-    ]
-
-    print('[INFO] Adding algorithm parameter studies...')
-    for algorithm_param, values, study_name in algorithm_studies:
-        current_tests, current_algorithm_params = (
-            build_algorithm_parameter_tests(
-                algorithm_param,
-                values,
-                study_name
-            )
-        )
-        tests.extend(current_tests)
-        algorithm_params.extend(current_algorithm_params)
-        print(f'[INFO]   - Study "{study_name}": {len(values)} test(s) added.')
-
-    case_study = cst.CaseStudy(
-        name=CASE_STUDY_NAME,
-        algorithm=born_iterative_method,
-        test=tests,
-        stochastic_runs=STOCHASTIC_RUNS,
-        save_stochastic_runs=True,
-        algorithm_params=algorithm_params
-    )
-
-    print(f'[OK] Case study built: {case_study.name}')
-    print(f'[INFO] Total tests: {len(tests)}')
-    print(f'[INFO] Stochastic runs per test: {STOCHASTIC_RUNS}')
-
-    return case_study
+    with open(OUTPUT_PATH + OUTPUT_NAME, 'wb') as datafile:
+        pickle.dump(study, datafile)
 
 
-def run_case_study():
-    print('=' * 70)
-    print('CASE STUDY GENERATOR - API EVALUATE')
-    print('=' * 70)
-
-    study = build_case_study()
-
-    print('\n[START] Executing case study...')
-    print('[INFO] This may take a while. Please wait...')
-
-    try:
-        study.run(
-            parallelization=cst.PARALLELIZE_EXECUTIONS
-        )
-        print('[OK] Case study completed successfully!')
-    except Exception as e:
-        print(f'[ERROR] Error during case study execution: {e}')
-        print('[WARN] Saving partial results...')
-
-    print('\n[START] Saving results...')
-    study.save(save_test=True)
-    print(f'[OK] Results saved to: {study.name}')
-
-    print('\n' + '=' * 70)
-    print('[DONE] Case study execution finished!')
-    print('=' * 70)
-
-    return study
-
-
-case_study = run_case_study()
+if __name__ == '__main__':
+    main()

@@ -33,8 +33,8 @@ params = {
     "disp": True,
     "contrast": 0.25,
     "object_size": 1.0,
-    "number_sources": 25,
-    "number_measurements": 25,
+    "number_sources": 10,
+    "number_measurements": 10,
     "shape": "star5",
     "center": [0.0, 0.0],
 }
