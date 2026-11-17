@@ -27,7 +27,7 @@ params = {
     "wavelength": 1.0,
     "image_size": (2.0, 2.0),
     "observation_radius": 6.0,
-    "background_permittivity": 1.0,
+    "background_permittivity": 3.0,
     "resolution": (30, 30),
     "noise_level": 1.0,    
     "disp": True,
@@ -118,10 +118,103 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
     return result.scattered_field, chi
 
 
-net = BayesNetwork.load("data/bayes_data_6.pkl")
-#net = BayesNetwork.load("bayes_data.pkl")
+#net = BayesNetwork.load("data/bayes_data_6.pkl")
+net = BayesNetwork.load("bayes_data.pkl")
 
-api.evaluate(net.solve, params)
 
-#api.evaluate(manual_born_approximation, params)
+import numpy as np
+import matplotlib.pyplot as plt
+
+BASE = {
+    "wavelength": 1.0,
+    "image_size": (2.0, 2.0),
+    "observation_radius": 6.0,
+    "background_permittivity": 3.0,
+    "resolution": (30, 30),
+    "noise_level": 1.0,
+    "disp": False,
+    "contrast": 0.25,
+    "object_size": 1.0,
+    "number_sources": 10,
+    "number_measurements": 10,
+    "shape": "star5",
+    "center": [0.0, 0.0],
+}
+
+METHODS = {
+    "bayes": net.solve,
+    "born": born_approximation,
+    "csi": contrast_source_inversion,
+}
+
+resolutions = [(10, 10), (15, 15), (20, 20), (25, 25), (30, 30),
+               (35, 35), (40, 40), (45, 45), (50, 50)]
+
+sources_measurements = [(5, 5), (10, 10), (15, 15), (20, 20), (25, 25),
+                        (30, 30), (35, 35), (40, 40), (45, 45), (50, 50)]
+
+N_REPEATS = 5
+
+
+def run_mean(method, params, n=N_REPEATS):
+    ts = []
+    for _ in range(n):
+        r = api.evaluate(method, params)
+        ts.append(r.execution_time)
+    return float(np.mean(ts))
+
+
+times_res = {name: [] for name in METHODS}
+for res in resolutions:
+    p = dict(BASE)
+    p["resolution"] = res
+    for name, method in METHODS.items():
+        try:
+            t = run_mean(method, p)
+        except Exception as e:
+            print(f"[FALHOU] {name} res={res}: {e}")
+            t = float("nan")
+        times_res[name].append(t)
+        print(f"{name:6s} res={res} -> {t:.4f} s (média de {N_REPEATS})")
+
+times_sm = {name: [] for name in METHODS}
+for ns, nm in sources_measurements:
+    p = dict(BASE)
+    p["resolution"] = (30, 30)
+    p["number_sources"] = ns
+    p["number_measurements"] = nm
+    for name, method in METHODS.items():
+        try:
+            t = run_mean(method, p)
+        except Exception as e:
+            print(f"[FALHOU] {name} ns={ns} nm={nm}: {e}")
+            t = float("nan")
+        times_sm[name].append(t)
+        print(f"{name:6s} ns={ns} nm={nm} -> {t:.4f} s (média de {N_REPEATS})")
+
+x_res = [r[0] for r in resolutions]
+x_sm = [f"{ns}x{nm}" for ns, nm in sources_measurements]
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+for name, ts in times_res.items():
+    axes[0].plot(x_res, ts, marker="o", label=name)
+axes[0].set_xlabel("resolução (lado)")
+axes[0].set_ylabel("tempo médio de execução (s)")
+axes[0].set_title(f"Tempo vs resolução (média de {N_REPEATS})")
+axes[0].legend()
+axes[0].grid(True)
+
+for name, ts in times_sm.items():
+    axes[1].plot(x_sm, ts, marker="o", label=name)
+axes[1].set_xlabel("(sources, measurements)")
+axes[1].set_ylabel("tempo médio de execução (s)")
+axes[1].set_title(f"Tempo vs (sources, measurements) (média de {N_REPEATS})")
+axes[1].tick_params(axis="x", rotation=45)
+axes[1].legend()
+axes[1].grid(True)
+
+plt.tight_layout()
+plt.savefig("timing_comparison_mean.png", dpi=150)
+plt.show()
 

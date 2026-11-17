@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 from eispy2d.discretization import richmond
@@ -293,9 +295,15 @@ def run_algorithm(algorithm, inputdata, solver, config,
     incident_field  = solver.incident_field(recover_resolution, config)
     scattered_field = inputdata.scattered_field
 
+    
+
+    t0 = time.perf_counter()
     recon_scattered, chi = algorithm(
         scattered_field, incident_field, GS, GD, recover_resolution
     )
+    t1 = time.perf_counter()
+
+    execution_time = t1 - t0
 
     epsilon_r_recon = config.epsilon_rb * (np.real(chi) + 1)
     if epsilon_r_recon.ndim == 1:
@@ -309,6 +317,7 @@ def run_algorithm(algorithm, inputdata, solver, config,
         method_name=getattr(algorithm, '__name__', type(algorithm).__name__),
         configuration=config,
         rel_permittivity=epsilon_r_recon,
+        execution_time=execution_time,
     )
     result.update_error(
         inputdata=inputdata,
