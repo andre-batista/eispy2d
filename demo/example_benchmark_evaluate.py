@@ -21,10 +21,14 @@ from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.utils import stopcriteria as stp
 from eispy2d.discretization import richmond as ric
 
+from demo.ml.bayesnetwork import BayesNetwork as bn
+
+net = bn.load("demo/ml/data/bayes_data.pkl")
+
 WAVELENGTH = 1.0
-Lx, Ly = 0.8, 0.8
+Lx, Ly = 4.0, 4.0
 OBSERVATION_RADIUS = 1.0
-RESOLUTION = (60, 60)
+RESOLUTION = (30, 30)
 NOISE_LEVEL = 1.0
 BACKGROUND_PERMITTIVITY = 4.0
 
@@ -37,13 +41,13 @@ BASE_PARAMS = {
     "number_sources": 10,
     "observation_radius": 6.0,
     "background_permittivity": 1.0,
-    "resolution": (60, 60),
+    "resolution": (30, 30),
     "noise_level": 1.0,
     "disp": False,
     "shape": "triangle",
     "center": [0.0, 0.0],
     "rotate": 0.0,
-    "contrast": 0.5,
+    "contrast": 0.25,
     "object_size": 1.0,
 }
 
@@ -77,6 +81,10 @@ SOURCE_MEASUREMENT_PAIRS = [
     (15, 5),
     (15, 10),
     (15, 15),
+    (20, 5),
+    (20, 10),
+    (20, 15),
+    (20, 20)
 ]
 FORWARD_KWARGS = {
     "tolerance": 0.001,
@@ -292,7 +300,8 @@ def best_error_method(scattered, incident, GS, GD, resolucao, cand_n=60, quant_r
 ALGORITHMS = [
     born_iterative_method,
     born_approximation,
-    contrast_source_inversion
+    contrast_source_inversion,
+    net.solve
 ]
 
 def make_testset(name, params, repetitions=N_REPETITIONS):
@@ -410,7 +419,7 @@ def run_benchmark(repetitions=N_REPETITIONS):
     print(f"Total evaluations: {len(testsets) * repetitions}")
     print("Running benchmark...")
 
-    benchmark.run(parallelization=None)
+    benchmark.run(parallelization=bmk.PARALLELIZE_TESTS)
 
     save_path = str(OUTPUT_DIRECTORY) + os.sep
     benchmark.save(file_path=save_path, save_testset=True)

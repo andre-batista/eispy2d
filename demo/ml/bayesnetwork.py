@@ -1,4 +1,3 @@
-
 import pickle
 
 import numpy as np
@@ -14,7 +13,7 @@ class BayesNetwork:
     SF_RANGE = (0.0, 1.0)
     CHI_RANGE = (0.0, 0.25)
 
-    SF_NORMALIZE = "max"        
+    SF_NORMALIZE = "max"
     ALPHA = 1.0
     MIN_COUNT = 5
     DECISION = "mean"
@@ -44,7 +43,6 @@ class BayesNetwork:
         if sf_normalize != "keep":
             self.SF_NORMALIZE = sf_normalize
 
-        # IF=i, SF=s, CHI=k
         self.counts = np.zeros(
             (self.N_IF_BINS, self.N_SF_BINS, self.N_CHI_BINS), dtype=np.int64)
         self.n_instances = 0
@@ -106,8 +104,6 @@ class BayesNetwork:
         c_joint = self.counts[i, s].astype(float)             # (N, n_chi)
         n_joint = c_joint.sum(axis=1)
 
-        # Fallback hierárquico: joint -> marginal em IF -> marginal em SF
-        # -> global
         c_if_all = self.counts.sum(axis=1)                    # (n_if, n_chi)
         c_sf_all = self.counts.sum(axis=0)                    # (n_sf, n_chi)
         c_glob = self.counts.sum(axis=(0, 1)).astype(float)   # (n_chi,)

@@ -1,6 +1,7 @@
 import itertools
 import os
 import sys
+from multiprocessing import Pool
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))
@@ -16,15 +17,18 @@ from bayesnetwork import BayesNetwork
 
 RESOLUTION = (30, 30)
 MODE = "random"
-N_SAMPLES = 1000
+N_SAMPLES = 100000
 SEED = 0
 
-N_IF_BINS = 100
-N_SF_BINS = 100
-N_CHI_BINS = 100
+N_IF_BINS = 900
+N_SF_BINS = 900
+N_CHI_BINS = 900
 
-N_CALIB = 100
+N_CALIB = 1000
 CALIB_SEED = 12345
+
+N_WORKERS = min(4, os.cpu_count() or 1)
+CHUNKSIZE = 4
 
 FORWARD_KWARGS = {"tolerance": 0.001, "maximum_iterations": 5000}
 
@@ -34,7 +38,7 @@ BASE_PARAMS = {
     "observation_radius": 6.0,
     "background_permittivity": 1.0,
     "resolution": RESOLUTION,
-    "noise_level": 1.0,
+    "noise_level": 0.0,
     "disp": False,
     "contrast": 0.25,
     "object_size": 1.0,
@@ -46,25 +50,27 @@ SHAPES = ["triangle", "square", "circle", "cross", "ellipse",
           "parallelogram", "polygon", "star4", "star5", "star6",
           "rhombus", "trapezoid", "ring", "random"]
 
-WAVELENGTH_RANGE = (0.8, 1.2)
-OBJECT_SIZE_RANGE = (0.5, 1.5)
-CONTRAST_RANGE = (0.1, 0.5)
+WAVELENGTH_RANGE = (0.5, 1.5)
+OBJECT_SIZE_RANGE = (0.4, 1.6)
+CONTRAST_RANGE = (0.1, 1.5)
+BACKGROUND_PERMITTIVITY_RANGE = (0.7, 3.0)
 
-# Grid mode parameters
 CENTER_RANGE = 1.0
 CENTERS = [[0.0, 0.0], [0.5, 0.5], [-0.5, 0.5], [0.5, -0.5], [-0.5, -0.5]]
-ROTATIONS = [0.0, 30.0, 60.0, 90.0] 
+ROTATIONS = [0.0, 30.0, 60.0, 90.0]
 
 WAVELENGTHS = [0.8, 1.0, 1.2]
 OBJECT_SIZES = [0.5, 1.0, 1.5]
 CONTRASTS = [0.1, 0.3, 0.5]
+BACKGROUND_PERMITTIVITIES = [1.0, 1.5, 2.0, 2.5, 3.0]
 
 def grid_params():
-    for (wavelength, object_size, contrast,
+    for (wavelength, object_size, contrast, background_permittivity,
          ns, nm, shape, center, rot) in itertools.product(
             WAVELENGTHS,
             OBJECT_SIZES,
             CONTRASTS,
+            BACKGROUND_PERMITTIVITIES,
             SOURCES,
             MEASUREMENTS,
             SHAPES,
@@ -76,6 +82,7 @@ def grid_params():
             wavelength=wavelength,
             object_size=object_size,
             contrast=contrast,
+            background_permittivity=background_permittivity,
             number_sources=ns,
             number_measurements=nm,
             shape=shape,
@@ -94,6 +101,8 @@ def random_params(n, seed=SEED):
         p["wavelength"] = float(rng.uniform(*WAVELENGTH_RANGE))
         p["object_size"] = float(rng.uniform(*OBJECT_SIZE_RANGE))
         p["contrast"] = float(rng.uniform(*CONTRAST_RANGE))
+        p["background_permittivity"] = float(
+            rng.uniform(*BACKGROUND_PERMITTIVITY_RANGE))
 
         p["number_sources"] = int(rng.choice(SOURCES))
         p["number_measurements"] = int(rng.choice(MEASUREMENTS))
@@ -120,11 +129,53 @@ def make_instance(params):
     return scf, idf, gs, gd, res, chi
 
 
-def calibrate(net, n=N_CALIB, seed=CALIB_SEED):
+def _format_label(i, p):
+    return (
+        f"#{i:04d} "
+        f"wavelength={p['wavelength']:.3f} "
+        f"object_size={p['object_size']:.3f} "
+        f"contrast={p['contrast']:.3f} "
+        f"background_permittivity={p['background_permittivity']:.3f} "
+        f"shape={p['shape']} "
+        f"NS={p['number_sources']} "
+        f"NM={p['number_measurements']} "
+        f"center={p['center']} "
+        f"rot={p['rotate']:.0f}"
+    )
+
+
+def _calib_worker(p):
+    try:
+        scf, idf, gs, gd, res, chi = make_instance(p)
+        return scf, idf, gs, chi
+    except Exception:
+        return None
+
+
+def _train_worker(p):
+    try:
+        scf, idf, gs, gd, res, chi = make_instance(p)
+        return scf, idf, gs, chi
+    except Exception as e:
+        return ("__error__", repr(e))
+
+
+def calibrate(net, n=N_CALIB, seed=CALIB_SEED, workers=N_WORKERS,
+              chunksize=CHUNKSIZE):
+    if workers and workers > 1:
+        with Pool(workers) as pool:
+            results = pool.map(_calib_worker,
+                               list(random_params(n, seed=seed)),
+                               chunksize=chunksize)
+    else:
+        results = [_calib_worker(p) for p in random_params(n, seed=seed)]
+
     ifs, sfs, chis, used = [], [], [], 0
-    for p in random_params(n, seed=seed):
+    for r in results:
+        if r is None:
+            continue
+        scf, idf, gs, chi = r
         try:
-            scf, idf, gs, gd, res, chi = make_instance(p)
             f_if, f_sf = net.pixel_features(scf, idf, gs)
         except Exception:
             continue
@@ -142,33 +193,42 @@ def calibrate(net, n=N_CALIB, seed=CALIB_SEED):
           f"SF_RANGE={net.SF_RANGE} CHI_RANGE={net.CHI_RANGE}")
 
 
-def run_training(trainer, params_iter):
-    trained, failed = 0, []
-
+def _indexed_params(params_iter):
     for i, p in enumerate(params_iter):
-        label = (
-            f"#{i:04d} "
-            f"wavelength={p['wavelength']:.3f} "
-            f"object_size={p['object_size']:.3f} "
-            f"contrast={p['contrast']:.3f} "
-            f"shape={p['shape']} "
-            f"NS={p['number_sources']} "
-            f"NM={p['number_measurements']} "
-            f"center={p['center']} "
-            f"rot={p['rotate']:.0f}"
-        )
-        try:
-            scf, idf, gs, gd, res, chi = make_instance(p)
-            trainer.train(scf, idf, gs, gd, chi)
-        except Exception as e:  # ex.: forma que não cabe no domínio
-            failed.append((label, repr(e)))
-            print(f"[FALHOU] {label}: {e}")
-            continue
+        yield i, p
 
+
+def run_training(trainer, params_iter, workers=N_WORKERS,
+                 chunksize=CHUNKSIZE):
+    trained, failed = 0, []
+    indexed = list(_indexed_params(params_iter))
+
+    def handle(i, p, result):
+        nonlocal trained
+        label = _format_label(i, p)
+        if isinstance(result, tuple) and len(result) == 2 \
+                and result[0] == "__error__":
+            failed.append((label, result[1]))
+            print(f"[FALHOU] {label}: {result[1]}")
+            return
+        scf, idf, gs, chi = result
+        trainer.train(scf, idf, gs, None, chi)
         trained += 1
         print(f"[ok] {label} | instâncias: {trainer.n_instances} "
               f"| células (IF,SF) ocupadas: {trainer.occupied_cells()}"
               f"/{trainer.N_IF_BINS * trainer.N_SF_BINS}")
+
+    if workers and workers > 1:
+        with Pool(workers) as pool:
+            for (i, p), result in zip(
+                    indexed,
+                    pool.imap(_train_worker,
+                              (p for _, p in indexed),
+                              chunksize=chunksize)):
+                handle(i, p, result)
+    else:
+        for i, p in indexed:
+            handle(i, p, _train_worker(p))
 
     return trained, failed
 
@@ -182,7 +242,8 @@ if __name__ == "__main__":
     params_iter = grid_params() if MODE == "grid" else random_params(N_SAMPLES)
     if MODE == "grid":
         total = (len(SOURCES) * len(MEASUREMENTS) * len(SHAPES)
-                 * len(CENTERS) * len(ROTATIONS))
+                 * len(CENTERS) * len(ROTATIONS)
+                 * len(BACKGROUND_PERMITTIVITIES))
         print(f"Modo grid: {total} instâncias")
 
     trained, failed = run_training(trainer, params_iter)
@@ -191,7 +252,7 @@ if __name__ == "__main__":
     print(f"Células (IF,SF) ocupadas: {trainer.occupied_cells()}"
           f"/{trainer.N_IF_BINS * trainer.N_SF_BINS}")
 
-    trainer.save("./data/bayes_data_4.pkl")
+    trainer.save("bayes_data.pkl")
 
     test_params = next(random_params(1, seed=999))
 
