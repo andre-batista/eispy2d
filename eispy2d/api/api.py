@@ -30,6 +30,7 @@ def _build_params(params):
         rotate                = p.get("rotate", 0.0),
         contrast              = p.get("contrast", 0.25),
         object_size           = p.get("object_size", 1.0),
+        calculate_dnl         = p.get("calculate_dnl", False)
     )
 
 
@@ -277,6 +278,9 @@ def prepare_problem(params=None, forward_kwargs=None):
     )
     inputdata.rel_permittivity, _ = _draw_ground_truth(p, config, p["resolution"])
 
+    if p["calculate_dnl"]:
+        inputdata.compute_dnl()
+
     solver = mom.MoM_CG_FFT(**(forward_kwargs or
                                 {"tolerance": .001, "maximum_iterations": 5000}))
     solver.solve(inputdata, PRINT_INFO=p["disp"],
@@ -329,6 +333,8 @@ def run_algorithm(algorithm, inputdata, solver, config,
     if disp:
         result.plot_map(show=True, fontsize=15, groundtruth=inputdata)
         print(result)
+
+    
 
     return result
 
