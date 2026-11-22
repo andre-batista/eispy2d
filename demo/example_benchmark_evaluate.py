@@ -422,7 +422,7 @@ def run_benchmark(repetitions=N_REPETITIONS):
     benchmark.run(parallelization=bmk.PARALLELIZE_TESTS)
 
     save_path = str(OUTPUT_DIRECTORY) + os.sep
-    benchmark.save(file_path=save_path, save_testset=True)
+    benchmark.save(file_path=save_path, save_testset=False)
 
     print(f"Benchmark saved to: {save_path}{BENCHMARK_NAME}")
     return benchmark
