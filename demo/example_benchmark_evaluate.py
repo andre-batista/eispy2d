@@ -90,6 +90,13 @@ SOURCE_MEASUREMENT_PAIRS = [
     (20, 15),
     (20, 20)
 ]
+
+CONTRAST_VALUES = [0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
+
+BACKGROUND_PERMITTIVITY_VALUES = [0.5, 0.75, 1.0, 1.25, 1.5]
+
+RESOLUTION_VALUES = [(15, 15), (30, 30), (45, 45), (60, 60), (100, 100)]
+
 FORWARD_KWARGS = {
     "tolerance": 0.001,
     "maximum_iterations": 1000,
@@ -310,7 +317,7 @@ def run_benchmark(repetitions=N_REPETITIONS):
     benchmark.run(parallelization=bmk.PARALLELIZE_TESTS)
 
     save_path = str(OUTPUT_DIRECTORY) + os.sep
-    benchmark.save(file_path=save_path, save_testset=False)
+    benchmark.save(file_path=save_path, save_testset=True)
 
     print(f"Benchmark saved to: {save_path}{BENCHMARK_NAME}")
     return benchmark

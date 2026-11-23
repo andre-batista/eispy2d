@@ -147,3 +147,5 @@ Desktop.ini
 # Custom project files
 config.ini
 secrets.json
+
+api_benchmark_results/
