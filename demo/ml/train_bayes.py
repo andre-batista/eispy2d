@@ -20,11 +20,11 @@ MODE = "random"
 N_SAMPLES = 100000
 SEED = 0
 
-N_IF_BINS = 900
-N_SF_BINS = 900
-N_CHI_BINS = 900
+N_IF_BINS = 50
+N_SF_BINS = 50
+N_CHI_BINS = 50
 
-N_CALIB = 1000
+N_CALIB = 100
 CALIB_SEED = 12345
 
 N_WORKERS = min(4, os.cpu_count() or 1)
@@ -50,15 +50,16 @@ SHAPES = ["triangle", "square", "circle", "cross", "ellipse",
           "parallelogram", "polygon", "star4", "star5", "star6",
           "rhombus", "trapezoid", "ring", "random"]
 
-WAVELENGTH_RANGE = (0.5, 1.5)
-OBJECT_SIZE_RANGE = (0.4, 1.6)
-CONTRAST_RANGE = (0.1, 1.5)
-BACKGROUND_PERMITTIVITY_RANGE = (0.7, 3.0)
+WAVELENGTH_RANGE = (1.0, 1.0)
+OBJECT_SIZE_RANGE = (1.0, 1.0)
+CONTRAST_RANGE = (0.1, 0.5)
+BACKGROUND_PERMITTIVITY_RANGE = (1.0, 1.0)
 
 CENTER_RANGE = 1.0
 CENTERS = [[0.0, 0.0], [0.5, 0.5], [-0.5, 0.5], [0.5, -0.5], [-0.5, -0.5]]
 ROTATIONS = [0.0, 30.0, 60.0, 90.0]
 
+# grid
 WAVELENGTHS = [0.8, 1.0, 1.2]
 OBJECT_SIZES = [0.5, 1.0, 1.5]
 CONTRASTS = [0.1, 0.3, 0.5]
