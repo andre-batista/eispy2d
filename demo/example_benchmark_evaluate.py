@@ -23,8 +23,6 @@ from eispy2d.discretization import richmond as ric
 
 from demo.ml.bayesnetwork import BayesNetwork as bn
 
-net = bn.load("demo/ml/data/bayes_data.pkl")
-
 WAVELENGTH = 1.0
 Lx, Ly = 4.0, 4.0
 OBSERVATION_RADIUS = 1.0
@@ -41,7 +39,7 @@ BASE_PARAMS = {
     "number_sources": 10,
     "observation_radius": OBSERVATION_RADIUS,
     "background_permittivity": BACKGROUND_PERMITTIVITY,
-    "resolution": (30, 30),
+    "resolution": RESOLUTION,
     "noise_level": 1.0,
     "disp": False,
     "shape": "triangle",
@@ -92,8 +90,6 @@ SOURCE_MEASUREMENT_PAIRS = [
 ]
 
 CONTRAST_VALUES = [0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
-
-BACKGROUND_PERMITTIVITY_VALUES = [0.5, 0.75, 1.0, 1.25, 1.5]
 
 RESOLUTION_VALUES = [(15, 15), (30, 30), (45, 45), (60, 60), (100, 100)]
 
@@ -191,12 +187,15 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
     chi = (result.rel_permittivity / config.epsilon_rb) - 1
     return result.scattered_field, chi
 
+def bayes(scattered_field, incident_field, GS, GD, recover_resolution):
+    net = bn.load("demo/ml/data/bayes_data.pkl")
+    return net.solve(scattered_field, incident_field, GS, GD, recover_resolution)
 
 ALGORITHMS = [
     born_iterative_method,
     born_approximation,
     contrast_source_inversion,
-    net.solve
+    bayes
 ]
 
 def make_testset(name, params, repetitions=N_REPETITIONS):
@@ -278,6 +277,20 @@ def build_testsets(repetitions=N_REPETITIONS):
                 f"_measurements_{number_measurements}"
             )
             testsets.append(make_testset(name, params, repetitions))
+    
+    # Phase 5: vary only the contrast.
+    for contrast in CONTRAST_VALUES:
+        params = BASE_PARAMS.copy()
+        params["contrast"] = contrast
+        name = f"contrast_{contrast}"
+        testsets.append(make_testset(name, params, repetitions))
+
+    # Phase 6: vary only the resolution.
+    for resolution in RESOLUTION_VALUES:
+        params = BASE_PARAMS.copy()
+        params["resolution"] = resolution
+        name = f"resolution_{resolution[0]}x{resolution[1]}"
+        testsets.append(make_testset(name, params, repetitions))
 
     return testsets
 

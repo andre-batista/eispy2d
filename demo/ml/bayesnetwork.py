@@ -133,6 +133,13 @@ class BayesNetwork:
         if self.DECISION == "map":
             k = post.argmax(axis=1)
             chi = self.chi_centers[k]
+        if self.DECISION == "sample":
+            rng = kwargs.get("rng", np.random.default_rng())
+            cdf = np.cumsum(post, axis=1)
+            u = rng.random((n, 1))
+            k = (cdf < u).sum(axis=1)
+            k = np.clip(k, 0, self.N_CHI_BINS - 1)
+            chi = self.chi_centers[k]
         else:
             chi = post @ self.chi_centers
             k = self._bin(chi, self.CHI_RANGE, self.N_CHI_BINS)
