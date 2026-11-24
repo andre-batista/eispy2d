@@ -25,18 +25,20 @@ from demo.ml.bayesnetwork import BayesNetwork as bn
 
 WAVELENGTH = 1.0
 Lx, Ly = 4.0, 4.0
-OBSERVATION_RADIUS = 1.0
+OBSERVATION_RADIUS = 6.0
 RESOLUTION = (30, 30)
 NOISE_LEVEL = 1.0
-BACKGROUND_PERMITTIVITY = 4.0
+BACKGROUND_PERMITTIVITY = 1.0
 
 N_REPETITIONS = 30
+
+NM, NS = 10, 10
 
 BASE_PARAMS = {
     "wavelength": WAVELENGTH,
     "image_size": (Lx, Ly),
-    "number_measurements": 10,
-    "number_sources": 10,
+    "number_measurements": NM,
+    "number_sources": NS,
     "observation_radius": OBSERVATION_RADIUS,
     "background_permittivity": BACKGROUND_PERMITTIVITY,
     "resolution": RESOLUTION,
