@@ -20,9 +20,9 @@ MODE = "random"
 N_SAMPLES = 100000
 SEED = 0
 
-N_IF_BINS = 50
-N_SF_BINS = 50
-N_CHI_BINS = 50
+N_IF_BINS = 100
+N_SF_BINS = 100
+N_CHI_BINS = 100
 
 N_CALIB = 100
 CALIB_SEED = 12345
@@ -48,11 +48,11 @@ SOURCES = [5, 10, 15, 20]
 MEASUREMENTS = [5, 10, 15, 20]
 SHAPES = ["triangle", "square", "circle", "cross", "ellipse",
           "parallelogram", "polygon", "star4", "star5", "star6",
-          "rhombus", "trapezoid", "ring", "random"]
+          "rhombus", "trapezoid", "ring", "random", "random_gaussians"]
 
 WAVELENGTH_RANGE = (1.0, 1.0)
 OBJECT_SIZE_RANGE = (1.0, 1.0)
-CONTRAST_RANGE = (0.1, 0.5)
+CONTRAST_RANGE = (0.1, 1.5)
 BACKGROUND_PERMITTIVITY_RANGE = (1.0, 1.0)
 
 CENTER_RANGE = 1.0
