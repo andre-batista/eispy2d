@@ -1,239 +1,256 @@
 import sys
+
+sys.path.insert(1, '../eispy2d')
+
+import copy
+import json
 import os
-import time
-import pickle
-import multiprocessing
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from eispy2d.api import api
+from eispy2d.experiments import casestudy as cst
 
-import numpy as np
-from joblib import Parallel, delayed
-
-from eispy2d import api
-from eispy2d.core import configuration as cfg, inputdata as ipt
-from eispy2d.core import result as rst
-from eispy2d.discretization import richmond as ric
-from eispy2d.solvers.forward import mom_cg_fft as mom
+from eispy2d.core import inputdata as ipt
+from eispy2d.core import configuration as cfg
+from eispy2d.solvers.inverse import bornapprox as ba
 from eispy2d.solvers.inverse import bim
-from eispy2d.regularization import regularization as reg
+from eispy2d.solvers.inverse import csi
+from eispy2d.solvers.inverse import regularization as reg
+from eispy2d.solvers.forward import mom_cg_fft as mom
 from eispy2d.utils import stopcriteria as stp
+from eispy2d.discretization import richmond as ric
 
-WAVELENGTH = 1.0
-IMAGE_SIZE = (0.8, 0.8)
-OBSERVATION_RADIUS = 1.0
-RESOLUTION = (30, 30)
-NOISE_LEVEL = 1.0
-NUMBER_MEASUREMENTS = 10
-NUMBER_SOURCES = 10
-BACKGROUND_PERMITTIVITY = 4.0
-SHAPE = 'triangle'
-CONTRAST = 1.0
-OBJECT_SIZE = 0.16
+from demo.ml.bayesnetwork import BayesNetwork as bn
 
-Lx, Ly = IMAGE_SIZE
+N_REPETITIONS = 30
 
-MOM_MAX_ITERATIONS = 2500
-BIM_MAX_ITERATIONS = 5
+PARAMS = {
+    "wavelength": 1.0,
+    "image_size": (2.0, 2.0),
+    "observation_radius": 6.0,
+    "background_permittivity": 4.0,
+    "resolution": (100, 100),
+    "noise_level": 1.0,
+    "number_measurements": 25,
+    "number_sources": 25,
+    "shape": "star5",
+    "contrast": 1.0,
+    "object_size": 1.0,
+    "center": [0.0, 0.0],
+    "rotate": 0.0,
+    "disp": False,
+    "calculate_dnl": True
+}
 
-STOCHASTIC_RUNS = 30
-SAVE_RESULTS = True
-OUTPUT_NAME = 'cst_bim_sensitivity'
-OUTPUT_PATH = ''
+FORWARD_KWARGS = {
+    "tolerance": 0.001,
+    "maximum_iterations": 1000,
+}
 
-PROBLEM = 'problem'
-ALGORITHM = 'algorithm'
-
-WAVELENGTH_VALUES = np.round(np.arange(0.2, 3.0 + 1e-9, 0.2), 1)
-NOISE_VALUES = np.round(np.arange(0.5, 10.0 + 1e-9, 0.5), 1)
-SOURCE_VALUES = np.arange(4, 64 + 1, 4)
-MEASUREMENT_VALUES = np.arange(4, 64 + 1, 4)
-MOM_MAX_ITER_VALUES = np.arange(100, 10000 + 1, 100)
-STOP_MAX_ITER_VALUES = np.arange(1, 9 + 1, 1)
-TIKHONOV_VALUES = np.array([1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1])
-
-GROUPS = [
-    ('wavelength', PROBLEM, 'wavelength', WAVELENGTH_VALUES),
-    ('noise', PROBLEM, 'noise_level', NOISE_VALUES),
-    ('sources', PROBLEM, 'number_sources', SOURCE_VALUES),
-    ('measurements', PROBLEM, 'number_measurements', MEASUREMENT_VALUES),
-    ('mom_max_iterations', ALGORITHM, 'mom_max_iter', MOM_MAX_ITER_VALUES),
-    ('bim_max_iterations', ALGORITHM, 'stop_max_iter', STOP_MAX_ITER_VALUES),
-    ('tikhonov', ALGORITHM, 'reg_tik', TIKHONOV_VALUES),
+BAYES_DATA_DIRECTORY = "demo/ml/data/"
+BAYES_DATA_NAMES = [
+    "bayes_data_1000_80",
+    "bayes_data_1000_800",
+    "bayes_data_100000_80",
+    "bayes_data_100000_800",
 ]
 
-EPAD = 'epad'
-RESIDUAL_NORM = 'residual_norm'
-TIME = 'time'
-RESULTS = 'results'
-ERRORS = 'errors'
+DECISIONS = ["mean", "map", "sample"]
+
+OUTPUT_DIRECTORY = Path("api_case_study_results")
+CASE_STUDY_NAME = "api_bayes_case_study"
 
 
-def born_iterative_method(
-    scattered_field, incident_field, GS, GD, recover_resolution,
-    mom_max_iter=2500, stop_max_iter=5, reg_tik=None
-):
-    if reg_tik is None:
-        reg_tik = reg.TIK_FIXED
+def build_configuration(scattered_field):
     NM, NS = scattered_field.shape
-    config = cfg.Configuration(
-        name="temp",
-        wavelength=1.0,
+    Lx, Ly = PARAMS["image_size"]
+    return cfg.Configuration(
+        name='temp',
+        wavelength=PARAMS["wavelength"],
         number_measurements=NM,
         number_sources=NS,
         image_size=[Lx, Ly],
-        observation_radius=OBSERVATION_RADIUS,
-        background_permittivity=BACKGROUND_PERMITTIVITY,
+        observation_radius=PARAMS["observation_radius"],
+        background_permittivity=PARAMS["background_permittivity"],
         perfect_dielectric=True
     )
-    discretization = ric.Richmond(
-        config, recover_resolution, state=False
-    )
-    inputdata = ipt.InputData(
-        name="temp",
+
+
+def build_inputdata(config, scattered_field, incident_field, recover_resolution):
+    return ipt.InputData(
+        name='temp',
         configuration=config,
         resolution=recover_resolution,
         scattered_field=scattered_field,
         incident_field=incident_field,
         indicators=[]
     )
-    solver = bim.BornIterativeMethod(
-        mom.MoM_CG_FFT(tolerance=0.01, maximum_iterations=mom_max_iter),
-        reg.Tikhonov(reg_tik, parameter=0.1),
-        stp.StopCriteria(max_iterations=stop_max_iter)
+
+
+def born_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
+    config = build_configuration(scattered_field)
+    discretization = ric.Richmond(config, recover_resolution, state=False)
+    inputdata = build_inputdata(
+        config, scattered_field, incident_field, recover_resolution
     )
-    result = solver.solve(
-        inputdata, discretization, print_info=False
-    )
+    solver = ba.FirstOrderBornApproximation(reg.Tikhonov(1e-1))
+    result = solver.solve(inputdata, discretization, print_info=False)
     chi = (result.rel_permittivity / config.epsilon_rb) - 1
     return result.scattered_field, chi
 
 
-class TimedAlgorithm:
+def born_iterative_method(scattered_field, incident_field, GS, GD, recover_resolution):
+    config = build_configuration(scattered_field)
+    discretization = ric.Richmond(config, recover_resolution, state=False)
+    inputdata = build_inputdata(
+        config, scattered_field, incident_field, recover_resolution
+    )
+    solver = bim.BornIterativeMethod(
+        mom.MoM_CG_FFT(tolerance=0.01, maximum_iterations=2500),
+        reg.Tikhonov(reg.TIK_FIXED, parameter=0.1),
+        stp.StopCriteria(max_iterations=5)
+    )
+    result = solver.solve(inputdata, discretization, print_info=False)
+    chi = (result.rel_permittivity / config.epsilon_rb) - 1
+    return result.scattered_field, chi
 
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-        self.elapsed = None
-        self.__name__ = 'born_iterative_method'
 
-    def __call__(self, scattered_field, incident_field, GS, GD,
-                 recover_resolution):
-        start = time.perf_counter()
-        output = born_iterative_method(
-            scattered_field, incident_field, GS, GD, recover_resolution,
-            **self.kwargs
+def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_resolution):
+    config = build_configuration(scattered_field)
+    discretization = ric.Richmond(config, recover_resolution, state=False)
+    inputdata = build_inputdata(
+        config, scattered_field, incident_field, recover_resolution
+    )
+    solver = csi.ContrastSourceInversion(
+        stp.StopCriteria(max_iterations=100)
+    )
+    result = solver.solve(inputdata, discretization, print_info=False)
+    chi = (result.rel_permittivity / config.epsilon_rb) - 1
+    return result.scattered_field, chi
+
+
+class BayesAlgorithm:
+
+    def __init__(self, net, data_name, decision):
+        self.net = net
+        self.data_name = data_name
+        self.decision = decision
+        self.__name__ = f"{data_name}_{decision}"
+
+    def __call__(self, scattered_field, incident_field, GS, GD, recover_resolution):
+        return self.net.solve(
+            scattered_field, incident_field, GS, GD, recover_resolution
         )
-        self.elapsed = time.perf_counter() - start
-        return output
+
+    def stripped(self):
+        return BayesAlgorithm(None, self.data_name, self.decision)
 
 
-def build_params(overrides=None):
-    params = dict(
-        wavelength=WAVELENGTH,
-        image_size=IMAGE_SIZE,
-        number_measurements=NUMBER_MEASUREMENTS,
-        number_sources=NUMBER_SOURCES,
-        observation_radius=OBSERVATION_RADIUS,
-        background_permittivity=BACKGROUND_PERMITTIVITY,
-        resolution=RESOLUTION,
-        noise_level=NOISE_LEVEL,
-        shape=SHAPE,
-        contrast=CONTRAST,
-        object_size=OBJECT_SIZE,
-        center=[0.0, 0.0],
-        rotate=0.0,
-        disp=False,
-    )
-    params.update(overrides or {})
-    return params
+def build_bayes_algorithms():
+    algorithms = []
+    for data_name in BAYES_DATA_NAMES:
+        base_net = bn.load(BAYES_DATA_DIRECTORY + data_name + ".pkl")
+        for decision in DECISIONS:
+            net = copy.deepcopy(base_net)
+            net.DECISION = decision
+            algorithms.append(BayesAlgorithm(net, data_name, decision))
+        del base_net
+    return algorithms
 
 
-def build_algorithm_kwargs(overrides=None):
-    kwargs = dict(
-        mom_max_iter=MOM_MAX_ITERATIONS,
-        stop_max_iter=BIM_MAX_ITERATIONS,
-    )
-    kwargs.update(overrides or {})
-    return kwargs
+def build_algorithms():
+    algorithms = [
+        born_approximation,
+        born_iterative_method,
+        contrast_source_inversion,
+    ]
+    algorithms.extend(build_bayes_algorithms())
+    return algorithms
 
 
-def run_single(params, algorithm_kwargs):
-    algorithm = TimedAlgorithm(**algorithm_kwargs)
-    try:
-        result = api.evaluate(algorithm, params)
-    except Exception as exception:
-        return dict(epad=np.nan, residual_norm=np.nan,
-                    time=np.nan, result=None, error=repr(exception))
-    return dict(
-        epad=result.final_value(rst.REL_PERMITTIVITY_PAD_ERROR),
-        residual_norm=result.final_value(rst.RESIDUAL_NORM_ERROR),
-        time=algorithm.elapsed,
-        result=result if SAVE_RESULTS else None,
-        error=None,
-    )
+def strip_algorithm(algorithm):
+    if isinstance(algorithm, BayesAlgorithm):
+        return algorithm.stripped()
+    return algorithm
 
 
-def run_test(params, algorithm_kwargs, runs, number_jobs):
-    outputs = Parallel(n_jobs=number_jobs)(
-        delayed(run_single)(params, algorithm_kwargs) for _ in range(runs)
-    )
-    return {
-        EPAD: np.array([o['epad'] for o in outputs], dtype=float),
-        RESIDUAL_NORM: np.array([o['residual_norm'] for o in outputs],
-                                dtype=float),
-        TIME: np.array([o['time'] for o in outputs], dtype=float),
-        RESULTS: [o['result'] for o in outputs],
-        ERRORS: [o['error'] for o in outputs],
-    }
-
-
-def run_group(name, target, key, values, runs, number_jobs):
-    group_output = {}
-    for index, value in enumerate(values):
-        value = value.item() if hasattr(value, 'item') else value
-        if target == PROBLEM:
-            params = build_params({key: value})
-            algorithm_kwargs = build_algorithm_kwargs()
+def build_algorithm_info(algorithms):
+    info = {}
+    for algorithm in algorithms:
+        if isinstance(algorithm, BayesAlgorithm):
+            info[algorithm.__name__] = {
+                "type": "bayes",
+                "data_file": algorithm.data_name,
+                "decision": algorithm.decision,
+            }
         else:
-            params = build_params()
-            algorithm_kwargs = build_algorithm_kwargs({key: value})
-        group_output[value] = run_test(params, algorithm_kwargs, runs,
-                                       number_jobs)
-        failures = sum(e is not None for e in group_output[value][ERRORS])
-        print('%s: test %d/%d (%s=%s) | mean EPAD: %.3f | mean time: %.2fs'
-              ' | failures: %d'
-              % (name, index + 1, len(values), key, value,
-                 np.nanmean(group_output[value][EPAD]),
-                 np.nanmean(group_output[value][TIME]), failures),
-              flush=True)
-    return group_output
+            info[algorithm.__name__] = {
+                "type": "classic",
+                "data_file": None,
+                "decision": None,
+            }
+    return info
 
 
-def main():
-    number_jobs = multiprocessing.cpu_count()
-    number_tests = sum(len(values) for _, _, _, values in GROUPS)
-    print('Tests: %d | Runs per test: %d | Total runs: %d'
-          % (number_tests, STOCHASTIC_RUNS, number_tests * STOCHASTIC_RUNS))
+def build_methods(algorithms):
+    return [
+        api.EvaluateS(
+            algorithm=algorithm,
+            forward_kwargs=FORWARD_KWARGS,
+        )
+        for algorithm in algorithms
+    ]
 
-    study = {
-        'name': OUTPUT_NAME,
-        'reference_params': build_params(),
-        'reference_algorithm': build_algorithm_kwargs(),
-        'stochastic_runs': STOCHASTIC_RUNS,
-        'groups': {},
-    }
 
-    for name, target, key, values in GROUPS:
-        study['groups'][name] = dict(
-            target=target,
-            key=key,
-            values=[v.item() if hasattr(v, 'item') else v for v in values],
-            output=run_group(name, target, key, values, STOCHASTIC_RUNS,
-                             number_jobs),
+def make_inputdata(repetition):
+    _, inputdata, _, _ = api.prepare_problem(
+        params=PARAMS,
+        forward_kwargs=FORWARD_KWARGS,
+    )
+    inputdata.name = f"{CASE_STUDY_NAME}_{repetition:03d}"
+    return inputdata
+
+
+def run_case_study(repetitions=N_REPETITIONS):
+    if type(repetitions) is not int or repetitions < 1:
+        raise ValueError("repetitions must be a positive integer")
+
+    OUTPUT_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    save_path = str(OUTPUT_DIRECTORY) + os.sep
+
+    print("Loading networks...")
+    algorithms = build_algorithms()
+    algorithm_info = build_algorithm_info(algorithms)
+
+    with open(OUTPUT_DIRECTORY / "algorithm_info.json", "w") as info_file:
+        json.dump(algorithm_info, info_file, indent=4)
+
+    print(f"Algorithms: {[algorithm.__name__ for algorithm in algorithms]}")
+    print(f"Repetitions: {repetitions}")
+    print("Running case study...")
+
+    studies = []
+    for repetition in range(repetitions):
+        inputdata = make_inputdata(repetition)
+
+        study = cst.CaseStudy(
+            name=f"{CASE_STUDY_NAME}_{repetition:03d}",
+            method=build_methods(algorithms),
+            discretization=None,
+            test=inputdata,
         )
 
-    with open(OUTPUT_PATH + OUTPUT_NAME, 'wb') as datafile:
-        pickle.dump(study, datafile)
+        study.run(parallelization=cst.PARALLELIZE_METHOD)
+        study.method = build_methods(
+            [strip_algorithm(algorithm) for algorithm in algorithms]
+        )
+        study.save(file_path=save_path, save_test=True)
+        studies.append(study)
+
+        print(f"Repetition {repetition + 1}/{repetitions} saved to: {save_path}")
+
+    return studies
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    run_case_study()
