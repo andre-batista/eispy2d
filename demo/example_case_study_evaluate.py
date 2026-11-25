@@ -22,7 +22,6 @@ from eispy2d.discretization import richmond as ric
 
 from demo.ml.bayesnetwork import BayesNetwork as bn
 
-N_REPETITIONS = 30
 
 PARAMS = {
     "wavelength": 1.0,
@@ -51,7 +50,7 @@ BAYES_DATA_DIRECTORY = "demo/ml/data/"
 BAYES_DATA_NAMES = [
     "bayes_data_1000_80",
     "bayes_data_1000_800",
-    "bayes_data_100000_80",
+    #"bayes_data_100000_80",
     "bayes_data_100000_800",
 ]
 
@@ -202,19 +201,16 @@ def build_methods(algorithms):
     ]
 
 
-def make_inputdata(repetition):
+def make_inputdata():
     _, inputdata, _, _ = api.prepare_problem(
         params=PARAMS,
         forward_kwargs=FORWARD_KWARGS,
     )
-    inputdata.name = f"{CASE_STUDY_NAME}_{repetition:03d}"
+    inputdata.name = f"{CASE_STUDY_NAME}"
     return inputdata
 
 
-def run_case_study(repetitions=N_REPETITIONS):
-    if type(repetitions) is not int or repetitions < 1:
-        raise ValueError("repetitions must be a positive integer")
-
+def run_case_study():
     OUTPUT_DIRECTORY.mkdir(parents=True, exist_ok=True)
     save_path = str(OUTPUT_DIRECTORY) + os.sep
 
@@ -222,34 +218,29 @@ def run_case_study(repetitions=N_REPETITIONS):
     algorithms = build_algorithms()
     algorithm_info = build_algorithm_info(algorithms)
 
-    with open(OUTPUT_DIRECTORY / "algorithm_info.json", "w") as info_file:
-        json.dump(algorithm_info, info_file, indent=4)
 
     print(f"Algorithms: {[algorithm.__name__ for algorithm in algorithms]}")
-    print(f"Repetitions: {repetitions}")
     print("Running case study...")
 
     studies = []
-    for repetition in range(repetitions):
-        inputdata = make_inputdata(repetition)
+    inputdata = make_inputdata()
 
-        study = cst.CaseStudy(
-            name=f"{CASE_STUDY_NAME}_{repetition:03d}",
-            method=build_methods(algorithms),
-            discretization=None,
-            test=inputdata,
-        )
+    study = cst.CaseStudy(
+        name=f"{CASE_STUDY_NAME}",
+        method=build_methods(algorithms),
+        discretization=None,
+        test=inputdata,
+    )
 
-        study.run(parallelization=cst.PARALLELIZE_METHOD)
-        study.method = build_methods(
-            [strip_algorithm(algorithm) for algorithm in algorithms]
-        )
-        study.save(file_path=save_path, save_test=True)
-        studies.append(study)
+    study.run(parallelization=cst.PARALLELIZE_METHOD)
+    study.method = build_methods(
+        [strip_algorithm(algorithm) for algorithm in algorithms]
+    )
+    study.save(file_path=save_path, save_test=True)
 
-        print(f"Repetition {repetition + 1}/{repetitions} saved to: {save_path}")
+    print(f"Saved study to: {save_path}")
 
-    return studies
+    return study
 
 
 if __name__ == "__main__":

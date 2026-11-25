@@ -189,9 +189,13 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
     chi = (result.rel_permittivity / config.epsilon_rb) - 1
     return result.scattered_field, chi
 
-net = bn.load("demo/ml/data/bayes_data.pkl")
-def bayes(scattered_field, incident_field, GS, GD, recover_resolution):
-    return net.solve(scattered_field, incident_field, GS, GD, recover_resolution)
+net80 = bn.load("demo/ml/data/bayes_data.pkl")
+def bayes80(scattered_field, incident_field, GS, GD, recover_resolution):
+    return net80.solve(scattered_field, incident_field, GS, GD, recover_resolution)
+
+net800 = bn.load("demo/ml/data/bayes_data.pkl")
+def bayes800(scattered_field, incident_field, GS, GD, recover_resolution):
+    return net800.solve(scattered_field, incident_field, GS, GD, recover_resolution)
 
 ALGORITHMS = [
     born_iterative_method,

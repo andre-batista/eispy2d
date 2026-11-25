@@ -28,21 +28,21 @@ params = {
     "image_size": (2.0, 2.0),
     "observation_radius": 6.0,
     "background_permittivity": 1.0,
-    "resolution": (100, 100),
+    "resolution": (60, 60),
     "noise_level": 1.0,    
     "disp": True,
     "contrast": 0.25,
     "object_size": 1.0,
     "number_sources": 30,
     "number_measurements": 30,
-    "shape": "star5",
+    "shape": "random",
     "center": [0.0, 0.0],
 }
 
 
 
 #net = BayesNetwork.load("data/bayes_data_6.pkl")
-net = BayesNetwork.load("bayes_data.pkl")
+net = BayesNetwork.load("data/bayes_data.pkl")
 net.DECISION = "mean"
 
 api.evaluate(net.solve, params)

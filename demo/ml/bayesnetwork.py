@@ -49,8 +49,8 @@ class BayesNetwork:
 
     def pixel_features(self, scf, idf, gs):
         if gs is None:
-            raise ValueError("gs é necessário para o SF por pixel "
-                             "(retroprojeção do campo espalhado).")
+            raise ValueError("gs is necessary for SF per pixel "
+                             "(retroprojection of the scattered field).")
         scf = np.asarray(scf)
         idf = np.asarray(idf)
         gs = np.asarray(gs)
@@ -96,7 +96,7 @@ class BayesNetwork:
 
     def posterior(self, scf, idf, gs):
         if self.n_instances == 0:
-            raise RuntimeError("Rede não treinada.")
+            raise RuntimeError("Network not trained yet.")
         if_vals, sf_vals = self.pixel_features(scf, idf, gs)
         i = self._bin(if_vals, self.IF_RANGE, self.N_IF_BINS)
         s = self._bin(sf_vals, self.SF_RANGE, self.N_SF_BINS)
@@ -120,11 +120,11 @@ class BayesNetwork:
         c = c + self.ALPHA
         return c / c.sum(axis=1, keepdims=True)
 
-    def solve_with_prob(self, scf, idf, gs=None, gd=None, *args, **kwargs):
+    def solve_with_prob(self, scf, idf, gs=None, gd=None, res=None):
 
         post = self.posterior(scf, idf, gs)
         n = post.shape[0]
-        res = kwargs.get("res")
+
         if res is None:
             side = int(round(np.sqrt(n)))
             res = (side, side)
@@ -146,8 +146,8 @@ class BayesNetwork:
         prob = post[np.arange(n), k]
         return scf, chi.reshape(res)
 
-    def solve(self, scf, idf, gs=None, gd=None, res=None, *args, **kwargs):
-        return self.solve_with_prob(scf, idf, gs, gd, res=res, *args, **kwargs)
+    def solve(self, scf, idf, gs=None, gd=None, res=None):
+        return self.solve_with_prob(scf, idf, gs, gd, res=res)
 
     def occupied_cells(self):
         return int((self.counts.sum(axis=2) > 0).sum())
