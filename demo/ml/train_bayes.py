@@ -20,9 +20,9 @@ MODE = "random"
 N_SAMPLES = 100000
 SEED = 0
 
-N_IF_BINS = 100
-N_SF_BINS = 100
-N_CHI_BINS = 100
+N_IF_BINS = 800
+N_SF_BINS = 800
+N_CHI_BINS = 800
 
 N_CALIB = 100
 CALIB_SEED = 12345
@@ -34,7 +34,7 @@ FORWARD_KWARGS = {"tolerance": 0.001, "maximum_iterations": 5000}
 
 BASE_PARAMS = {
     "wavelength": 1.0,
-    "image_size": (4.0, 4.0),
+    "image_size": (2.0, 2.0),
     "observation_radius": 6.0,
     "background_permittivity": 1.0,
     "resolution": RESOLUTION,

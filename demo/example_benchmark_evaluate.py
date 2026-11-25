@@ -24,7 +24,7 @@ from eispy2d.discretization import richmond as ric
 from demo.ml.bayesnetwork import BayesNetwork as bn
 
 WAVELENGTH = 1.0
-Lx, Ly = 4.0, 4.0
+Lx, Ly = 2.0, 2.0
 OBSERVATION_RADIUS = 6.0
 RESOLUTION = (30, 30)
 NOISE_LEVEL = 1.0
@@ -189,8 +189,8 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
     chi = (result.rel_permittivity / config.epsilon_rb) - 1
     return result.scattered_field, chi
 
+net = bn.load("demo/ml/data/bayes_data.pkl")
 def bayes(scattered_field, incident_field, GS, GD, recover_resolution):
-    net = bn.load("demo/ml/data/bayes_data.pkl")
     return net.solve(scattered_field, incident_field, GS, GD, recover_resolution)
 
 ALGORITHMS = [
