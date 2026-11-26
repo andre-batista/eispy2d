@@ -232,7 +232,7 @@ def run_case_study():
         test=inputdata,
     )
 
-    study.run(parallelization=cst.PARALLELIZE_METHOD)
+    study.run(parallelization=None)
     study.method = build_methods(
         [strip_algorithm(algorithm) for algorithm in algorithms]
     )
