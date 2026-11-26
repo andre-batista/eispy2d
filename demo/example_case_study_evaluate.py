@@ -50,7 +50,7 @@ BAYES_DATA_DIRECTORY = "demo/ml/data/"
 BAYES_DATA_NAMES = [
     "bayes_data_1000_80",
     "bayes_data_1000_800",
-    #"bayes_data_100000_80",
+    "bayes_data_100000_80",
     "bayes_data_100000_800",
 ]
 

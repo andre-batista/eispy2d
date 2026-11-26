@@ -60,14 +60,14 @@ ROTATIONS = [0.0, 30.0, 60.0, 90.0]
 
 #Training parameters
 MODE = "random"
-N_SAMPLES = 100000
+N_SAMPLES = 1000
 SEED = 0
 
 N_IF_BINS = 80
 N_SF_BINS = 80
 N_CHI_BINS = 80
 
-N_CALIB = 100
+N_CALIB = 1000
 CALIB_SEED = 12345
 
 # Parallelization parameters
@@ -262,7 +262,7 @@ if __name__ == "__main__":
     print(f"Células (IF,SF) ocupadas: {trainer.occupied_cells()}"
           f"/{trainer.N_IF_BINS * trainer.N_SF_BINS}")
 
-    trainer.save("bayes_data_100000_80.pkl")
+    trainer.save("bayes_data_1000_80.pkl")
 
     # Tests the network with a single random instance
     test_params = next(random_params(1, seed=999))

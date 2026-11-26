@@ -42,7 +42,7 @@ params = {
 
 
 #net = BayesNetwork.load("data/bayes_data_6.pkl")
-net = BayesNetwork.load("data/bayes_data.pkl")
+net = BayesNetwork.load("data/bayes_data_1000_80.pkl")
 net.DECISION = "mean"
 
 api.evaluate(net.solve, params)
