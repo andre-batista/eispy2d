@@ -23,14 +23,15 @@ from eispy2d.discretization import richmond as ric
 
 from demo.ml.bayesnetwork import BayesNetwork as bn
 
+
+# Default parameters for the problem configuration
+
 WAVELENGTH = 1.0
 Lx, Ly = 2.0, 2.0
 OBSERVATION_RADIUS = 6.0
 RESOLUTION = (30, 30)
 NOISE_LEVEL = 1.0
 BACKGROUND_PERMITTIVITY = 1.0
-
-N_REPETITIONS = 30
 
 NM, NS = 10, 10
 
@@ -51,6 +52,8 @@ BASE_PARAMS = {
     "object_size": 1.0,
     "calculate_dnl": True
 }
+
+# Variation values for the parameters to be varied in the benchmark
 
 SHAPES = [
     "triangle",
@@ -95,6 +98,7 @@ CONTRAST_VALUES = [0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
 
 RESOLUTION_VALUES = [(15, 15), (30, 30), (45, 45), (60, 60), (100, 100)]
 
+# Parameters for the forward solver
 FORWARD_KWARGS = {
     "tolerance": 0.001,
     "maximum_iterations": 1000,
@@ -103,6 +107,9 @@ FORWARD_KWARGS = {
 OUTPUT_DIRECTORY = Path("api_benchmark_results")
 BENCHMARK_NAME = "api_evaluate_benchmark"
 
+N_REPETITIONS = 30
+
+# Methods to be evaluated in the benchmark
 
 def born_approximation(scattered_field, incident_field, GS, GD, recover_resolution):
     NM, NS = scattered_field.shape
@@ -189,19 +196,22 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
     chi = (result.rel_permittivity / config.epsilon_rb) - 1
     return result.scattered_field, chi
 
-net80 = bn.load("demo/ml/data/bayes_data.pkl")
-def bayes80(scattered_field, incident_field, GS, GD, recover_resolution):
-    return net80.solve(scattered_field, incident_field, GS, GD, recover_resolution)
+# Create instances of the trained Bayes networks for evaluation
 
-net800 = bn.load("demo/ml/data/bayes_data.pkl")
+network80 = bn.load("demo/ml/data/bayes_data.pkl")
+def bayes80(scattered_field, incident_field, GS, GD, recover_resolution):
+    return network80.solve(scattered_field, incident_field, GS, GD, recover_resolution)
+
+network800 = bn.load("demo/ml/data/bayes_data.pkl")
 def bayes800(scattered_field, incident_field, GS, GD, recover_resolution):
-    return net800.solve(scattered_field, incident_field, GS, GD, recover_resolution)
+    return network800.solve(scattered_field, incident_field, GS, GD, recover_resolution)
 
 ALGORITHMS = [
     born_iterative_method,
     born_approximation,
     contrast_source_inversion,
-    bayes
+    bayes80,
+    bayes800
 ]
 
 def make_testset(name, params, repetitions=N_REPETITIONS):

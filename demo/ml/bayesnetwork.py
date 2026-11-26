@@ -5,17 +5,21 @@ import numpy as np
 
 class BayesNetwork:
 
+    # Default Number of bins for IF, SF, and chi
     N_IF_BINS = 80
     N_SF_BINS = 80
     N_CHI_BINS = 80
 
+    # Default Ranges for IF, SF, and chi
     IF_RANGE = (0.0, 1.0)
     SF_RANGE = (0.0, 1.0)
     CHI_RANGE = (0.0, 0.25)
 
     SF_NORMALIZE = "max"
-    ALPHA = 1.0
+    # Laplace smoothing parameter
+    ALPHA = 0.1
     MIN_COUNT = 5
+    # mean, argmax, sample
     DECISION = "mean"
 
     def __init__(self, n_if_bins=None, n_sf_bins=None, n_chi_bins=None,
@@ -48,6 +52,9 @@ class BayesNetwork:
         self.n_instances = 0
 
     def pixel_features(self, scf, idf, gs):
+        """
+        Compute the contrast per pixel features (IF, SF) from the scattered field (using GS), incident field.
+        """
         if gs is None:
             raise ValueError("gs is necessary for SF per pixel "
                              "(retroprojection of the scattered field).")
@@ -64,6 +71,7 @@ class BayesNetwork:
 
     @staticmethod
     def _bin(x, rng, n):
+        """Get the bin index for each value in x, given the range and number of bins."""
         lo, hi = rng
         x = np.nan_to_num(np.asarray(x, dtype=float),
                           nan=lo, posinf=hi, neginf=lo)
@@ -78,7 +86,7 @@ class BayesNetwork:
         return lo + (np.arange(self.N_CHI_BINS) + 0.5) * w
 
     def calibrate(self, if_vals, sf_vals, chi_vals, q=(0.5, 99.5)):
-
+        """Calibrate the ranges for IF, SF, and chi based on the provided values and quantiles."""
         self.IF_RANGE = tuple(np.percentile(if_vals, q))
         self.SF_RANGE = tuple(np.percentile(sf_vals, q))
         chi_vals = np.real(chi_vals)
@@ -86,6 +94,7 @@ class BayesNetwork:
                           float(chi_vals.max()) * 1.001 + 1e-12)
 
     def train(self, scf, idf, gs, gd, chi):
+        """Train the Bayesian network with the provided scattered field, incident field, Green's function, and contrast values."""
         if_vals, sf_vals = self.pixel_features(scf, idf, gs)
         i = self._bin(if_vals, self.IF_RANGE, self.N_IF_BINS)
         s = self._bin(sf_vals, self.SF_RANGE, self.N_SF_BINS)
@@ -120,7 +129,7 @@ class BayesNetwork:
         c = c + self.ALPHA
         return c / c.sum(axis=1, keepdims=True)
 
-    def solve_with_prob(self, scf, idf, gs=None, gd=None, res=None):
+    def solve_with_prob(self, scf, idf, gs=None, gd=None, res=None, rng=None):
 
         post = self.posterior(scf, idf, gs)
         n = post.shape[0]
@@ -130,11 +139,13 @@ class BayesNetwork:
             res = (side, side)
         res = tuple(res)
 
-        if self.DECISION == "map":
+        if rng is None:
+            rng = np.random.default_rng()
+
+        if self.DECISION == "argmax":
             k = post.argmax(axis=1)
             chi = self.chi_centers[k]
         if self.DECISION == "sample":
-            rng = kwargs.get("rng", np.random.default_rng())
             cdf = np.cumsum(post, axis=1)
             u = rng.random((n, 1))
             k = (cdf < u).sum(axis=1)
@@ -146,8 +157,8 @@ class BayesNetwork:
         prob = post[np.arange(n), k]
         return scf, chi.reshape(res)
 
-    def solve(self, scf, idf, gs=None, gd=None, res=None):
-        return self.solve_with_prob(scf, idf, gs, gd, res=res)
+    def solve(self, scf, idf, gs=None, gd=None, res=None, rng=None):
+        return self.solve_with_prob(scf, idf, gs, gd, res=res, rng=rng)
 
     def occupied_cells(self):
         return int((self.counts.sum(axis=2) > 0).sum())

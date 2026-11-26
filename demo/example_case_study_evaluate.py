@@ -54,7 +54,7 @@ BAYES_DATA_NAMES = [
     "bayes_data_100000_800",
 ]
 
-DECISIONS = ["mean", "map", "sample"]
+DECISIONS = ["mean", "argmax", "sample"]
 
 OUTPUT_DIRECTORY = Path("api_case_study_results")
 CASE_STUDY_NAME = "api_bayes_case_study"

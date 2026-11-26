@@ -16,21 +16,6 @@ from bayesnetwork import BayesNetwork
 
 
 RESOLUTION = (30, 30)
-MODE = "random"
-N_SAMPLES = 100000
-SEED = 0
-
-N_IF_BINS = 800
-N_SF_BINS = 800
-N_CHI_BINS = 800
-
-N_CALIB = 100
-CALIB_SEED = 12345
-
-N_WORKERS = min(4, os.cpu_count() or 1)
-CHUNKSIZE = 4
-
-FORWARD_KWARGS = {"tolerance": 0.001, "maximum_iterations": 5000}
 
 BASE_PARAMS = {
     "wavelength": 1.0,
@@ -44,6 +29,12 @@ BASE_PARAMS = {
     "object_size": 1.0,
 }
 
+
+
+FORWARD_KWARGS = {"tolerance": 0.001, "maximum_iterations": 5000}
+
+# Variable parameters for the random mode
+
 SOURCES = [5, 10, 15, 20]
 MEASUREMENTS = [5, 10, 15, 20]
 SHAPES = ["triangle", "square", "circle", "cross", "ellipse",
@@ -56,14 +47,32 @@ CONTRAST_RANGE = (0.1, 1.5)
 BACKGROUND_PERMITTIVITY_RANGE = (1.0, 1.0)
 
 CENTER_RANGE = 1.0
-CENTERS = [[0.0, 0.0], [0.5, 0.5], [-0.5, 0.5], [0.5, -0.5], [-0.5, -0.5]]
-ROTATIONS = [0.0, 30.0, 60.0, 90.0]
 
-# grid
+
+# grid mode
 WAVELENGTHS = [0.8, 1.0, 1.2]
 OBJECT_SIZES = [0.5, 1.0, 1.5]
 CONTRASTS = [0.1, 0.3, 0.5]
 BACKGROUND_PERMITTIVITIES = [1.0, 1.5, 2.0, 2.5, 3.0]
+
+CENTERS = [[0.0, 0.0], [0.5, 0.5], [-0.5, 0.5], [0.5, -0.5], [-0.5, -0.5]]
+ROTATIONS = [0.0, 30.0, 60.0, 90.0]
+
+#Training parameters
+MODE = "random"
+N_SAMPLES = 100000
+SEED = 0
+
+N_IF_BINS = 80
+N_SF_BINS = 80
+N_CHI_BINS = 80
+
+N_CALIB = 100
+CALIB_SEED = 12345
+
+# Parallelization parameters
+N_WORKERS = min(4, os.cpu_count() or 1)
+CHUNKSIZE = 4
 
 def grid_params():
     for (wavelength, object_size, contrast, background_permittivity,
@@ -92,7 +101,7 @@ def grid_params():
         )
         yield p
 
-
+#Define random parameter
 def random_params(n, seed=SEED):
     rng = np.random.default_rng(seed)
 
@@ -115,7 +124,7 @@ def random_params(n, seed=SEED):
 
         yield p
 
-
+#Create instance of the problem
 def make_instance(params):
     config, inputdata, solver, _ = api.prepare_problem(params, FORWARD_KWARGS)
     res = tuple(params["resolution"])
@@ -253,8 +262,9 @@ if __name__ == "__main__":
     print(f"Células (IF,SF) ocupadas: {trainer.occupied_cells()}"
           f"/{trainer.N_IF_BINS * trainer.N_SF_BINS}")
 
-    trainer.save("bayes_data.pkl")
+    trainer.save("bayes_data_100000_80.pkl")
 
+    # Tests the network with a single random instance
     test_params = next(random_params(1, seed=999))
 
     test_params.update(
