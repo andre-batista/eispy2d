@@ -107,7 +107,7 @@ FORWARD_KWARGS = {
 OUTPUT_DIRECTORY = Path("api_benchmark_results")
 BENCHMARK_NAME = "api_evaluate_benchmark"
 
-N_REPETITIONS = 1
+N_REPETITIONS = 5  # Number of repetitions for each test set
 
 # Methods to be evaluated in the benchmark
 
@@ -198,20 +198,20 @@ def contrast_source_inversion(scattered_field, incident_field, GS, GD, recover_r
 
 # Create instances of the trained Bayes networks for evaluation
 
-network1000 = bn.load("demo/ml/data/bayes_data_1000_80.pkl")
-def bayes1000(scattered_field, incident_field, GS, GD, recover_resolution):
-    return network1000.solve(scattered_field, incident_field, GS, GD, recover_resolution)
+network80 = bn.load("demo/ml/data/bayes_data_1000_80.pkl")
+def bayes80(scattered_field, incident_field, GS, GD, recover_resolution):
+    return network80.solve(scattered_field, incident_field, GS, GD, recover_resolution)
 
-network100000 = bn.load("demo/ml/data/bayes_data_100000_80.pkl")
-def bayes100000(scattered_field, incident_field, GS, GD, recover_resolution):
-    return network100000.solve(scattered_field, incident_field, GS, GD, recover_resolution)
+network800 = bn.load("demo/ml/data/bayes_data_100000_80.pkl")
+def bayes800(scattered_field, incident_field, GS, GD, recover_resolution):
+    return network800.solve(scattered_field, incident_field, GS, GD, recover_resolution)
 
 ALGORITHMS = [
     born_iterative_method,
     born_approximation,
     contrast_source_inversion,
-    bayes1000,
-    bayes100000
+    bayes80,
+    bayes800
 ]
 
 def make_testset(name, params, repetitions=N_REPETITIONS):
